@@ -1,0 +1,351 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useUserStore } from "../../store/store";
+import UpdateLogAppModal from "../../components/app/UpdateLogAppModal";
+import InquiryAppModal from "../../components/app/InquiryAppModal";
+import Pagination from "../../components/Pagination";
+import { usePagination } from "../../hooks/usePagination";
+
+interface InquiryApp {
+  inquiry_app_id: number;
+  title: string;
+  content: string;
+  answer: string;
+  answer_dt: string;
+  mem_name: string;
+  mem_app_status: string;
+  reg_dt: string;
+}
+
+const InquiryApp: React.FC = () => {
+  const navigate = useNavigate();
+  const [inquiryList, setInquiryList] = useState<InquiryApp[]>([]);
+  const user = useUserStore((state) => state.user);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedInquiryForModal, setSelectedInquiryForModal] =
+    useState<InquiryApp | null>(null);
+
+  // 검색 데이터 상태
+  const [searchData, setSearchData] = useState({
+    mem_name: "",
+    mem_app_status: "",
+    answer: ""
+  });
+
+  // 페이지네이션 훅 사용
+  const pagination = usePagination({
+    totalItems: inquiryList.length,
+    itemsPerPage: 10,
+  });
+
+  // 현재 페이지에 표시할 데이터
+  const currentInquiries = pagination.getCurrentPageData(inquiryList);
+
+  // 검색 조건 변경 핸들러
+  const handleSearchChange = (field: string, value: string) => {
+    setSearchData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // 검색 처리
+  const handleSearch = async () => {
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/inquiryApp/selectInquiryAppList`,
+        {
+          center_id: user.center_id,
+          inquiry_type: 'FRANCHISE',
+          ...searchData
+        }
+      );
+      
+      setInquiryList(response.data.result);
+      pagination.resetPage();
+    } catch (err) {
+      console.error("문의 목록 검색 오류:", err);
+    }
+  };
+
+  // 검색 초기화
+  const handleReset = () => {
+    setSearchData({
+      mem_name: "",
+      mem_app_status: "",
+      answer: ""
+    });
+    selectInquiryAppList();
+  };
+
+  // 리뷰 목록 불러오기
+  const selectInquiryAppList = async () => {
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/inquiryApp/selectInquiryAppList`,
+        {
+          center_id: user.center_id,
+          inquiry_type: 'FRANCHISE'
+        }
+      );
+      
+      setInquiryList(response.data.result);
+      pagination.resetPage(); // 데이터 새로고침 시 첫 페이지로 리셋
+    } catch (err) {
+      console.error("문의 목록 로딩 오류:", err);
+    } finally {
+    }
+  };
+
+  useEffect(() => {
+    if (user && user.index) {
+      selectInquiryAppList();
+    }
+  }, [user]);
+
+  return (
+    <>
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">센터 문의 관리</h2>
+        </div>
+
+        {/* 검색 필터 테이블 */}
+        <div className="mb-6">
+          <table className="w-full border border-gray-300">
+            <tbody>
+              <tr>
+                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">이름</td>
+                <td className="border border-gray-300 p-2">
+                  <input
+                    type="text"
+                    value={searchData.mem_name}
+                    onChange={(e) => handleSearchChange('mem_name', e.target.value)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded"
+                    placeholder="이름을 입력하세요"
+                  />
+                </td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">앱 회원상태</td>
+                <td className="border border-gray-300 p-2">
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="mem_app_status"
+                        value=""
+                        checked={searchData.mem_app_status === ''}
+                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">전체</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="mem_app_status"
+                        value="ACTIVE"
+                        checked={searchData.mem_app_status === 'ACTIVE'}
+                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">활동회원</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="mem_app_status"
+                        value="EXIT"
+                        checked={searchData.mem_app_status === 'EXIT'}
+                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">탈퇴회원</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="mem_app_status"
+                        value="SLEEP"
+                        checked={searchData.mem_app_status === 'SLEEP'}
+                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">휴면회원</span>
+                    </label>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">답변여부</td>
+                <td className="border border-gray-300 p-2" colSpan={3}>
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="answer"
+                        value=""
+                        checked={searchData.answer === ''}
+                        onChange={(e) => handleSearchChange('answer', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">전체</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="answer"
+                        value="Y"
+                        checked={searchData.answer === 'Y'}
+                        onChange={(e) => handleSearchChange('answer', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">대답완료</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="answer"
+                        value="N"
+                        checked={searchData.answer === 'N'}
+                        onChange={(e) => handleSearchChange('answer', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">미대답</span>
+                    </label>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 검색 버튼 */}
+          <div className="flex justify-end space-x-2 mt-4">
+            <button
+              onClick={handleReset}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+            >
+              초기화
+            </button>
+            <button
+              onClick={handleSearch}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded hover:bg-blue-700"
+            >
+              검색
+            </button>
+          </div>
+        </div>
+
+        {inquiryList.length === 0 ? (
+          <div className="text-center py-10 text-gray-500">
+            <p>등록된 문의가 없습니다.</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr className="w-full h-16 border-b border-gray-200">
+                    <th className="text-center pl-4 whitespace-nowrap">번호</th>
+                    <th className="text-center whitespace-nowrap">이름</th>
+                    <th className="text-center whitespace-nowrap hidden md:table-cell">
+                      앱 회원 상태
+                    </th>
+                    <th className="text-center whitespace-nowrap hidden md:table-cell">
+                      제목
+                    </th>
+                    <th className="text-center whitespace-nowrap hidden md:table-cell">
+                      내용
+                    </th>
+                    <th className="text-center whitespace-nowrap hidden md:table-cell">
+                      답변 여부
+                    </th>
+                    <th className="text-center whitespace-nowrap">등록일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentInquiries?.map((inquiry, index) => (
+                    <tr
+                      key={inquiry.inquiry_app_id}
+                      className="h-16 border-b border-gray-200 hover:bg-gray-50"
+                      onClick={() => {}}
+                      onDoubleClick={() => {
+                        setSelectedInquiryForModal(inquiry);
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      <td className="pl-4 text-center">
+                        {inquiryList.length - (pagination.startIndex + index)}
+                      </td>
+                      <td className="text-center px-2 truncate">
+                        {inquiry.mem_name}
+                      </td>
+                      <td className="text-center px-2 truncate">
+                        {inquiry.mem_app_status}
+                      </td>
+                      <td className="text-center px-2 max-w-[70px] hidden md:table-cell">
+                        <div style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {inquiry.title}
+                        </div>
+                      </td>
+                      <td className="text-center px-2 max-w-[70px] hidden md:table-cell">
+                        <div style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {inquiry.content}
+                        </div>
+                      </td>
+                      <td className="text-center px-2 truncate">
+                        {inquiry.answer ? '대답완료' : '미대답'}
+                      </td>
+                      <td className="text-center whitespace-nowrap">
+                        {inquiry.reg_dt}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 페이지네이션 */}
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalItems={pagination.totalItems}
+              itemsPerPage={pagination.itemsPerPage}
+              onPageChange={pagination.handlePageChange}
+            />
+          </>
+        )}
+      </div>
+
+      <InquiryAppModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          selectInquiryAppList();
+        }}
+        selectedInquiry={selectedInquiryForModal ? {
+          inquiry_app_id: selectedInquiryForModal.inquiry_app_id,
+          title: selectedInquiryForModal.title || "",
+          content: selectedInquiryForModal.content,
+          answer: selectedInquiryForModal.answer || "",
+          mem_name: selectedInquiryForModal.mem_name,
+          answer_dt: selectedInquiryForModal.answer_dt || ""
+        } : null}
+      />
+    </>
+  );
+};
+
+export default InquiryApp;

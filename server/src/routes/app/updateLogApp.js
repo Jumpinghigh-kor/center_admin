@@ -1,0 +1,22 @@
+const express = require("express");
+const router = express.Router();
+const {
+  selectUpdateLogAppList,
+  insertUpdateLogApp,
+  updateUpdateLogApp,
+  batchDeleteUpdateLogApp,
+} = require("../../controllers/app/updateLogApp");
+
+// 배너 목록 조회
+router.post("/selectUpdateLogAppList", selectUpdateLogAppList);
+
+// 공지사항 등록
+router.post("/insertUpdateLogApp", insertUpdateLogApp);
+
+// 공지사항 수정
+router.post("/updateUpdateLogApp", updateUpdateLogApp);
+
+// 공지사항 일괄 삭제
+router.post("/batchDeleteUpdateLogApp", batchDeleteUpdateLogApp);
+
+module.exports = router;

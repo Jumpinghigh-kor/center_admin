@@ -1,0 +1,7 @@
+.notify-modal {
+  -ms-overflow-style: none;
+}
+
+.notify-modal::-webkit-scrollbar {
+  display: none;
+}

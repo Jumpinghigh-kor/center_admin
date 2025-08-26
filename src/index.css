@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "NanumSquareNeo";
+  src: url("./fonts/NanumSquareNeo-bRg.woff2") format("font-woff2");
+}
+
+html {
+  font-family: "NanumSquareNeo";
+}
+
+html,
+body {
+  margin: 0;
+  font-size: 16px;
+  background-color: #f5f5f5;
+}
+
+.react-datepicker__day--outside-month {
+  cursor: default;
+  visibility: hidden;
+}

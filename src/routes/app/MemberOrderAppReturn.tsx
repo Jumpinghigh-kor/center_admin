@@ -1,0 +1,1084 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import CustomToastModal from "../../components/CustomToastModal";
+import axios from "axios";
+import { useUserStore } from "../../store/store";
+import { formatAmPmDate } from "../../utils/formatUtils";
+
+
+const MemberOrderAppReturn: React.FC = () => {
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { orderDetail, actionType, startStep, selectedOrderAppIds } = (location.state || {}) as any;
+  const user = useUserStore((state) => state.user);
+  const [quantityByIndex, setQuantityByIndex] = useState<Record<number, number>>({});
+  const hasAnyQuantity = Object.values(quantityByIndex).some((v) => (v ?? 0) > 0);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [isToastVisible, setIsToastVisible] = useState(false);
+  const [toastVariant, setToastVariant] = useState<'warning' | 'success'>('success');
+  const [toastMessage, setToastMessage] = useState<string>("");
+  const [returnReasonList, setReturnReasonList] = useState<any[]>([]);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [orderStatusCodeList, setOrderStatusCodeList] = useState<any[]>([]);
+  const [selectedReturnReasonType, setSelectedReturnReasonType] = useState<string>("");
+  const [detailReason, setDetailReason] = useState<string>("");
+  const [isAutoPickup, setIsAutoPickup] = useState<boolean>(true);
+  const [pickupReceiverName, setPickupReceiverName] = useState<string>('');
+  const [pickupReceiverPhone, setPickupReceiverPhone] = useState<string>('');
+  const [pickupZipCode, setPickupZipCode] = useState<string>('');
+  const [pickupRoadAddress, setPickupRoadAddress] = useState<string>('');
+  const [pickupJibunAddress, setPickupJibunAddress] = useState<string>('');
+  const [pickupDetailAddress, setPickupDetailAddress] = useState<string>('');
+
+  const [isManualFinalRefundAmount, setIsManualFinalRefundAmount] = useState<boolean>(false);
+  const [manualFinalRefundAmount, setManualFinalRefundAmount] = useState<number>(0);
+  const [refundDeductionAmount, setRefundDeductionAmount] = useState<number>(0);
+  const [pointDeductionAmount, setPointDeductionAmount] = useState<number>(0);
+  const isRefundCalcMode = startStep === 3 && step === 3;
+
+  useEffect(() => {
+    const scriptId = 'daum-postcode-script';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  // Initialize step 3 flow when navigated from 취소승인
+  useEffect(() => {
+    if (startStep === 3) {
+      setStep(3);
+      if (orderDetail && Array.isArray(orderDetail.products) && Array.isArray(selectedOrderAppIds) && selectedOrderAppIds.length > 0) {
+        const idList = selectedOrderAppIds.map((v: any) => Number(v)).filter((v: any) => !isNaN(v));
+        const next: Record<number, number> = {};
+        orderDetail.products.forEach((p: any, idx: number) => {
+          const detailId = Number(p?.order_detail_app_id);
+          const orderId = Number(p?.order_app_id);
+          if ((!!detailId && idList.includes(detailId)) || (!!orderId && idList.includes(orderId))) {
+            next[idx] = Number(p?.order_quantity) || 0;
+          }
+        });
+        setQuantityByIndex(next);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startStep]);
+
+  const handleSearchAddress = () => {
+    const w: any = window as any;
+    if (w.daum && w.daum.Postcode) {
+      new w.daum.Postcode({
+        oncomplete: (data: any) => {
+          setPickupZipCode(data.zonecode || '');
+          setPickupRoadAddress(data.roadAddress || '');
+          setPickupJibunAddress(data.jibunAddress || '');
+        },
+      }).open();
+    } else {
+      alert('주소 검색 스크립트를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  useEffect(() => {
+    const fetchReturnReasons = async () => {
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/common/selectCommonCodeList`,
+          { group_code: "RETURN_REASON_TYPE" }
+        );
+        setReturnReasonList(response.data.result || []);
+      } catch (error) {
+        console.error('반품 사유 코드 로딩 오류:', error);
+      }
+    };
+    fetchReturnReasons();
+  }, []);
+
+  // 취소/반품 접수 처리 함수 (HTML에서 API 호출 제거)
+  const fn_handleConfirm = async () => {
+    try {
+      if (actionType === 'cancel') {
+        const orderAppIds: number[] = Array.from(new Set(
+          (orderDetail?.products || [])
+            .map((p: any, idx: number) => ({ p, idx }))
+            .filter(({ p, idx }: { p: any; idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
+            .filter(({ p }: { p: any }) => !['SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM'].includes(String(p?.order_status || '').trim().toUpperCase()))
+            .map(({ p }: { p: any }) => p?.order_app_id)
+            .filter((v: any) => v != null)
+        ));
+        const selectedItems = (orderDetail?.products || [])
+          .map((item: any, idx: number) => ({ item, idx }))
+          .filter(({ item, idx }: { item: any; idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
+          .filter(({ item }: { item: any }) => !['SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM'].includes(String(item?.order_status || '').trim().toUpperCase()));
+
+        // 선택된 항목을 기준으로, 기존 접수 존재/미존재를 나눠 각각 업데이트 또는 인서트 처리
+        const itemsWithReturn = selectedItems.filter(({ item }: { item: any }) => !!item.return_app_id);
+        const itemsWithoutReturn = selectedItems.filter(({ item }: { item: any }) => !item.return_app_id);
+
+        // 기존 접수 존재: 개별 업데이트 (수량 반영)
+        if (itemsWithReturn.length > 0) {
+          await Promise.all(
+            itemsWithReturn.map(({ item, idx }: { item: any; idx: number }) =>
+              axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnApp`, {
+                order_detail_app_id: [item.order_detail_app_id],
+                return_reason_type: selectedReturnReasonType || null,
+                reason: detailReason || null,
+                quantity: quantityByIndex[idx] ?? 0,
+                userId: user?.index,
+              })
+            )
+          );
+        }
+
+        // 기존 접수 미존재: 개별 인서트 (수량 반영)
+        if (itemsWithoutReturn.length > 0) {
+          const insertPayloads = itemsWithoutReturn.map(({ item, idx }: { item: any; idx: number }) => ({
+            order_detail_app_id: item.order_detail_app_id,
+            order_address_id: orderDetail?.shipping_address_id,
+            mem_id: orderDetail?.mem_id,
+            return_reason_type: selectedReturnReasonType || null,
+            reason: detailReason || null,
+            quantity: quantityByIndex[idx] ?? 0,
+          }));
+          await Promise.all(
+            insertPayloads.map((payload: any) =>
+              axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/insertMemberReturnApp`, payload)
+            )
+          );
+        }
+
+        // 수량 반영: 각 품목별로 취소 수량만큼 원 주문 분할 처리 (상세 기준)
+        if (selectedItems.length > 0) {
+          await Promise.all(
+            selectedItems.map(({ item, idx }: { item: any; idx: number }) =>
+              axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateNewMemberOrderApp`, {
+                order_detail_app_id: item.order_detail_app_id,
+                order_quantity: quantityByIndex[idx] ?? 0,
+                userId: user?.index,
+              })
+            )
+          );
+        }
+
+        const orderDetailAppIds = Array.from(new Set(
+          selectedItems
+            .map(({ item }: { item: any }) => item?.order_detail_app_id)
+            .filter((v: any) => v != null)
+        ));
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`, {
+          order_detail_app_id: orderDetailAppIds,
+          order_status: 'CANCEL_APPLY',
+          userId: user?.index,
+        });
+      }
+      setIsConfirmOpen(false);
+      setToastVariant('success');
+      setToastMessage('취소접수 되었습니다');
+      setIsToastVisible(true);
+      navigate(-1);
+    } catch (err) {
+      console.error('취소/반품 접수 처리 오류:', err);
+      setIsConfirmOpen(false);
+    }
+  };
+  
+  useEffect(() => {
+    const fetchOrderStatusCodes = async () => {
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/common/selectCommonCodeList`,
+          { group_code: 'ORDER_STATUS_TYPE' }
+        );
+        setOrderStatusCodeList(response.data.result || []);
+      } catch (error) {
+        console.error('주문 상태 코드 로딩 오류:', error);
+      }
+    };
+    fetchOrderStatusCodes();
+  }, []);
+console.log(orderDetail);
+  // 취소승인 처리 함수: 포트원 환불 → 승인(Y) → 상태 CANCEL_COMPLETE → 적립금 삭제
+  const fn_approveCancel = async (_targetDetailIds?: number[]) => {
+    try {
+      const usedPointForRefund = Math.max(0, Number(orderDetail?.point_use_amount || 0));
+      const orderDetailAppIds: number[] = Array.from(new Set(
+        (_targetDetailIds && _targetDetailIds.length > 0
+          ? _targetDetailIds
+          : (Array.isArray(selectedOrderAppIds) && selectedOrderAppIds.length > 0
+              ? selectedOrderAppIds
+              : (orderDetail?.products || []).map((p: any) => p?.order_detail_app_id))
+        ).filter((v: any) => v != null)
+      ));
+
+      // 1) 결제 환불(결제 금액이 있을 때만)
+      const paymentBalance = Number(orderDetail?.payment_amount || 0);
+      if (paymentBalance > 0) {
+        const reasonName = (() => {
+          const code = String(orderDetail?.return_reason_type || selectedReturnReasonType || '');
+          const found = (returnReasonList || []).find((r: any) => String(r?.common_code) === code);
+          return found?.common_code_name || '취소승인';
+        })();
+        const refundAmountForPayment = Math.max(0, Number(finalRefundAmountNumber || 0) - usedPointForRefund);
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/portone/requestPortOneRefund`, {
+          imp_uid: orderDetail?.portone_imp_uid || null,
+          merchant_uid: orderDetail?.portone_merchant_uid || null,
+          refundAmount: refundAmountForPayment,
+          reason: reasonName,
+        });
+      }
+
+      // 1-1) 결제 정보 수정
+      await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPaymentApp/updateMemberPaymentApp`, {
+        order_app_id: orderDetail?.order_app_id,
+        payment_status: 'PAYMENT_REFUND',
+        refund_amount: Math.max(0, Number(finalRefundAmountNumber || 0) - usedPointForRefund),
+        userId: user?.index,
+      });
+
+      // 2) 취소 승인 플래그 업데이트 (상세 기준)
+      await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnAppApproval`, {
+        order_detail_app_id: orderDetailAppIds,
+        approval_yn: 'Y',
+        cancel_yn: 'N',
+        userId: user?.index,
+      });
+
+      // 3) 주문상태 CANCEL_COMPLETE로 변경 (상세 기준)
+      await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`, {
+        order_detail_app_id: orderDetailAppIds,
+        order_status: 'CANCEL_COMPLETE',
+        userId: user?.index,
+      });
+
+      // 4) 적립금 삭제
+      if(orderDetail?.point_use_amount > 0) {
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPointApp/deleteMemberPointApp`, {
+          order_app_id: orderDetail?.order_app_id,
+          userId: user?.index,
+        });
+      }
+
+      setIsToastVisible(true);
+    } catch (e) {
+      console.error('취소 승인 처리 오류:', e);
+    }
+  };
+
+  // 최종 환불 금액(단일 소스): 선택 합계(판매가×수량) 기준으로 차감 반영, 직접입력 우선
+  const finalRefundAmountNumber = useMemo(() => {
+    const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+      const status = String(item?.order_status || '').trim().toUpperCase();
+      const qty = quantityByIndex[idx] ?? 0;
+      const price = Number(item?.price || 0);
+      if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+      return sum + (price * qty);
+    }, 0);
+    const refundAmount = selectedTotal;
+    const safeDeduction = Math.min(Number(refundDeductionAmount || 0), refundAmount);
+    const autoFinal = Math.max(refundAmount - safeDeduction, 0);
+    return isManualFinalRefundAmount ? Number(manualFinalRefundAmount || 0) : autoFinal;
+  }, [orderDetail?.products, quantityByIndex, actionType, refundDeductionAmount, isManualFinalRefundAmount, manualFinalRefundAmount]);
+
+  const formatNumber = (n: number) => (Number(n || 0)).toLocaleString();
+
+  return (
+    <div className="w-full h-full">
+      <style>{`
+        input.no-spin[type=number]::-webkit-outer-spin-button,
+        input.no-spin[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input.no-spin[type=number] { -moz-appearance: textfield; }
+      `}</style>
+      <div className="bg-white p-10" >
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => {
+              navigate(-1);
+            }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+              <p className="text-sm text-gray-500 font-semibold">주문상세</p>
+            </div>
+            <h1 className="text-3xl font-bold mt-4 mb-4">{isRefundCalcMode ? '환불금액계산' : (actionType === 'cancel' ? '취소' : '반품')}</h1>
+          </div>
+          {(
+            <div>
+              <button
+                className={`${step === 1 ? 'bg-gray-200 text-gray-500' : 'bg-white text-black border border-gray-300'} px-4 py-2 rounded-md mr-2`}
+                onClick={() => {
+                  if (step === 2) setStep(1);
+                  else if (step === 3) setStep(2);
+                  else navigate(-1);
+                }}
+              >
+                이전
+              </button>
+              {step === 1 && (
+                <button
+                  className={`${step === 1 ? 'bg-black text-white' : 'bg-white text-black text-gray-400'} px-4 py-2 rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed`}
+                  onClick={() => {
+                    if (!hasAnyQuantity) {
+                      setToastVariant('warning');
+                      setToastMessage('반품할 상품을 선택해주세요');
+                      setIsToastVisible(true);
+                      return;
+                    }
+                    setStep(2);
+                  }}
+                >
+                  다음
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {isRefundCalcMode && (
+          <div className="flex items-center gap-2">
+            <p className="text-gray-500 font-semibold text-xs">주문 취소 상품에 대한 환불 금액을 계산해 주세요</p>
+          </div>
+        )}
+        {!isRefundCalcMode && (
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-2 ${step === 1 ? 'text-black' : 'text-gray-500'}`}>
+              <span className={`w-5 h-5 rounded-full border ${step === 1 ? 'bg-black text-white' : 'bg-gray-200'} flex items-center justify-center text-xs font-bold`}>1</span>
+              <span className="text-xs font-semibold">품목 선택</span>
+            </div>
+            <span className="text-gray-500 text-xs">&gt;</span>
+            <div className={`flex items-center gap-2 ${step === 2 ? 'text-black' : 'text-gray-500'}`}>
+              <span className={`w-5 h-5 rounded-full border ${step === 2 ? 'bg-black text-white' : 'bg-gray-200'} flex items-center justify-center text-xs font-bold`}>2</span>
+              <span className="text-xs font-semibold">{actionType === 'cancel' ? '취소' : '반품'} 정보 입력</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {step === 1 && (
+        <div className="flex items-start justify-between mt-10">
+          <div className="w-2/3">
+            {(() => {
+              const filtered = (orderDetail.products || [])
+                .map((item: any, idx: number) => ({ item, idx }))
+                .filter(({ item }: { item: any }) => {
+                  const s = String(item?.order_status || '').trim().toUpperCase();
+                  if (actionType === 'return') {
+                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE';
+                  }
+                  if (s.indexOf('CANCEL') >= 0) return false;
+                  return s === 'PAYMENT_COMPLETE' || s === 'HOLD';
+                });
+              const grouped = filtered.reduce((acc: Record<string, Array<{ item: any; idx: number }>>, cur: { item: any; idx: number }) => {
+                const key = String(cur.item?.order_group ?? `group-${cur.idx}`);
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(cur);
+                return acc;
+              }, {} as Record<string, Array<{ item: any; idx: number }>>);
+              const entries = (Object.entries(grouped) as Array<[string, Array<{ item: any; idx: number }>]>)
+              return entries.map(([groupKey, list], groupIndex) => (
+                <div key={groupKey} className="bg-white p-10 rounded-lg shadow-md mb-6">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xl font-medium">
+                        {(() => {
+                          const codes = list.map(({ item }: { item: any }) => String(item?.order_status || '').trim().toUpperCase());
+                          let code = '';
+                          if (actionType === 'cancel') {
+                            code = codes.includes('HOLD') ? 'HOLD' : 'PAYMENT_COMPLETE';
+                          } else {
+                            code = codes.includes('SHIPPING_COMPLETE') ? 'SHIPPING_COMPLETE' : 'SHIPPINGING';
+                          }
+                          return (
+                            orderStatusCodeList.find((c: any) => c.common_code === code)?.common_code_name || ''
+                          );
+                        })()}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="flex items-center gap-1 text-sm font-semibold text-gray-700"
+                            onClick={() => {
+                              const updates: Record<number, number> = {};
+                              list.forEach(({ item, idx }: { item: any; idx: number }) => {
+                                const status = String(item?.order_status || '').trim().toUpperCase();
+                                if (actionType === 'return') {
+                                  if (status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE') {
+                                    updates[idx] = Number(item.order_quantity) || 0;
+                                  }
+                                } else {
+                                  if (status === 'PAYMENT_COMPLETE' || status === 'HOLD') {
+                                    updates[idx] = Number(item.order_quantity) || 0;
+                                  }
+                                }
+                              });
+                              setQuantityByIndex((prev) => ({ ...prev, ...updates }));
+                            }}
+                          >
+                            전체취소
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">#{orderDetail.order_dt}{orderDetail.order_app_id}{entries.length > 1 ? `-${String(groupIndex + 1).padStart(2, '0')}` : ''}</p>
+                  </div>
+                  <div className="mt-10">
+                    {list.map(({ item, idx }: { item: any; idx: number }) => (
+                      <div key={idx} className="flex items-center justify-between mt-4">
+                        <div className="flex items-start gap-2">
+                          <img src={item.image} className="w-16 h-16 rounded-lg" alt="상품 이미지" />
+                          <div className="ml-2">
+                            <p className="text-sm font-medium">{item.product_name}</p>
+                            <p className="text-xs font-semibold mt-1 bg-gray-100 px-2 py-1 rounded-full w-fit">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : '공용'} {item.option_amount}{item.option_unit}</p>
+                            <p className="text-xs text-gray-500 mt-2">{item.price?.toLocaleString()} X {item.order_quantity}</p>
+                            <p className="text-sm font-medium mt-1">총 {(item.price * item.order_quantity)?.toLocaleString()}원</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <input 
+                            className="border border-gray-300 rounded px-2 py-1 w-20 text-right"
+                            type="number" 
+                            min="0"
+                            max={item.order_quantity}
+                            value={quantityByIndex[idx] ?? 0}
+                            onChange={(e) => {
+                              const value = Math.max(0, Math.min(Number(item.order_quantity) || 0, Number(e.target.value) || 0));
+                              setQuantityByIndex((prev) => ({ ...prev, [idx]: value }));
+                            }}
+                          />
+                          <div className="flex flex-col items-end gap-2">
+                            <p
+                              className={`text-sm font-semibold ml-10 ${(((quantityByIndex[idx] ?? 0) * (item.price ?? 0)) ? 'text-red-500' : '')}`}
+                            >
+                              {((-(quantityByIndex[idx] ?? 0) * (item.price ?? 0)) || 0)?.toLocaleString()}원
+                            </p>
+                            {((quantityByIndex[idx] ?? 0) === (Number(item.order_quantity) || 0)) && (
+                              <div className="bg-red-100 rounded-full px-2 py-1 flex items-center justify-center">
+                                <p className="font-semibold text-xs text-red-600">전체</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+          
+          <div className="w-1/3 ml-10 bg-white p-10 rounded-lg shadow-md">
+            <div className="flex items-center justify-between">
+              <p className="text-m font-medium">예상 환불 금액</p>
+            </div>
+            <div className="mt-10">
+              {orderDetail.delivery_fee && (orderDetail?.payment_amount <= orderDetail?.free_shipping_amount) &&
+                (orderDetail.products || []).some((item: any, idx: number) => {
+                  const status = String(item?.order_status || '').trim().toUpperCase();
+                  const qty = quantityByIndex[idx] ?? 0;
+                  return (actionType !== 'return' || status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE') && qty > 0;
+                }) &&
+                (
+                  orderDetail.free_shipping_amount >= (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                    const status = String(item?.order_status || '').trim().toUpperCase();
+                    const qty = quantityByIndex[idx] ?? 0;
+                    const price = item.price ?? 0;
+                    if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+                    return sum + qty * price;
+                  }, 0)
+                ) && (
+                <div className="flex items-center justify-between">
+                  <p className="text-m font-medium">배송비</p>
+                  <p className="text-m font-medium"><span className="text-xl font-bold">{orderDetail.delivery_fee?.toLocaleString()}</span>원</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-m font-medium">금액</p>
+                <p className="text-m font-medium">
+                  <span className="text-xl font-bold">
+                    {(() => {
+                      const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                        const status = String(item?.order_status || '').trim().toUpperCase();
+                        const qty = quantityByIndex[idx] ?? 0;
+                        const price = item.price ?? 0;
+                        if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+                        return sum + qty * price;
+                      }, 0);
+                      return selectedTotal?.toLocaleString();
+                    })()}
+                  </span>
+                  원
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="flex items-start justify-between mt-10">
+          <div className="w-2/3 bg-white p-10 rounded-lg shadow-md">
+            <div className="flex items-center justify-between">
+              <p className="text-xl font-semibold">취소 상품</p>
+              <p className="text-xs font-semibold text-gray-500">주문 {formatAmPmDate(orderDetail?.order_dt)} &nbsp;|&nbsp; 취소 {formatAmPmDate(orderDetail?.return_dt)}</p>
+            </div>
+            <div className="mt-6 space-y-8">
+              <div className="flex items-start">
+                <p className="w-1/3 text-m font-semibold">사유</p>
+                <div className="w-2/3">
+                  <p className="text-sm font-medium">
+                    {(() => {
+                      const code = selectedReturnReasonType || orderDetail?.return_reason_type || '';
+                      const found = (returnReasonList || []).find((r: any) => String(r?.common_code) === String(code));
+                      return found?.common_code_name || '-';
+                    })()}
+                  </p>
+                  {detailReason && (
+                    <p className="text-xs text-gray-500 mt-1">{detailReason}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start">
+                <p className="w-1/3 text-m font-semibold">품목</p>
+                <div className="w-2/3">
+                  {(orderDetail.products || [])
+                    .map((item: any, idx: number) => ({ item, idx }))
+                    .filter(({ idx }: { idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
+                    .map(({ item, idx }: { item: any; idx: number }, listIdx: number) => {
+                      const selectedQty = quantityByIndex[idx] ?? 0;
+                      return (
+                        <div className={`flex items-center justify-between ${listIdx !== 0 ? 'mt-6' : ''}`} key={idx}>
+                          <div className="flex items-center gap-2">
+                            <img src={item.image} className="w-16 h-16 rounded-lg" alt="상품 이미지" />
+                            <div className="flex flex-col">
+                              <p className="text-sm font-semibold">{item.product_name}</p>
+                              <p className="bg-gray-300 px-2 py-1 rounded-full w-fit text-xs font-semibold mt-1">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : '공용'} {item.option_amount}{item.option_unit}</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <p className="text-sm font-semibold">{(item.price * selectedQty)?.toLocaleString()} 원</p>
+                            <p className="text-xs text-gray-500 mt-1">{item.price?.toLocaleString()} X {selectedQty}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+              <div className="flex items-start">
+                <p className="w-1/3 text-m font-semibold">금액 설정</p>
+                <div className="w-2/3">
+                  <p className="text-sm font-medium">환불 금액 차감</p>
+                  <div className="mt-2 relative w-1/2">
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-right"
+                      value={refundDeductionAmount ? refundDeductionAmount.toLocaleString() : ''}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        const next = Number(raw || 0);
+                        const computedBase = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                          const status = String(item?.order_status || '').trim().toUpperCase();
+                          const qty = quantityByIndex[idx] ?? 0;
+                          const price = Number(item?.price || 0);
+                          if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+                          return sum + (price * qty);
+                        }, 0);
+                        if (next > computedBase) {
+                          setToastVariant('warning');
+                          setToastMessage('입력할 수 없습니다');
+                          setIsToastVisible(true);
+                          return;
+                        }
+                        setRefundDeductionAmount(next);
+                      }}
+                      placeholder="0"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">원</span>
+                  </div>
+                  {!orderDetail?.point_use_amount ? null : (
+                    <>
+                      <p className="text-sm font-medium mt-4">적립금 차감</p>
+                      <div className="mt-2 relative w-1/2">
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-right"
+                          value={pointDeductionAmount ? pointDeductionAmount.toLocaleString() : ''}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            const next = Number(raw || 0);
+                            const usedPoint = Number(orderDetail?.point_use_amount || 0);
+                            if (next > usedPoint) {
+                              setToastVariant('warning');
+                              setToastMessage('입력할 수 없습니다');
+                              setIsToastVisible(true);
+                              return;
+                            }
+                            setPointDeductionAmount(next);
+                          }}
+                          placeholder="0"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">원</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-1/3 ml-10">
+            {isRefundCalcMode && (
+              <div className="bg-white p-10 rounded-lg shadow-md mb-4">
+                {(() => {
+                  const baseAmount = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                    const qty = quantityByIndex[idx] ?? 0;
+                    const price = Number(item?.price || 0);
+                    return sum + (price * qty);
+                  }, 0);
+                  const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmount);
+                  const expectedAmount = Math.max(baseAmount - safeDeduction, 0);
+                  return (
+                    <div className="flex items-center justify-between">
+                      <p className="text-m font-medium">예상 환불 금액</p>
+                      <p className="text-m font-medium"><span className="text-xl font-bold">{expectedAmount.toLocaleString()}</span>원</p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+            <div className="bg-white p-10 rounded-lg shadow-md">
+              <div className="flex items-center justify-between">
+                <p className="text-m font-medium">결제정보</p>
+              </div>
+              <div className="mt-10 space-y-3">
+                {(() => {
+                  const productTotalAll = (orderDetail.products || []).reduce((sum: number, item: any) => sum + ((item?.original_price || 0) * (item?.order_quantity || 0)), 0);
+                  const orderAmount = Number(orderDetail?.payment_amount || 0);
+                  const baseDeliveryFee = Number(orderDetail?.delivery_fee || 0);
+                  const usedPoint = Number(orderDetail?.point_use_amount || 0);
+                  const paymentBalance = Number(orderDetail?.payment_amount || 0);
+                    console.log(orderDetail);
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <p className="text-m font-medium">주문 금액</p>
+                        <p className="text-m font-medium"><span className="text-xl font-bold">{productTotalAll.toLocaleString()}</span>원</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-m font-medium">상품 금액</p>
+                        <p className="text-m font-medium"><span className="text-xl font-bold">{productTotalAll.toLocaleString()}</span>원</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-m font-medium">할인</p>
+                        <p className="text-m font-medium">-<span className="text-xl font-bold">{(productTotalAll - orderAmount - usedPoint).toLocaleString()}</span>원</p>
+                      </div>
+                      {/* <div className="flex items-center justify-between">
+                        <p className="text-m font-medium">기본 배송비</p>
+                        <p className="text-m font-medium"><span className="text-xl font-bold">{baseDeliveryFee.toLocaleString()}</span>원</p>
+                      </div> */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-m font-medium">적립금 사용</p>
+                        <p className="text-m font-medium"><span className="text-xl font-bold">{usedPoint ? '-' + (usedPoint).toLocaleString() : 0}</span>원</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-m font-medium">결제 잔액</p>
+                        <p className="text-m font-medium"><span className="text-xl font-bold">{paymentBalance.toLocaleString()}</span>원</p>
+                      </div>
+                      {orderDetail?.refund_amount && (
+                        <div className="flex items-center justify-between border-t border-gray-200 pt-2">
+                          <p className="text-m font-medium">부분 취소</p>
+                          <p className="text-m font-medium"><span className="text-xl font-bold">{Number(orderDetail?.refund_amount).toLocaleString()}</span>원</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="bg-white p-10 rounded-lg shadow-md mt-4">
+              <div className="flex items-center justify-between">
+                <p className="text-m font-medium">환불 정보</p>
+              </div>
+              {(() => {
+                const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                  const status = String(item?.order_status || '').trim().toUpperCase();
+                  const qty = quantityByIndex[idx] ?? 0;
+                  const price = item.price ?? 0;
+                  if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+                  return sum + qty * price;
+                }, 0);
+                const computedRefundAmount = selectedTotal;
+                const refundAmount = computedRefundAmount;
+                const safeDeduction = Math.min(refundDeductionAmount || 0, refundAmount);
+                const autoFinalRefund = Math.max(refundAmount - safeDeduction, 0);
+                const usedPoint = Number(orderDetail?.point_use_amount || 0);
+                return (
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                        <p className="text-sm text-gray-500 font-medium">환불 금액</p>
+                        <p className="mt-2 text-gray-500 text-sm font-bold">{formatNumber(refundAmount - usedPoint)} 원</p>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">최종 환불 금액</p>
+                        <label className="text-xs flex items-center gap-2">
+                          <input type="checkbox" checked={isManualFinalRefundAmount} onChange={(e) => setIsManualFinalRefundAmount(e.target.checked)} />
+                          직접입력
+                        </label>
+                      </div>
+                      <div className="mt-2 relative">
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-right"
+                          value={isManualFinalRefundAmount ? formatNumber(manualFinalRefundAmount) : formatNumber(autoFinalRefund - usedPoint)}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            const next = Number(raw || 0);
+                            if (next > refundAmount) {
+                              setToastVariant('warning');
+                              setToastMessage('입력할 수 없습니다');
+                              setIsToastVisible(true);
+                              return;
+                            }
+                            setManualFinalRefundAmount(next);
+                          }}
+                          placeholder={`${formatNumber(refundAmount)} 원`}
+                          disabled={!isManualFinalRefundAmount}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">원</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {!orderDetail?.point_use_amount ? null : (
+              <div className="bg-white p-10 rounded-lg shadow-md mt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-m font-medium">적립금 정보</p>
+                </div>
+                {(() => {
+                  const usedPoint = Number(orderDetail?.point_use_amount || 0);
+                  const deductedPoint = Math.min(Number(pointDeductionAmount || 0), usedPoint);
+                  const finalRefundPoint = Math.max(deductedPoint, 0);
+                  return (
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">사용 적립금</p>
+                        <p className="text-sm font-medium">{usedPoint.toLocaleString()} 원</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">차감 적립금</p>
+                        <p className="text-sm font-medium">{deductedPoint.toLocaleString()} 원</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">최종 환불 적립금</p>
+                        <p className="text-sm font-medium">{finalRefundPoint.toLocaleString()} 원</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+            <button
+              className="w-full bg-black text-white px-4 py-3 rounded-md mt-5"
+              onClick={async () => {
+                await fn_approveCancel();
+                setToastVariant('success');
+                setToastMessage(`${formatNumber(finalRefundAmountNumber)}원 환불 처리되었습니다`);
+                setIsToastVisible(true);
+                navigate(-1);
+              }}
+            >
+              {`${formatNumber(Math.max(0, Number(finalRefundAmountNumber || 0) - Number(orderDetail?.point_use_amount || 0)))}원 환불 처리`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="flex items-start justify-between mt-10">
+          <div className="w-2/3 bg-white p-10 rounded-lg shadow-md">
+            <div className="flex items-center justify-between">
+              <p className="text-m">{actionType === 'cancel' ? '취소 정보' : '반품 정보'}</p>
+            </div>
+            <div className="mt-6">
+              <div className="flex items-start">
+                <p className="w-1/3 text-m font-semibold">품목</p>
+                <div className="w-2/3">
+                {(orderDetail.products || [])
+                  .map((item: any, idx: number) => ({ item, idx }))
+                  .filter(({ idx }: { idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
+                  .filter(({ item }: { item: any }) => actionType !== 'cancel' || !['SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM'].includes(String(item?.order_status || '').trim().toUpperCase()))
+                  .map(({ item, idx }: { item: any; idx: number }, listIdx: number) => {
+                    const selectedQty = quantityByIndex[idx] ?? 0;
+                    return (
+                      <div className={`flex items-center justify-between ${listIdx !== 0 ? 'mt-10' : ''}`} key={idx}>
+                        <div className="flex items-center gap-2">
+                          <img src={item.image} className="w-16 h-16 rounded-lg" alt="상품 이미지" />
+                          <div className="flex flex-col">
+                            <p className="text-sm font-semibold">{item.product_name}</p>
+                            <p className="bg-gray-300 px-2 py-1 rounded-full w-fit text-xs font-semibold mt-1">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : '공용'} {item.option_amount}{item.option_unit}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <p className="text-sm font-semibold">{(item.price * selectedQty)?.toLocaleString()} 원</p>
+                          <p className="text-xs text-gray-500 mt-1">{item.price?.toLocaleString()} X {selectedQty}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {actionType === 'return' && (
+                <div className="mt-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-m font-semibold">수거정보</p>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="autoPickup"
+                        checked={isAutoPickup}
+                        onChange={() => setIsAutoPickup(true)}
+                        className="form-radio"
+                      />
+                      자동수거 신청
+                    </label>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="text-right mt-4">
+                      <p className="text-sm font-semibold mb-4">받는분</p>
+                      <input
+                        type="text"
+                        className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm"
+                        placeholder="받는분"
+                        value={pickupReceiverName}
+                        onChange={(e) => setPickupReceiverName(e.target.value)}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold mb-4">연락처</p>
+                      <input
+                        type="text"
+                        className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm"
+                        placeholder="연락처"
+                        value={pickupReceiverPhone}
+                        onChange={(e) => setPickupReceiverPhone(e.target.value)}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">주소정보</p>
+                      <div className="flex items-center justify-end gap-2 mt-4">
+                        <input
+                          type="text"
+                          className=" border border-gray-300 rounded px-3 py-2 text-sm"
+                          placeholder="우편번호"
+                          value={pickupZipCode}
+                          disabled
+                          onChange={(e) => setPickupZipCode(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSearchAddress}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                        >
+                          검색
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <input
+                        type="text"
+                        className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm"
+                        placeholder="도로명 혹은 지번주소"
+                        value={pickupRoadAddress || pickupJibunAddress}
+                        disabled
+                        onChange={(e) => setPickupRoadAddress(e.target.value)}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <input
+                        type="text"
+                        className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm"
+                        placeholder="상세주소"
+                        value={pickupDetailAddress}
+                        onChange={(e) => setPickupDetailAddress(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="mt-10 flex items-center w-full">
+                <p className="text-m font-semibold w-1/3">사유</p>
+                <select className="w-2/3 border border-gray-300 rounded px-3 py-2" value={selectedReturnReasonType} onChange={(e) => setSelectedReturnReasonType(e.target.value)}>
+                  <option value="">선택하세요</option>
+                  {returnReasonList.map((reason: any) => (
+                    <option key={reason.common_code} value={reason.common_code}>
+                      {reason.common_code_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-10 flex items-center w-full">
+                <p className="text-m font-semibold w-1/3"></p>
+                <textarea
+                  className="w-2/3 border border-gray-300 rounded px-3 py-2 h-32"
+                  placeholder={("" + (() => {
+                    const selectedReason = (returnReasonList || []).find((r: any) => String(r?.common_code) === String(selectedReturnReasonType));
+                    const reasonName = String(selectedReason?.common_code_name || '');
+                    const reasonCodeUpper = String(selectedReturnReasonType || '').trim().toUpperCase();
+                    const isOtherReason = reasonName.includes('기타') || reasonCodeUpper === 'OTHER' || reasonCodeUpper === 'ETC';
+                    return isOtherReason
+                      ? '상세 사유를 정확하게 입력해주세요 (필수 사항)'
+                      : '상세 사유를 입력해주세요 (선택 사항)';
+                  })())}
+                  value={detailReason}
+                  onChange={(e) => setDetailReason(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="w-1/3 ml-10 bg-white p-10 rounded-lg shadow-md">
+            <div className="flex items-center justify-between">
+              <p className="text-m font-medium">예상 환불 금액</p>
+            </div>
+            <div className="mt-10">
+              {!orderDetail?.payment_amount && (
+                <div className="flex items-center justify-between">
+                  <p className="text-m font-medium">포인트</p>
+                  <p className="text-m font-medium">
+                    <span className="text-xl font-bold">{(() => {
+                      if (actionType === 'return') {
+                        const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                          const qty = quantityByIndex[idx] ?? 0;
+                          const price = item.price ?? 0;
+                          return sum + qty * price;
+                        }, 0);
+                        return selectedTotal?.toLocaleString();
+                      } else if (actionType === 'cancel') {
+                        const cancelSelectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                          const status = String(item?.order_status || '').trim().toUpperCase();
+                          if (['SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM'].includes(status)) return sum;
+                          const qty = quantityByIndex[idx] ?? 0;
+                          const price = item.price ?? 0;
+                          return sum + qty * price;
+                        }, 0);
+                        return cancelSelectedTotal?.toLocaleString();
+                      }
+                      return orderDetail?.point_amount?.toLocaleString();
+                    })()}</span>원
+                  </p>
+                </div>
+              )}
+              
+              {orderDetail.delivery_fee && (orderDetail?.payment_amount <= orderDetail?.free_shipping_amount) &&
+                orderDetail.products.some((_: any, idx: number) => (quantityByIndex[idx] ?? 0) > 0) &&
+                (
+                  orderDetail.free_shipping_amount >= orderDetail.products.reduce((sum: number, item: any, idx: number) => {
+                    const qty = quantityByIndex[idx] ?? 0;
+                    const price = item.price ?? 0;
+                    return sum + qty * price;
+                  }, 0)
+                ) && (
+                <div className="flex items-center justify-between">
+                  <p className="text-m font-medium">배송비</p>
+                  <p className="text-m font-medium"><span className="text-xl font-bold">{orderDetail?.delivery_fee?.toLocaleString()}</span>원</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-m font-medium">금액</p>
+                <p className="text-m font-medium">
+                  <span className="text-xl font-bold">{(() => {
+                    if (actionType === 'return') {
+                      const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                        const qty = quantityByIndex[idx] ?? 0;
+                        const price = item.price ?? 0;
+                        return sum + qty * price;
+                      }, 0);
+                      return selectedTotal?.toLocaleString();
+                    } else if (actionType === 'cancel') {
+                      const cancelSelectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                        const status = String(item?.order_status || '').trim().toUpperCase();
+                        if (['SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM'].includes(status)) return sum;
+                        const qty = quantityByIndex[idx] ?? 0;
+                        const price = item.price ?? 0;
+                        return sum + qty * price;
+                      }, 0);
+                      return cancelSelectedTotal?.toLocaleString();
+                    }
+                    return orderDetail?.payment_amount ? orderDetail?.payment_amount?.toLocaleString() : 0;
+                  })()} </span>원
+                </p>
+              </div>
+              <div className="mt-6">
+                <button
+                  className="w-full bg-black text-white px-4 py-3 rounded-md"
+                  onClick={() => {
+                    if (!selectedReturnReasonType) {
+                      setToastVariant('warning');
+                      setToastMessage('사유를 골라주세요');
+                      setIsToastVisible(true);
+                      return;
+                    }
+                    const selectedReason = (returnReasonList || []).find((r: any) => String(r?.common_code) === String(selectedReturnReasonType));
+                    const reasonName = String(selectedReason?.common_code_name || '');
+                    const reasonCodeUpper = String(selectedReturnReasonType || '').trim().toUpperCase();
+                    const isOtherReason = reasonName.includes('기타') || reasonCodeUpper === 'OTHER' || reasonCodeUpper === 'ETC';
+                    if (isOtherReason && String(detailReason || '').trim().length === 0) {
+                      setToastVariant('warning');
+                      setToastMessage('상세 사유를 입력해주세요');
+                      setIsToastVisible(true);
+                      return;
+                    }
+                    setIsConfirmOpen(true);
+                  }}
+                >
+                  {actionType === 'cancel' ? '취소 접수' : '반품 접수'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={toastVariant === 'warning' ? 'toast-warning' : ''}>
+        <CustomToastModal
+          message={toastMessage}
+          isVisible={isToastVisible}
+          variant={toastVariant}
+          onClose={() => setIsToastVisible(false)}
+        />
+      </div>
+
+      {isConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-96 max-w-md mx-4">
+            <h2 className="text-xl font-bold text-black mb-2">
+              {actionType === 'cancel' ? '취소접수 처리 할까요?' : '반품접수 처리 할까요?'}
+            </h2>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setIsConfirmOpen(false)}
+                className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                닫기
+              </button>
+              <button
+                onClick={fn_handleConfirm}
+                className="px-4 py-2 text-white bg-black rounded-lg hover:opacity-90"
+              >
+                {actionType === 'cancel' ? '취소접수 처리' : '반품접수 처리'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MemberOrderAppReturn;

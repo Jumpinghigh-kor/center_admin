@@ -1,0 +1,137 @@
+/* PhoneInputPage.css */
+.phone-input-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  padding: 10px;
+  box-sizing: border-box;
+  background-color: white;
+
+  /* 드래그 방지 */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 설명글 스타일 */
+.fullscreen-message {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 1rem;
+  color: #c4c4c4;
+}
+
+/* 로고 이미지 스타일 */
+.logo-image {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 150px; /* 로고 크기 */
+  height: auto;
+}
+
+.phone-display {
+  width: 100%;
+  max-width: 400px;
+  min-height: 70px;
+  font-size: 2rem;
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  border-radius: 15px;
+  resize: none;
+  background-color: #f0f0f0;
+}
+
+.number-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* 공통 버튼 스타일 */
+.number-pad button {
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 20px;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.number-pad button:hover {
+  background-color: #ddd;
+}
+
+.number-pad button:active {
+  background-color: #bbb;
+}
+
+/* 출석 버튼 스타일 우선 적용 */
+.number-pad .submit-button {
+  background-color: #4caf50 !important; /* 초록색 */
+  color: white;
+}
+
+.number-pad .submit-button:hover {
+  background-color: #45a049 !important;
+}
+
+.number-pad .submit-button:active {
+  background-color: #3e8e41 !important;
+}
+
+.number-pad .delete-button {
+  background-color: #c4c4c4 !important;
+  color: #fff;
+  padding: 0;
+}
+
+.number-pad .delete-button:hover {
+  background-color: #b0b0b0 !important;
+}
+
+.number-pad .delete-button:active {
+  background-color: #9c9c9c !important;
+}
+
+.delete-icon {
+  width: 24px;
+  height: 24px;
+}
+
+@media (max-width: 600px) {
+  .phone-display {
+    font-size: 1.5rem;
+  }
+
+  .number-pad button {
+    font-size: 1.2rem;
+    padding: 15px;
+  }
+
+  .delete-icon {
+    width: 18px;
+    height: 18px;
+  }
+  /* 설명글 반응형 조정 */
+  .fullscreen-message {
+    font-size: 0.85rem;
+  }
+  /* 로고 이미지 크기 조정 */
+  .logo-image {
+    width: 100px; /* 작은 화면에서의 로고 크기 */
+  }
+}

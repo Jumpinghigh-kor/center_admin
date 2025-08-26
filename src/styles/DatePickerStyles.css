@@ -1,0 +1,55 @@
+/* src/styles/DatePickerStyles.css */
+
+.custom-datepicker {
+  display: inline-block;
+  padding: 5px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #d1d1d1;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333333;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* 커스텀 DatePicker 화살표 스타일 */
+.custom-datepicker__triangle {
+  display: none;
+}
+
+/* DatePicker 팝업 박스 스타일 */
+.react-datepicker__triangle {
+  display: none; /* 삼각형 화살표 없애기 */
+}
+
+.react-datepicker__header {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  font-weight: bold;
+}
+
+/* 이전/다음 월 버튼 스타일 */
+.react-datepicker__navigation--previous {
+  border-left-color: white;
+}
+
+.react-datepicker__navigation--next {
+  border-right-color: white;
+}
+
+/* 선택된 날짜 스타일 */
+.react-datepicker__day--selected,
+.react-datepicker__day:hover {
+  background-color: #4caf50;
+  color: white;
+  border-radius: 50%;
+}
+
+/* 월/년 스위칭 스타일 */
+.react-datepicker__current-month {
+  font-size: 18px;
+  font-weight: bold;
+  color: #4caf50;
+}
