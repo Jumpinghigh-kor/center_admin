@@ -30,6 +30,10 @@ const MemberOrderAppReturn: React.FC = () => {
   const [pickupRoadAddress, setPickupRoadAddress] = useState<string>('');
   const [pickupJibunAddress, setPickupJibunAddress] = useState<string>('');
   const [pickupDetailAddress, setPickupDetailAddress] = useState<string>('');
+  const [isPickupDefaultAddress, setIsPickupDefaultAddress] = useState<boolean>(true);
+  const [pickupEnterWay, setPickupEnterWay] = useState<string>('');
+  const [pickupEnterMemo, setPickupEnterMemo] = useState<string>('');
+  const [pickupDeliveryRequest, setPickupDeliveryRequest] = useState<string>('');
 
   const [isManualFinalRefundAmount, setIsManualFinalRefundAmount] = useState<boolean>(false);
   const [manualFinalRefundAmount, setManualFinalRefundAmount] = useState<number>(0);
@@ -46,6 +50,36 @@ const MemberOrderAppReturn: React.FC = () => {
       document.body.appendChild(script);
     }
   }, []);
+
+  // 수거정보 초기 매핑: 주문 상세의 배송지 정보를 기본값으로 세팅
+  useEffect(() => {
+    if (actionType !== 'return' || !orderDetail) return;
+    try {
+      if (isPickupDefaultAddress) {
+        setPickupReceiverName(orderDetail?.receiver_name || '');
+        setPickupReceiverPhone(orderDetail?.receiver_phone || '');
+        setPickupZipCode(orderDetail?.zip_code || '');
+        setPickupRoadAddress(orderDetail?.address || '');
+        setPickupJibunAddress('');
+        setPickupDetailAddress(orderDetail?.address_detail || '');
+        setPickupEnterWay(orderDetail?.enter_way || '');
+        setPickupEnterMemo(orderDetail?.enter_memo || '');
+        setPickupDeliveryRequest(orderDetail?.delivery_request || '');
+      } else {
+        setPickupReceiverName('');
+        setPickupReceiverPhone('');
+        setPickupZipCode('');
+        setPickupRoadAddress('');
+        setPickupJibunAddress('');
+        setPickupDetailAddress('');
+        setPickupEnterWay('');
+        setPickupEnterMemo('');
+        setPickupDeliveryRequest('');
+      }
+    } catch (e) {
+      // ignore mapping errors
+    }
+  }, [actionType, orderDetail, isPickupDefaultAddress]);
 
   // Initialize step 3 flow when navigated from 취소승인
   useEffect(() => {
@@ -173,6 +207,129 @@ const MemberOrderAppReturn: React.FC = () => {
           order_status: 'CANCEL_APPLY',
           userId: user?.index,
         });
+      } else {
+        // 반품 접수: 선택 품목 인서트 후 상태 RETURN_APPLY로 변경
+        const selectedItems = (orderDetail?.products || [])
+          .map((item: any, idx: number) => ({ item, idx }))
+          .filter(({ item, idx }: { item: any; idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
+          .filter(({ item }: { item: any }) => {
+            const statusCode = String(item?.order_status || '').trim().toUpperCase();
+            return statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM';
+          });
+
+        if (selectedItems.length > 0) {
+          // 1) 수량 기준 분할: 선택 수량만큼 대상 상세를 새 그룹으로 이동(주문 분리)
+          await Promise.all(
+            selectedItems.map(({ item, idx }: { item: any; idx: number }) =>
+              axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateNewMemberOrderApp`, {
+                order_detail_app_id: item.order_detail_app_id,
+                order_quantity: quantityByIndex[idx] ?? 0,
+                userId: user?.index,
+              })
+            )
+          );
+
+          // 2) RETURN 주소 생성 + 반품 인서트/업데이트
+          const upsertCalls = await Promise.all(
+            selectedItems.map(async ({ item, idx }: { item: any; idx: number }) => {
+              const receiver_name = isPickupDefaultAddress ? (orderDetail?.receiver_name || '') : (pickupReceiverName || '');
+              const receiver_phone = isPickupDefaultAddress ? (orderDetail?.receiver_phone || '') : (pickupReceiverPhone || '');
+              const address = isPickupDefaultAddress ? (orderDetail?.address || '') : (pickupRoadAddress || '');
+              const address_detail = isPickupDefaultAddress ? (orderDetail?.address_detail || '') : (pickupDetailAddress || '');
+              const zip_code = isPickupDefaultAddress ? (orderDetail?.zip_code || '') : (pickupZipCode || '');
+              const enter_way = isPickupDefaultAddress ? (orderDetail?.enter_way || null) : (pickupEnterWay || null);
+              const enter_memo = isPickupDefaultAddress ? (orderDetail?.enter_memo || null) : (pickupEnterMemo || null);
+              const delivery_request = isPickupDefaultAddress ? (orderDetail?.delivery_request || null) : (pickupDeliveryRequest || null);
+
+              // 기존 접수 존재 시: 반환 정보만 업데이트 (주소는 변경하지 않음)
+              if (item?.return_app_id) {
+                // 주소 이력 생성: 기존 RETURN 주소 비활성화 후 신규 RETURN 주소 인서트
+                if (orderDetail?.shipping_address_id) {
+                  try {
+                    await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/deleteMemberOrderAddress`, {
+                      order_address_id: orderDetail?.shipping_address_id,
+                      userId: user?.index,
+                    });
+                  } catch (e) {
+                    // proceed even if delete fails
+                  }
+                }
+                const newAddrRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
+                  order_detail_app_id: item.order_detail_app_id,
+                  order_address_type: 'RETURN',
+                  mem_id: orderDetail?.mem_id,
+                  receiver_name,
+                  receiver_phone,
+                  address,
+                  address_detail,
+                  zip_code,
+                  enter_way,
+                  enter_memo,
+                  delivery_request,
+                  use_yn: 'Y',
+                });
+                const newOrderAddressIdForUpdate = newAddrRes?.data?.order_address_id;
+                return axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnApp`, {
+                  order_detail_app_id: [item.order_detail_app_id],
+                  return_reason_type: selectedReturnReasonType || null,
+                  reason: detailReason || null,
+                  quantity: quantityByIndex[idx] ?? 0,
+                  order_address_id: newOrderAddressIdForUpdate,
+                  approval_yn: 'N',
+                  cancel_yn: 'N',
+                  userId: user?.index,
+                });
+              }
+
+              // 신규 접수: 기존 주소 비활성화 후, RETURN 주소 생성 → 반품 접수 인서트
+              if (orderDetail?.shipping_address_id) {
+                try {
+                  await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/deleteMemberOrderAddress`, {
+                    order_address_id: orderDetail?.shipping_address_id,
+                    userId: user?.index,
+                  });
+                } catch (e) {
+                  // proceed even if delete fails
+                }
+              }
+              const addressRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
+                order_detail_app_id: item.order_detail_app_id,
+                order_address_type: 'RETURN',
+                mem_id: orderDetail?.mem_id,
+                receiver_name,
+                receiver_phone,
+                address,
+                address_detail,
+                zip_code,
+                enter_way,
+                enter_memo,
+                delivery_request,
+                use_yn: 'Y',
+              });
+              const newOrderAddressId = addressRes?.data?.order_address_id;
+
+              return axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/insertMemberReturnApp`, {
+                order_detail_app_id: item.order_detail_app_id,
+                order_address_id: newOrderAddressId,
+                mem_id: orderDetail?.mem_id,
+                return_reason_type: selectedReturnReasonType || null,
+                reason: detailReason || null,
+                quantity: quantityByIndex[idx] ?? 0,
+              });
+            })
+          );
+
+          const orderDetailAppIds = Array.from(new Set(
+            selectedItems
+              .map(({ item }: { item: any }) => item?.order_detail_app_id)
+              .filter((v: any) => v != null)
+          ));
+          await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`, {
+            order_detail_app_id: orderDetailAppIds,
+            order_status: 'RETURN_APPLY',
+            userId: user?.index,
+          });
+        }
       }
       setIsConfirmOpen(false);
       setToastVariant('success');
@@ -238,7 +395,7 @@ console.log(orderDetail);
         userId: user?.index,
       });
 
-      // 2) 취소 승인 플래그 업데이트 (상세 기준)
+      // 2) 취소/반품 승인 플래그 업데이트 (상세 기준)
       await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnAppApproval`, {
         order_detail_app_id: orderDetailAppIds,
         approval_yn: 'Y',
@@ -246,10 +403,10 @@ console.log(orderDetail);
         userId: user?.index,
       });
 
-      // 3) 주문상태 CANCEL_COMPLETE로 변경 (상세 기준)
+      // 3) 주문상태 변경 (상세 기준): 취소는 CANCEL_COMPLETE, 반품은 RETURN_COMPLETE
       await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`, {
         order_detail_app_id: orderDetailAppIds,
-        order_status: 'CANCEL_COMPLETE',
+        order_status: actionType === 'return' ? 'RETURN_COMPLETE' : 'CANCEL_COMPLETE',
         userId: user?.index,
       });
 
@@ -266,7 +423,7 @@ console.log(orderDetail);
       console.error('취소 승인 처리 오류:', e);
     }
   };
-
+console.log('orderDetail::', orderDetail);
   // 최종 환불 금액(단일 소스): 선택 합계(판매가×수량) 기준으로 차감 반영, 직접입력 우선
   const finalRefundAmountNumber = useMemo(() => {
     const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
@@ -838,16 +995,43 @@ console.log(orderDetail);
                 <div className="mt-10">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-m font-semibold">수거정보</p>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name="autoPickup"
-                        checked={isAutoPickup}
-                        onChange={() => setIsAutoPickup(true)}
-                        className="form-radio"
-                      />
-                      자동수거 신청
-                    </label>
+                    <div className="flex items-center gap-4 text-sm">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="autoPickup"
+                          checked={isAutoPickup}
+                          onChange={() => setIsAutoPickup(true)}
+                          className="form-radio"
+                        />
+                        자동수거 신청
+                      </label>
+                    </div>
+                  </div>
+                  <div className="mt-8 text-right">
+                    <p className="text-sm font-semibold mb-2">수거 주소</p>
+                    <div className="flex items-center gap-4 text-sm justify-end">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="pickupMode"
+                          checked={isPickupDefaultAddress}
+                          onChange={() => setIsPickupDefaultAddress(true)}
+                          className="form-radio"
+                        />
+                        기본 주문 주소
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="pickupMode"
+                          checked={!isPickupDefaultAddress}
+                          onChange={() => setIsPickupDefaultAddress(false)}
+                          className="form-radio"
+                        />
+                        직접입력
+                      </label>
+                    </div>
                   </div>
                   <div className="space-y-3">
                     <div className="text-right mt-4">
@@ -858,6 +1042,7 @@ console.log(orderDetail);
                         placeholder="받는분"
                         value={pickupReceiverName}
                         onChange={(e) => setPickupReceiverName(e.target.value)}
+                        disabled={isPickupDefaultAddress}
                       />
                     </div>
                     <div className="text-right">
@@ -868,6 +1053,7 @@ console.log(orderDetail);
                         placeholder="연락처"
                         value={pickupReceiverPhone}
                         onChange={(e) => setPickupReceiverPhone(e.target.value)}
+                        disabled={isPickupDefaultAddress}
                       />
                     </div>
                     <div className="text-right">
@@ -885,6 +1071,7 @@ console.log(orderDetail);
                           type="button"
                           onClick={handleSearchAddress}
                           className="px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                          disabled={isPickupDefaultAddress}
                         >
                           검색
                         </button>
@@ -907,6 +1094,37 @@ console.log(orderDetail);
                         placeholder="상세주소"
                         value={pickupDetailAddress}
                         onChange={(e) => setPickupDetailAddress(e.target.value)}
+                        disabled={isPickupDefaultAddress}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <input
+                        type="text"
+                        className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm"
+                        placeholder={isPickupDefaultAddress ? '출입방법' : '출입방법(선택사항)'}
+                        value={pickupEnterWay}
+                        onChange={(e) => setPickupEnterWay(e.target.value)}
+                        disabled={isPickupDefaultAddress}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <input
+                        type="text"
+                        className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm"
+                        placeholder={isPickupDefaultAddress ? '출입메모' : '출입메모(선택사항)'}
+                        value={pickupEnterMemo}
+                        onChange={(e) => setPickupEnterMemo(e.target.value)}
+                        disabled={isPickupDefaultAddress}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <input
+                        type="text"
+                        className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm"
+                        placeholder={isPickupDefaultAddress ? '배송 요구사항' : '배송요구사항(선택사항)'}
+                        value={pickupDeliveryRequest}
+                        onChange={(e) => setPickupDeliveryRequest(e.target.value)}
+                        disabled={isPickupDefaultAddress}
                       />
                     </div>
                   </div>
@@ -1023,6 +1241,19 @@ console.log(orderDetail);
                       setToastMessage('사유를 골라주세요');
                       setIsToastVisible(true);
                       return;
+                    }
+                    if (actionType === 'return' && !isPickupDefaultAddress) {
+                      const hasReceiver = String(pickupReceiverName || '').trim().length > 0;
+                      const hasPhone = String(pickupReceiverPhone || '').trim().length > 0;
+                      const hasZip = String(pickupZipCode || '').trim().length > 0;
+                      const hasBaseAddr = String(pickupRoadAddress || pickupJibunAddress || '').trim().length > 0;
+                      const hasDetail = String(pickupDetailAddress || '').trim().length > 0;
+                      if (!(hasReceiver && hasPhone && hasZip && hasBaseAddr && hasDetail)) {
+                        setToastVariant('warning');
+                        setToastMessage('주소를 입력해 주세요');
+                        setIsToastVisible(true);
+                        return;
+                      }
                     }
                     const selectedReason = (returnReasonList || []).find((r: any) => String(r?.common_code) === String(selectedReturnReasonType));
                     const reasonName = String(selectedReason?.common_code_name || '');

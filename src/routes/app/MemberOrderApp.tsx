@@ -26,7 +26,7 @@ interface Order {
   order_detail_app_id: number;
   order_status: string;
   order_quantity: number;
-  add_order_quantity: number;
+  add_order_quantity: number; // 전체 상품 수량 합계
   tracking_number: string;
   order_dt: string;
   order_memo: string;
@@ -56,6 +56,8 @@ interface Order {
   address: string;
   address_detail: string;
   delivery_request: string;
+  enter_way: string;
+  enter_memo: string;
   zip_code: string;
   option_type: string;
   option_amount: number;
@@ -79,6 +81,11 @@ interface Order {
   return_dt: string;
   refund_amount: number;
   jumping_free_shipping_amount: number;
+  customer_tracking_number: string;
+  company_tracking_number: string;
+  customer_courier_code: string;
+  company_courier_code: string;
+  return_quantity: number;
 }
 
 interface CommonCode {
@@ -278,7 +285,7 @@ const MemberOrderApp: React.FC = () => {
       console.error("상품 이미지 로딩 오류:", err);
     }
   };
-console.log(orderList);
+  
   // 실제 로딩 함수
   const fn_memberOrderAppListInternal = async (skipGoodsflowSync?: boolean) => {
     if (!user || !user.index) {
@@ -296,11 +303,12 @@ console.log(orderList);
        );
       
       const rawOrders = response.data.orders || response.data || [];
-      
+
       const groupedOrders = rawOrders.reduce((acc: any[], order: any) => {
         const key = order?.order_app_id;
         if (key == null) {
-          order.products = [order];
+          const { products: _omitP, ...productOnly } = order || {};
+          order.products = [productOnly];
           order.add_order_quantity = order.order_quantity;
           acc.push(order);
           return acc;
@@ -313,11 +321,13 @@ console.log(orderList);
           existingOrder.add_order_quantity = (existingOrder.add_order_quantity || 0) + (order.order_quantity || 0);
 
           if (!existingOrder.products) {
-            existingOrder.products = [existingOrder];
+            existingOrder.products = [];
           }
-          existingOrder.products.push(order);
+          const { products: _omit2, ...cleanRow } = order || {};
+          existingOrder.products.push(cleanRow);
         } else {
-          order.products = [order];
+          const { products: _omit1, ...productOnly } = order || {};
+          order.products = [productOnly];
           order.add_order_quantity = order.order_quantity;
           acc.push(order);
         }
@@ -325,32 +335,50 @@ console.log(orderList);
         return acc;
       }, []);
 
-      // 주소 매핑: API 호출 후 order_app_id 매칭
+      // 주소 매핑: order_detail_app_id 기준 매칭 (각 상품에 주입, 헤더는 첫 상품으로 보강)
       try {
         const addrRes = await axios.post(
           `${process.env.REACT_APP_API_URL}/app/memberOrderAddress/selectMemberOrderAddress`,
           { center_id: user.index }
         );
         const addrRows = addrRes?.data?.result || [];
-        const addrByOrderId = new Map<number, any>();
+        const addrByDetailId = new Map<number, any>();
         (addrRows || []).forEach((row: any) => {
-          const oid = Number(row?.order_app_id);
-          if (!isNaN(oid) && !addrByOrderId.has(oid)) {
-            addrByOrderId.set(oid, row);
+          const did = Number(row?.order_detail_app_id);
+          if (!isNaN(did) && !addrByDetailId.has(did)) {
+            addrByDetailId.set(did, row);
           }
         });
         groupedOrders.forEach((g: any) => {
-          const a = addrByOrderId.get(Number(g?.order_app_id));
-          if (!a) return;
-          g.receiver_name = a.receiver_name;
-          g.receiver_phone = a.receiver_phone;
-          g.address = a.address;
-          g.address_detail = a.address_detail;
-          g.zip_code = a.zip_code;
-          g.delivery_request = a.delivery_request;
-          g.extra_zip_code = a.extra_zip_code;
-          g.enter_way = a.enter_way;
-          g.enter_memo = a.enter_memo;
+          if (Array.isArray(g.products) && g.products.length > 0) {
+            g.products = g.products.map((p: any) => {
+              const a = addrByDetailId.get(Number(p?.order_detail_app_id));
+              if (!a) return p;
+              return {
+                ...p,
+                receiver_name: a.receiver_name,
+                receiver_phone: a.receiver_phone,
+                address: a.address,
+                address_detail: a.address_detail,
+                zip_code: a.zip_code,
+                delivery_request: a.delivery_request,
+                extra_zip_code: a.extra_zip_code,
+                enter_way: a.enter_way,
+                enter_memo: a.enter_memo,
+              };
+            });
+            
+            const h = g.products[0] || {};
+            g.receiver_name = h.receiver_name ?? g.receiver_name;
+            g.receiver_phone = h.receiver_phone ?? g.receiver_phone;
+            g.address = h.address ?? g.address;
+            g.address_detail = h.address_detail ?? g.address_detail;
+            g.zip_code = h.zip_code ?? g.zip_code;
+            g.delivery_request = h.delivery_request ?? g.delivery_request;
+            g.extra_zip_code = h.extra_zip_code ?? g.extra_zip_code;
+            g.enter_way = h.enter_way ?? g.enter_way;
+            g.enter_memo = h.enter_memo ?? g.enter_memo;
+          }
         });
       } catch (e) {
         console.error('주소 매핑 오류:', e);
@@ -451,7 +479,6 @@ console.log(orderList);
               toCheckMap.set(key, { carrierId, trackingNumber });
             }
           });
-
         const query = `
           query Track($carrierId: ID!, $trackingNumber: String!) {
             track(carrierId: $carrierId, trackingNumber: $trackingNumber) {
@@ -495,12 +522,83 @@ console.log(orderList);
       } catch (error) {
         console.error('Delivery Tracker fetch error:', error);
       }
+
+      // Delivery Tracker 연동(반품): 고객 반품 운송장이 있고 상태가 RETURN_APPLY인 경우 delivered면 RETURN_GET으로 변경
+      try {
+        const mapCourierToCarrierId = (code: string): string => {
+          if (!code) return '';
+          const upper = code.toUpperCase();
+          if (upper === 'CJ') return 'kr.cjlogistics';
+          if (upper === 'HANJIN') return 'kr.hanjin';
+          if (upper === 'LOTTE') return 'kr.lotte';
+          if (upper === 'EPOST') return 'kr.epost';
+          if (upper === 'ROZEN' || upper === 'LOGEN') return 'kr.logen';
+          return '';
+        };
+
+        // 조회 대상: RETURN_APPLY + 고객 운송장 존재
+        const toCheckMap = new Map<string, { carrierId: string; trackingNumber: string }>();
+        (rawOrders || [])
+          .filter((o: any) => o?.order_status === 'RETURN_APPLY' && o?.customer_tracking_number)
+          .forEach((o: any) => {
+            const carrierId = mapCourierToCarrierId(o?.customer_courier_code || '');
+            if (!carrierId) return;
+            const trackingNumber = String(o.customer_tracking_number);
+            const key = `${carrierId}::${trackingNumber}`;
+            if (!toCheckMap.has(key)) {
+              toCheckMap.set(key, { carrierId, trackingNumber });
+            }
+          });
+
+        if (toCheckMap.size > 0) {
+          const query = `
+            query Track($carrierId: ID!, $trackingNumber: String!) {
+              track(carrierId: $carrierId, trackingNumber: $trackingNumber) {
+                state { id text }
+                progresses { status { id text } }
+              }
+            }
+          `;
+
+          const checks = Array.from(toCheckMap.values()).map(({ carrierId, trackingNumber }) =>
+            axios
+              .post(`${process.env.REACT_APP_API_URL}/app/delivery-tracker/graphql`, { query, variables: { carrierId, trackingNumber } })
+              .then((res) => ({ carrierId, trackingNumber, data: res.data }))
+              .catch((err) => ({ carrierId, trackingNumber, error: err }))
+          );
+
+        const results = await Promise.all(checks);
+
+        for (const r of results) {
+          if ((r as any).error) continue;
+          const stateId = (r as any).data?.data?.track?.state?.id || '';
+          const progresses = (r as any).data?.data?.track?.progresses || [];
+          const delivered = stateId === 'delivered' || (Array.isArray(progresses) && progresses.some((p: any) => p?.status?.id === 'delivered'));
+          if (!delivered) continue;
+
+          // 동일 운송장/택배사의 반품 접수 주문을 RETURN_GET으로 변경
+          const target = (rawOrders || []).filter((o: any) => {
+            const carrierId = mapCourierToCarrierId(o?.customer_courier_code || '');
+            return (
+              o?.order_status === 'RETURN_APPLY' &&
+              o?.customer_tracking_number && String(o.customer_tracking_number) === (r as any).trackingNumber &&
+              carrierId === (r as any).carrierId
+            );
+          });
+          for (const o of target) {
+            await fn_updateOrderStatus(o.order_detail_app_id, 'RETURN_GET');
+          }
+        }
+        }
+      } catch (error) {
+        console.error('Delivery Tracker return sync error:', error);
+      }
     } catch (err) {
       console.error("주문 목록 로딩 오류:", err);
     } finally {
     }
   };
-
+  
   // 메모 편집 팝업 열기
   const handleEditMemo = (orderId: number, currentMemo: string) => {
     setEditingOrderId(orderId);
@@ -814,6 +912,7 @@ console.log(orderList);
                               const id = p?.goodsflow_id;
                               return (typeof id === 'string' && id.trim() !== '') || (typeof id === 'number' && !isNaN(id));
                             });
+                            
                             return (
                               <div key={`order-${order.order_app_id}-group-${groupNo}`} className={`flex items-center mt-2 space-x-2 border border-gray-200 p-4 rounded-lg ${idx > 0 ? 'mt-4' : ''}`}>
                                 <div className="text-sm w-full">
@@ -885,7 +984,7 @@ console.log(orderList);
                                           );
                                         }
                                         return (
-                                          <p className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
+                                          <p className="text-sm font-semibold" style={{ color: '#0090D4' }}>
                                             <span
                                               className="cursor-pointer"
                                               onClick={() => {
@@ -901,28 +1000,33 @@ console.log(orderList);
                                         );
                                       })()
                                     )}
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <p className="font-medium">{order.receiver_name ? order.receiver_name : '-'}</p>
-                                      <p className="text-gray-500">{order.receiver_phone ? order.receiver_phone : '-'}</p>
-                                    </div>
-                                    <p className="mb-1">{order.zip_code? '(' + order.zip_code + ')' : '(-)'} {order.address ? order.address : '-'}{order.address_detail ? ' ' + order.address_detail : ''}</p>
-                                    <p className="text-gray-500">{order.delivery_request ? order.delivery_request : '-'}</p>
+                                    {/* 주소 표시는 상품별 영역에서 출력 */}
                                   </div>
 
-                                  <div className="mt-4">
+                                  <div>
                                     {groupItems.map((product: any, productIndex: number) => (
-                                      <div key={product.product_detail_app_id || `${groupNo}-${productIndex}`} className="flex items-start justify-between mb-3 last:mb-0">
-                                        <div className="flex items-start justify-between">
-                                          <img src={productImages.find(img => img.productAppId === product.product_app_id)?.imageUrl} alt="상품 이미지" className="w-12 h-12" />
-                                          <div className="ml-4">
-                                            <p className="text-xs text-gray-500">{product.order_dt}{product.order_app_id}-{product.product_detail_app_id || '00'}</p>
-                                            <p className="font-medium">{product.product_name}</p>
-                                            <p className="inline-block font-bold text-xs bg-gray-200 px-2 py-1 rounded-lg mt-2">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : '남성'}</p>
+                                      <div key={product.product_detail_app_id || `${groupNo}-${productIndex}`}>
+                                        <div className="mb-4 border-l-4 border-gray-200 pl-2 pt-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <p className="text-xs font-medium">{product?.receiver_name ? product.receiver_name : '-'}</p>
+                                            <p className="text-xs text-gray-500">{product?.receiver_phone ? product.receiver_phone : '-'}</p>
                                           </div>
+                                          <p className="text-xs">{product?.zip_code ? '(' + product.zip_code + ')' : '(-)'} {product?.address ? product.address : '-'}{product?.address_detail ? ' ' + product.address_detail : ''}</p>
+                                          <p className="text-xs text-gray-500">{product?.delivery_request ? product.delivery_request : '-'}</p>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                          <p>x {product.order_quantity}</p>
-                                          <p className="font-medium ml-4">{product.original_price.toLocaleString()} 원</p>
+                                        <div className="flex items-start justify-between mb-3 last:mb-0">
+                                          <div className="flex items-start justify-between">
+                                            <img src={productImages.find(img => img.productAppId === product.product_app_id)?.imageUrl} alt="상품 이미지" className="w-12 h-12" />
+                                            <div className="ml-4">
+                                              <p className="text-xs text-gray-500">{product.order_dt}{product.order_app_id}-{product.product_detail_app_id || '00'}</p>
+                                              <p className="font-medium">{product.product_name}</p>
+                                              <p className="inline-block font-bold text-xs bg-gray-200 px-2 py-1 rounded-lg mt-2">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : '남성'}</p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center justify-between">
+                                            <p>x {product.order_quantity}</p>
+                                            <p className="font-medium ml-4">{product.original_price.toLocaleString()} 원</p>
+                                          </div>
                                         </div>
                                       </div>
                                     ))}

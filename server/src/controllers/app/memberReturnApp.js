@@ -62,7 +62,7 @@ exports.insertMemberReturnApp = (req, res) => {
         reason,
         null,
         null,
-        null,
+        'CJ',
         null,
         quantity,
         null,
@@ -93,26 +93,36 @@ exports.insertMemberReturnApp = (req, res) => {
 // 반품/교환/취소 정보 수정
 exports.updateMemberReturnApp = (req, res) => {
   try {
-    const { order_detail_app_id, userId, return_reason_type, reason, quantity } = req.body;
+    const { order_detail_app_id, userId, return_reason_type, reason, quantity, order_address_id, approval_yn, cancel_yn } = req.body;
 
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
 
+    const setClause = [
+      "return_reason_type = ?",
+      "reason = ?",
+      "quantity = ?"
+    ];
+    const params = [return_reason_type, reason, quantity];
+
+    if (order_address_id !== undefined && order_address_id !== null) {
+      setClause.unshift("order_address_id = ?");
+      params.unshift(order_address_id);
+    }
+
+    setClause.push("approval_yn = ?", "cancel_yn = ?", "mod_dt = ?", "mod_id = ?");
+    params.push(approval_yn ?? null, cancel_yn ?? 'N', mod_dt, userId);
+    params.push(order_detail_app_id);
+
     const updateMemberReturnAppQuery = `
       UPDATE member_return_app SET
-        return_reason_type = ?
-        , reason = ?
-        , quantity = ?
-        , approval_yn = ?
-        , cancel_yn = ?
-        , mod_dt = ?
-        , mod_id = ?
+        ${setClause.join("\n        , ")}
       WHERE order_detail_app_id IN (?)
     `;
 
     db.query(
       updateMemberReturnAppQuery,
-      [return_reason_type, reason, quantity, null, null, mod_dt, userId, order_detail_app_id],
+      params,
       (err, result) => {
         if (err) {
           console.error("반품/교환/취소 정보 수정 오류:", err);

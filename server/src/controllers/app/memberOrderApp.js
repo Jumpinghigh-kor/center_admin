@@ -69,6 +69,11 @@ exports.selectMemberOrderAppList = (req, res) => {
         , mra.cancel_yn
         , mra.return_reason_type
         , mra.quantity
+        , mra.customer_tracking_number
+        , mra.company_tracking_number
+        , mra.customer_courier_code
+        , mra.company_courier_code
+        , mra.quantity AS return_quantity
         , CASE
             WHEN mra.return_applicator = 'ADMIN' THEN '판매자'
             ELSE '구매자'
@@ -661,11 +666,12 @@ exports.updateNewMemberOrderApp = (req, res) => {
       return Promise.resolve([]);
     };
 
+    const createdDetailIds = [];
     targetDetailIdsPromise()
       .then((detailIds) => {
         const processNext = (idx) => {
           if (idx >= detailIds.length) {
-            return res.status(200).json({ message: "주문 수량이 성공적으로 수정되었습니다." });
+            return res.status(200).json({ message: "주문 수량이 성공적으로 수정되었습니다.", createdDetailIds });
           }
 
           const targetDetailId = detailIds[idx];
@@ -679,6 +685,9 @@ exports.updateNewMemberOrderApp = (req, res) => {
               , moda.order_app_id
               , moda.product_detail_app_id
               , moda.order_status
+              , moda.courier_code AS source_courier_code
+              , moda.tracking_number AS source_tracking_number
+              , moda.goodsflow_id AS source_goodsflow_id
               , moda.order_quantity AS current_qty
               , moda.order_group AS original_group
               , (
@@ -708,6 +717,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
             const originalGroup = Number(info.original_group) || 1;
 
             // 1) 대상 상세를 취소 수량으로 축소하고, 신규 그룹으로 이동
+
             const updateDetailQuery = `
               UPDATE member_order_detail_app SET
                 order_quantity = ?
@@ -727,6 +737,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
 
                 // 2) 남은 수량이 있으면 동일 정보로 새 상세 생성 (원래 그룹으로 유지)
                 if (remainQty > 0) {
+
                   const insertDetailQuery = `
                     INSERT INTO member_order_detail_app (
                       order_app_id
@@ -747,9 +758,9 @@ exports.updateNewMemberOrderApp = (req, res) => {
                       , ?
                       , ?
                       , ?
-                      , NULL
-                      , NULL
-                      , NULL
+                      , ?
+                      , ?
+                      , ?
                       , ?
                       , ?
                       , NULL
@@ -764,15 +775,147 @@ exports.updateNewMemberOrderApp = (req, res) => {
                       info.order_status || 'PAYMENT_COMPLETE',
                       remainQty,
                       originalGroup,
+                      info.source_courier_code || null,
+                      info.source_tracking_number || null,
+                      info.source_goodsflow_id || null,
                       reg_dt,
                       userId,
                     ],
-                    (insErr) => {
+                    (insErr, insRes) => {
                       if (insErr) {
                         console.error("분할 주문 상세 생성 오류:", insErr);
                         return res.status(500).json({ error: "분할 주문 상세 생성 중 오류가 발생했습니다." });
                       }
-                      return processNext(idx + 1);
+
+                      // 새로 생성된 상세 주문 PK로 주소 복사 인서트 (기존 상세의 최신 주소값 사용)
+                      const newDetailId = (insRes && insRes.insertId) ? insRes.insertId : null;
+                      if (!newDetailId) {
+                        return processNext(idx + 1);
+                      }
+                      try { createdDetailIds.push(newDetailId); } catch (e) {}
+
+                      const insertAddressCopyQuery = `
+                        INSERT INTO member_order_address (
+                          order_detail_app_id
+                          , order_address_type
+                          , mem_id
+                          , receiver_name
+                          , receiver_phone
+                          , address
+                          , address_detail
+                          , zip_code
+                          , enter_way
+                          , enter_memo
+                          , delivery_request
+                          , use_yn
+                          , reg_dt
+                          , reg_id
+                          , mod_dt
+                          , mod_id
+                        )
+                        SELECT
+                          ?
+                          , 'ORDER'
+                          , IFNULL(moad.mem_id, '')
+                          , IFNULL(moad.receiver_name, '')
+                          , IFNULL(moad.receiver_phone, '')
+                          , IFNULL(moad.address, '')
+                          , IFNULL(moad.address_detail, '')
+                          , IFNULL(moad.zip_code, '')
+                          , moad.enter_way
+                          , moad.enter_memo
+                          , moad.delivery_request
+                          , 'Y'
+                          , ?
+                          , ?
+                          , NULL
+                          , NULL
+                        FROM member_order_address AS moad
+                        INNER JOIN member_order_detail_app moda ON moad.order_detail_app_id = moda.order_detail_app_id
+                        WHERE moda.order_app_id = ?
+                        ORDER BY (moad.order_detail_app_id = ?) DESC, moad.order_address_id DESC
+                        LIMIT 1
+                      `;
+
+                      db.query(
+                        insertAddressCopyQuery,
+                        [newDetailId, reg_dt, userId, info.order_app_id, targetDetailId],
+                        (addrErr, addrRes) => {
+                          if (addrErr) {
+                            console.error("신규 상세 주소 복사 등록 오류:", addrErr);
+                            // 주소 복사 실패해도 흐름은 계속 진행
+                            return processNext(idx + 1);
+                          }
+                          const affected = addrRes && addrRes.affectedRows ? addrRes.affectedRows : 0;
+                          if (affected > 0) {
+                            return processNext(idx + 1);
+                          }
+
+                          // Fallback: 동일 회원의 과거 주문 주소 중 최신 1건을 복사
+                          const selectMemIdQuery = `SELECT mem_id FROM member_order_app WHERE order_app_id = ? LIMIT 1`;
+                          db.query(selectMemIdQuery, [info.order_app_id], (memErr, memRows) => {
+                            if (memErr) {
+                              return processNext(idx + 1);
+                            }
+                            const memId = memRows && memRows[0] ? memRows[0].mem_id : null;
+                            if (!memId) {
+                              return processNext(idx + 1);
+                            }
+
+                            const insertFromMemberQuery = `
+                              INSERT INTO member_order_address (
+                                order_detail_app_id
+                                , order_address_type
+                                , receiver_name
+                                , receiver_phone
+                                , address
+                                , address_detail
+                                , zip_code
+                                , enter_way
+                                , enter_memo
+                                , delivery_request
+                                , use_yn
+                                , reg_dt
+                                , reg_id
+                                , mod_dt
+                                , mod_id
+                              )
+                              SELECT
+                                ?
+                                , 'ORDER'
+                                , IFNULL(moad.receiver_name, '')
+                                , IFNULL(moad.receiver_phone, '')
+                                , IFNULL(moad.address, '')
+                                , IFNULL(moad.address_detail, '')
+                                , IFNULL(moad.zip_code, '')
+                                , moad.enter_way
+                                , moad.enter_memo
+                                , moad.delivery_request
+                                , 'Y'
+                                , ?
+                                , ?
+                                , NULL
+                                , NULL
+                              FROM member_order_address moad
+                              INNER JOIN member_order_detail_app moda ON moad.order_detail_app_id = moda.order_detail_app_id
+                              INNER JOIN member_order_app moa ON moda.order_app_id = moa.order_app_id
+                              WHERE moa.mem_id = ?
+                              AND moad.use_yn = 'Y'
+                              ORDER BY moad.order_address_id DESC
+                              LIMIT 1
+                            `;
+
+                            db.query(
+                              insertFromMemberQuery,
+                              [newDetailId, reg_dt, userId, memId],
+                              (addr2Err, addr2Res) => {
+   
+                                return processNext(idx + 1);
+                              }
+                            );
+                          });
+                        }
+                      );
                     }
                   );
                 } else {
