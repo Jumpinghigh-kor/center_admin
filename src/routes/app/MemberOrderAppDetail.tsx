@@ -62,12 +62,10 @@ interface OrderDetail {
   free_shipping_amount: number;
   point_minus: number;
   order_group: number;
-  // 추가: 취소/반품 사유 및 신청자
   return_reason_type?: string;
   return_applicator?: string;
   return_quantity: number;
   point_use_amount: number;
-  point_refund_amount: number;
   payment_app_id?: number;
   quantity: number;
   return_dt: string;
@@ -76,6 +74,10 @@ interface OrderDetail {
   company_tracking_number: string;
   customer_courier_code: string;
   company_courier_code: string;
+  return_goodsflow_id: string;
+  delivery_fee_portone_imp_uid: string;
+  delivery_fee_portone_merchant_uid: string;
+  delivery_fee_payment_app_id: number;
 }
 
 interface CommonCode {
@@ -91,7 +93,11 @@ const MemberOrderAppDetail: React.FC = () => {
   const user = useUserStore((state) => state.user);
   
   // 화면/계산 공통에 사용하는 헬퍼 함수/상수 정의
-  const toStatus = (s: any) => String(s ?? '').trim().toUpperCase();
+  const toStatus = (s: any) => {
+    const u = String(s ?? '').trim().toUpperCase();
+    if (u === 'EXCHANGE_PAYMENT_COMPLETE') return 'PAYMENT_COMPLETE';
+    return u;
+  };
   const STATUS_SETS = {
     shippingVisible: new Set(['PAYMENT_COMPLETE', 'SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM']),
     discountExcluded: new Set(['CANCEL_COMPLETE', 'EXCHANGE_COMPLETE', 'RETURN_COMPLETE'])
@@ -136,6 +142,10 @@ const MemberOrderAppDetail: React.FC = () => {
   const [invoiceOrderIds, setInvoiceOrderIds] = useState<number[]>([]);
   const [goodsflowOrders, setGoodsflowOrders] = useState<any[]>([]);
   const [splitQtyByDetailId, setSplitQtyByDetailId] = useState<Record<number, number | ''>>({});
+  const [exchangeRequestedGroups, setExchangeRequestedGroups] = useState<Set<number>>(new Set());
+  const [isExchangePickupConfirmOpen, setIsExchangePickupConfirmOpen] = useState(false);
+  const [exchangePickupRefundChoice, setExchangePickupRefundChoice] = useState<'yes' | 'no'>('no');
+  const [exchangeTargetDetailIds, setExchangeTargetDetailIds] = useState<number[] | null>(null);
 
   useEffect(() => {
     if (user && user.index) {
@@ -250,6 +260,8 @@ const MemberOrderAppDetail: React.FC = () => {
               enter_memo: addressRow.enter_memo,
               delivery_request: addressRow.delivery_request,
               extra_zip_code: addressRow.extra_zip_code,
+              delivery_fee_portone_imp_uid: addressRow.delivery_fee_portone_imp_uid,
+              delivery_fee_portone_merchant_uid: addressRow.delivery_fee_portone_merchant_uid,
             }));
           }
           // base에도 동일 배송지 반영
@@ -264,6 +276,8 @@ const MemberOrderAppDetail: React.FC = () => {
             enter_memo: addressRow?.enter_memo ?? (base as any)?.enter_memo,
             delivery_request: addressRow?.delivery_request ?? (base as any)?.delivery_request,
             extra_zip_code: addressRow?.extra_zip_code ?? (base as any)?.extra_zip_code,
+            delivery_fee_portone_imp_uid: addressRow?.delivery_fee_portone_imp_uid ?? (base as any)?.delivery_fee_portone_imp_uid,
+            delivery_fee_portone_merchant_uid: addressRow?.delivery_fee_portone_merchant_uid ?? (base as any)?.delivery_fee_portone_merchant_uid,
           } as any;
         } catch (e) {
           console.error('주소 매핑 오류 (detail):', e);
@@ -338,6 +352,16 @@ const MemberOrderAppDetail: React.FC = () => {
         const deliveries = gfRes?.data?.data || [];
         if (!Array.isArray(deliveries) || deliveries.length === 0) return;
 
+        // 디버그: 굿스플로 배송상태 콘솔 출력
+        try {
+          console.log('[GF_DELIVERIES]', (deliveries || []).map((d: any) => ({
+            id: d?.id,
+            status: d?.status || d?.deliveryStatus || d?.state,
+            invoiceNo: d?.invoiceNo,
+            transporter: d?.transporter || d?.transporterCode
+          })));
+        } catch (_) {}
+
         // serviceId -> order_detail_app_id[] 매핑
         const serviceIdToDetailIds = new Map<string, number[]>();
         rows.forEach((r: any) => {
@@ -405,12 +429,179 @@ const MemberOrderAppDetail: React.FC = () => {
             return { ...prev, products: updatedProducts } as any;
           });
         }
+
+        // (제거됨) 굿스플로 delivered 기반 자동 배송완료 전환
       } catch (error) {
         console.error('Goodsflow deliveries fetch error (detail):', error);
+      }
+
+      // 반품용 굿스플로 조회: return_goodsflow_id로 고객 송장번호 동기화
+      try {
+        const returnRows: any[] = rows;
+        const returnIds: string[] = Array.from(new Set(
+          returnRows
+            .map((r: any) => String(r?.return_goodsflow_id || '').trim())
+            .filter((id: string) => id !== '')
+        ));
+        if (returnIds.length === 0) return;
+
+        // 이미 고객 송장번호가 모두 있는 경우 스킵
+        const hasAllCustomerTracking = returnRows
+          .filter((r: any) => String(r?.return_goodsflow_id || '').trim() !== '')
+          .every((r: any) => !!r?.customer_tracking_number && String(r.customer_tracking_number).trim() !== '');
+        if (hasAllCustomerTracking) return;
+
+        const gfRes2 = await axios.get(
+          `${process.env.REACT_APP_API_URL}/app/goodsflow/shipping/deliveries/${returnIds.join(',')}`,
+          { params: { idType: 'serviceId' } }
+        );
+        const deliveries2 = gfRes2?.data?.data || [];
+        if (!Array.isArray(deliveries2) || deliveries2.length === 0) return;
+
+        // 디버그: 굿스플로(반품/교환) 배송상태 콘솔 출력
+        try {
+          console.log('[GF_RETURN_DELIVERIES]', (deliveries2 || []).map((d: any) => ({
+            id: d?.id,
+            status: d?.status || d?.deliveryStatus || d?.state,
+            invoiceNo: d?.invoiceNo,
+            transporter: d?.transporter || d?.transporterCode
+          })));
+        } catch (_) {}
+
+        // serviceId -> order_detail_app_id[] 매핑(반품용)
+        const sidToDetailIds = new Map<string, number[]>();
+        returnRows.forEach((r: any) => {
+          const sid = String(r?.return_goodsflow_id || '').trim();
+          if (sid !== '' && typeof r?.order_detail_app_id === 'number') {
+            if (!sidToDetailIds.has(sid)) sidToDetailIds.set(sid, []);
+            sidToDetailIds.get(sid)!.push(r.order_detail_app_id);
+          }
+        });
+
+        const updateCalls2 = deliveries2
+          .filter((d: any) => d?.invoiceNo && d?.id && sidToDetailIds.has(d.id))
+          .flatMap((d: any) => {
+            const targetDetailIds = sidToDetailIds.get(d.id)!;
+            return targetDetailIds.map((detailId) => axios.post(
+              `${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnCustomerTrackingNumber`,
+              {
+                order_detail_app_id: [detailId],
+                customer_tracking_number: String(d.invoiceNo),
+                userId: user.index,
+              }
+            ));
+          });
+
+        if (updateCalls2.length > 0) {
+          await Promise.allSettled(updateCalls2);
+          // 로컬 상태 즉시 반영
+          setOrderDetail((prev) => {
+            if (!prev) return prev;
+            const updatedProducts = (prev.products || []).map((p: any) => {
+              const match = deliveries2.find((d: any) => d?.invoiceNo && sidToDetailIds.get(d.id || '')?.includes(p?.order_detail_app_id));
+              if (!match) return p;
+              return { ...p, customer_tracking_number: String(match.invoiceNo) };
+            });
+            return { ...prev, products: updatedProducts } as any;
+          });
+        }
+      } catch (error) {
+        console.error('Goodsflow return deliveries fetch error (detail):', error);
       }
     };
 
     syncGoodsflowDeliveries();
+
+    // Delivery Tracker 연동: 운송장(택배사/번호)로 배송상태 조회 후 delivered면 배송완료 처리 (반품/교환 제외)
+    const syncDeliveryTracker = async () => {
+      try {
+        const od = orderDetail;
+        if (!od) return;
+        const rows: any[] = Array.isArray(od.products) && od.products.length > 0
+          ? od.products
+          : [od as any];
+
+        // key: companyName|trackingNumber → detailIds
+        const pairToDetailIds = new Map<string, number[]>();
+        const pairs: Array<{ companyName: string; trackingNumber: string; key: string }> = [];
+        rows.forEach((r: any) => {
+          const trackingNumber = String(r?.tracking_number || '').trim();
+          const companyName = String(r?.order_courier_code || r?.courier_code || '').trim();
+          if (trackingNumber && companyName && typeof r?.order_detail_app_id === 'number') {
+            const key = `${companyName}|${trackingNumber}`;
+            if (!pairToDetailIds.has(key)) {
+              pairToDetailIds.set(key, []);
+              pairs.push({ companyName, trackingNumber, key });
+            }
+            pairToDetailIds.get(key)!.push(r.order_detail_app_id);
+          }
+          // 추가: 교환 배송용 회사 송장/택배사도 딜리버리 트래킹 대상으로 포함
+          const exTrackingNumber = String(r?.company_tracking_number || '').trim();
+          const exCompanyName = String(r?.company_courier_code || '').trim();
+          if (exTrackingNumber && exCompanyName && typeof r?.order_detail_app_id === 'number') {
+            const exKey = `${exCompanyName}|${exTrackingNumber}`;
+            if (!pairToDetailIds.has(exKey)) {
+              pairToDetailIds.set(exKey, []);
+              pairs.push({ companyName: exCompanyName, trackingNumber: exTrackingNumber, key: exKey });
+            }
+            pairToDetailIds.get(exKey)!.push(r.order_detail_app_id);
+          }
+        });
+        if (pairs.length === 0) return;
+
+        // 현재 상태 맵
+        const detailIdToStatus = new Map<number, string>();
+        rows.forEach((r: any) => {
+          if (typeof r?.order_detail_app_id === 'number' && typeof r?.order_status === 'string') {
+            detailIdToStatus.set(r.order_detail_app_id, r.order_status);
+          }
+        });
+
+        // 병렬 조회
+        const calls = pairs.map((p) => axios.post(`${process.env.REACT_APP_API_URL}/app/trackingService/trackingService`, {
+          companyName: p.companyName,
+          trackingNumber: p.trackingNumber
+        }));
+        const results = await Promise.allSettled(calls);
+
+        const deliveredDetailIds: number[] = [];
+        results.forEach((res, idx) => {
+          if (res.status !== 'fulfilled') return;
+          const body: any = res.value?.data || {};
+          const ok = body?.success;
+          const statusName = String(body?.data?.status || '').toUpperCase();
+          const statusCode = String(body?.data?.statusCode || '').toUpperCase();
+          const isDelivered = statusName.includes('DELIVER') || statusCode === 'DELIVERED';
+          if (!ok || !isDelivered) return;
+          const key = pairs[idx].key;
+          const ids = pairToDetailIds.get(key) || [];
+          deliveredDetailIds.push(...ids);
+        });
+
+        const uniqueDelivered = Array.from(new Set(deliveredDetailIds));
+        const exchangeCandidates = uniqueDelivered.filter((id) => {
+          const cur = String(toStatus(detailIdToStatus.get(id) || '')).toUpperCase();
+          return cur === 'EXCHANGE_SHIPPINGING';
+        });
+        const shippingCandidates = uniqueDelivered.filter((id) => {
+          const cur = String(toStatus(detailIdToStatus.get(id) || '')).toUpperCase();
+          if (cur.includes('RETURN') || cur.includes('EXCHANGE')) return false;
+          if (cur === 'SHIPPING_COMPLETE' || cur === 'PURCHASE_CONFIRM') return false;
+          return true;
+        });
+
+        if (exchangeCandidates.length > 0) {
+          await fn_updateOrderStatusWithParams(exchangeCandidates, 'EXCHANGE_SHIPPING_COMPLETE');
+        }
+        if (shippingCandidates.length > 0) {
+          await fn_updateOrderStatusWithParams(shippingCandidates, 'SHIPPING_COMPLETE');
+        }
+      } catch (e) {
+        console.error('Delivery Tracker 연동 오류:', e);
+      }
+    };
+
+    syncDeliveryTracker();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.index, orderDetail?.order_app_id]);
 
@@ -469,8 +660,6 @@ const MemberOrderAppDetail: React.FC = () => {
     return list.filter((p: any) => mapStatusToTab(p?.order_status) === selectedTab);
   }, [orderDetail?.products, selectedTab]);
 
-  const hasVisibleProducts = useMemo(() => visibleProducts.length > 0, [visibleProducts]);
-
   // 그룹별( order_group ) 묶음 구성: { product, index } 형태로 글로벌 인덱스 유지
   const groupedVisibleProducts = useMemo(() => {
     const groupMap = new Map<number, Array<{ product: any; index: number }>>();
@@ -498,14 +687,6 @@ const MemberOrderAppDetail: React.FC = () => {
     }
     return list.reduce((sum: number, p: any) => sum + ((p?.price || 0) * (p?.order_quantity || 0)), 0);
   }, [orderDetail]);
-
-  // 결제정보의 "상품 금액": 배송대기/배송중/배송완료/구매확정만 합산 (price * order_quantity)
-  const productAmountForShownStatuses = useMemo(() => {
-    const list: any[] = orderDetail?.products || [];
-    return list
-      .filter((p: any) => STATUS_SETS.shippingVisible.has(toStatus(p?.order_status)))
-      .reduce((sum: number, p: any) => sum + (Number(p?.original_price || 0) * Number(p?.order_quantity || 0)), 0);
-  }, [orderDetail?.products]);
 
   // 결제정보의 "할인": 취소완료/교환완료/반품완료 제외, (원가-판매가)*수량 합
   const discountForActiveStatuses = useMemo(() => {
@@ -630,38 +811,78 @@ const MemberOrderAppDetail: React.FC = () => {
       const orderAppIds: number[] = (invoiceOrderIds && invoiceOrderIds.length > 0)
         ? Array.from(new Set(invoiceOrderIds))
         : Array.from(new Set((orderDetail?.products || []).map((p: any) => p?.order_detail_app_id).filter((v: any) => v != null)));
-      // 굿스플로 취소 API 함께 호출 (해당 대상의 goodsflow_id 기준)
+      // 굿스플로 취소 API 함께 호출
       const rows: any[] = Array.isArray(orderDetail?.products) && ((orderDetail?.products?.length || 0) > 0)
         ? (orderDetail?.products as any[])
         : (orderDetail ? [orderDetail as any] : []);
-      const serviceIds: string[] = Array.from(new Set(
+      // 1) 교환/반품 수거 취소: return_goodsflow_id 사용
+      const returnGoodsflowIdsForCancel: string[] = Array.from(new Set(
         (rows || [])
           .filter((r: any) => orderAppIds.includes(r?.order_detail_app_id))
-          .map((r: any) => r?.goodsflow_id)
-          .filter((id: any) => typeof id === 'string' && String(id).trim() !== '')
+          .map((r: any) => String(r?.return_goodsflow_id || '').trim())
+          .filter((id: any) => id !== '')
       ));
-      if (serviceIds.length > 0) {
-        await axios.delete(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/cancel`, {
-          data: {
-            items: serviceIds.map((id: string) => ({ id, reasonType: 'OTHER_SERVICE', contents: '고객취소' }))
-          }
-        });
-      }
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/memberOrderApp/deleteTrackingNumber`,
-        {
-          order_detail_app_id: (orderAppIds.length > 0 ? orderAppIds : [orderDetail?.order_detail_app_id]).filter((id) => id != null),
-          userId: user?.index
+      if (returnGoodsflowIdsForCancel.length > 0) {
+        const payload = {
+          items: returnGoodsflowIdsForCancel.map((id: string) => ({ id, reasonType: 'OTHER_SERVICE', contents: '교환/반품 송장 삭제' }))
+        };
+        try {
+          await axios.delete(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/cancel`, { data: payload });
+        } catch (gfErr) {
+          console.error('[GF_CANCEL] deleteTracking (return): error', gfErr);
         }
-      );
+        try {
+          await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+            order_detail_app_id: orderAppIds,
+            return_goodsflow_id: null,
+            userId: user?.index,
+          });
+        } catch (e) {
+          console.error('return_goodsflow_id 초기화 오류 (delete):', e);
+        }
+      }
+      // 2) 주문(출고) 취소: goodsflow_id 사용
+      const goodsflowIdsForCancel: string[] = Array.from(new Set(
+        (rows || [])
+          .filter((r: any) => orderAppIds.includes(r?.order_detail_app_id))
+          .map((r: any) => String(r?.goodsflow_id || '').trim())
+          .filter((id: any) => id !== '')
+      ));
       
-      if (response.data.message) {
+      if (goodsflowIdsForCancel.length > 0) {
+        const payload = {
+          items: goodsflowIdsForCancel.map((id: string) => ({ id, reasonType: 'OTHER_SERVICE', contents: '고객취소' }))
+        };
+        
+        try {
+          const gfCancelRes = await axios.delete(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/cancel`, { data: payload });
+          
+        } catch (gfErr) {
+          console.error('[GF_CANCEL] deleteTracking: error', gfErr);
+        }
+      }
+      // EXCHANGE_PAYMENT_COMPLETE 상태에서는 member_order_app 송장/택배사/굿스플로를 null로 만들지 않도록 서버 호출을 생략
+      let response: any = { data: {} };
+      const isAnyExchangePayment = (rows || []).some((r: any) => orderAppIds.includes(r?.order_detail_app_id) && String(r?.order_status || '').toUpperCase() === 'EXCHANGE_PAYMENT_COMPLETE');
+      if (!isAnyExchangePayment) {
+        response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/memberOrderApp/deleteTrackingNumber`,
+          {
+            order_detail_app_id: (orderAppIds.length > 0 ? orderAppIds : [orderDetail?.order_detail_app_id]).filter((id) => id != null),
+            userId: user?.index
+          }
+        );
+      }
+      
+      if (!isAnyExchangePayment ? response.data.message : true) {
         // 주문 정보 업데이트: 해당 order_app_id만 비우기
         setOrderDetail(prev => {
           if (!prev) return prev;
           const updatedProducts = (prev.products || []).map((p: any) =>
             orderAppIds.includes(p?.order_detail_app_id)
-              ? { ...p, tracking_number: '', order_courier_code: '', courier_code: '', goodsflow_id: '' }
+              ? (String(p?.order_status || '').toUpperCase() === 'EXCHANGE_PAYMENT_COMPLETE'
+                  ? { ...p, return_goodsflow_id: '', company_tracking_number: '', company_courier_code: '' }
+                  : { ...p, tracking_number: '', order_courier_code: '', courier_code: '', goodsflow_id: '', return_goodsflow_id: '' })
               : p
           );
           return { ...prev, products: updatedProducts } as any;
@@ -670,7 +891,9 @@ const MemberOrderAppDetail: React.FC = () => {
         if (location.state?.orderDetail) {
           const updatedProducts = (location.state.orderDetail.products || []).map((p: any) =>
             orderAppIds.includes(p?.order_detail_app_id)
-              ? { ...p, tracking_number: '', order_courier_code: '', courier_code: '', goodsflow_id: '' }
+              ? (String(p?.order_status || '').toUpperCase() === 'EXCHANGE_PAYMENT_COMPLETE'
+                  ? { ...p, return_goodsflow_id: '', company_tracking_number: '', company_courier_code: '' }
+                  : { ...p, tracking_number: '', order_courier_code: '', courier_code: '', goodsflow_id: '', return_goodsflow_id: '' })
               : p
           );
           navigate(location.pathname, {
@@ -737,9 +960,17 @@ const MemberOrderAppDetail: React.FC = () => {
           if (invoiceOrderIds.includes(p?.order_detail_app_id)) {
             return {
               ...p,
-              tracking_number: trackingNumber || p.tracking_number,
-              order_courier_code: courierCode || p.order_courier_code,
-              courier_code: courierCode || p.courier_code,
+              // EXCHANGE 계열은 회사 송장 정보로 반영
+              ...(String(p?.order_status || '').toUpperCase().startsWith('EXCHANGE')
+                ? {
+                    company_tracking_number: trackingNumber || p.company_tracking_number,
+                    company_courier_code: courierCode || p.company_courier_code,
+                  }
+                : {
+                    tracking_number: trackingNumber || p.tracking_number,
+                    order_courier_code: courierCode || p.order_courier_code,
+                    courier_code: courierCode || p.courier_code,
+                  }),
               order_status: shouldUpdateStatus ? 'SHIPPINGING' : p.order_status
             };
           }
@@ -757,9 +988,16 @@ const MemberOrderAppDetail: React.FC = () => {
           if (invoiceOrderIds.includes(p?.order_detail_app_id)) {
             return {
               ...p,
-              tracking_number: trackingNumber || p.tracking_number,
-              order_courier_code: courierCode || p.order_courier_code,
-              courier_code: courierCode || p.courier_code,
+              ...(String(p?.order_status || '').toUpperCase().startsWith('EXCHANGE')
+                ? {
+                    company_tracking_number: trackingNumber || p.company_tracking_number,
+                    company_courier_code: courierCode || p.company_courier_code,
+                  }
+                : {
+                    tracking_number: trackingNumber || p.tracking_number,
+                    order_courier_code: courierCode || p.order_courier_code,
+                    courier_code: courierCode || p.courier_code,
+                  }),
               order_status: shouldUpdateStatus ? 'SHIPPINGING' : p.order_status
             };
           }
@@ -787,9 +1025,16 @@ const MemberOrderAppDetail: React.FC = () => {
     if (orderDetail) {
       setOrderDetail(prev => prev ? {
         ...prev,
-        tracking_number: trackingNumber || prev.tracking_number,
-        courier_code: courierCode || prev.courier_code,
-        order_courier_code: courierCode || prev.order_courier_code,
+        ...(String(prev?.order_status || '').toUpperCase().startsWith('EXCHANGE')
+          ? {
+              company_tracking_number: trackingNumber || (prev as any).company_tracking_number,
+              company_courier_code: courierCode || (prev as any).company_courier_code,
+            }
+          : {
+              tracking_number: trackingNumber || prev.tracking_number,
+              courier_code: courierCode || prev.courier_code,
+              order_courier_code: courierCode || prev.order_courier_code,
+            }),
         order_status: shouldUpdateStatus ? 'SHIPPINGING' : prev.order_status
       } : null);
 
@@ -799,9 +1044,16 @@ const MemberOrderAppDetail: React.FC = () => {
             ...location.state,
             orderDetail: {
               ...location.state.orderDetail,
-              tracking_number: trackingNumber || location.state.orderDetail.tracking_number,
-              courier_code: courierCode || location.state.orderDetail.courier_code,
-              order_courier_code: courierCode || location.state.orderDetail.order_courier_code,
+              ...(String(location.state.orderDetail?.order_status || '').toUpperCase().startsWith('EXCHANGE')
+                ? {
+                    company_tracking_number: trackingNumber || (location.state.orderDetail as any).company_tracking_number,
+                    company_courier_code: courierCode || (location.state.orderDetail as any).company_courier_code,
+                  }
+                : {
+                    tracking_number: trackingNumber || location.state.orderDetail.tracking_number,
+                    courier_code: courierCode || location.state.orderDetail.courier_code,
+                    order_courier_code: courierCode || location.state.orderDetail.order_courier_code,
+                  }),
               order_status: shouldUpdateStatus ? 'SHIPPINGING' : location.state.orderDetail.order_status
             }
           },
@@ -874,7 +1126,7 @@ const MemberOrderAppDetail: React.FC = () => {
                 const list: any[] = Array.isArray(orderDetail?.products) ? orderDetail!.products : [];
                 const isCancelable = (status: any) => {
                   const statusCode = String(status ?? '').trim().toUpperCase();
-                  return !(statusCode === 'SHIPPINGING' || statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM' || statusCode === 'CANCEL_COMPLETE');
+                  return !(statusCode === 'SHIPPINGING' || statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM' || statusCode === 'CANCEL_COMPLETE' || statusCode.startsWith('EXCHANGE_'));
                 };
                 if (list.length > 0) {
                   return !list.some(p => isCancelable(p?.order_status));
@@ -1007,10 +1259,17 @@ const MemberOrderAppDetail: React.FC = () => {
               const unifiedTrackingNumber = hasUnifiedTracking ? unifiedTrackingNumbers[0] : null;
               const displayCourierCode = unifiedCouriers.length >= 1 ? unifiedCouriers[0] : null;
               const groupHasGoodsflowId = items.some(i => String(i.product?.goodsflow_id || '').trim() !== '');
+              const groupHasReturnGoodsflowId = items.some(i => String(i.product?.return_goodsflow_id || '').trim() !== '');
               const groupHasAnyTracking = items.some(i => {
                 const t = useCustomerTracking ? i.product?.customer_tracking_number : i.product?.tracking_number;
                 return String(t || '').trim() !== '';
               });
+              const hasExchangeCompanyTracking = (() => {
+                const s = String(groupStatus || '').toUpperCase();
+                if (s !== 'EXCHANGE_PAYMENT_COMPLETE') return false;
+                // 그룹 내 모든 항목에 회사 송장/택배사가 존재해야 배송중 처리 버튼 활성화
+                return items.every(i => String(i?.product?.company_tracking_number || '').trim() !== '' && String(i?.product?.company_courier_code || '').trim() !== '');
+              })();
               const groupReasonType = (() => {
                 const found = items.map(i => i.product?.return_reason_type).find((v: any) => v != null && String(v).trim() !== '');
                 return found ?? orderDetail?.return_reason_type;
@@ -1033,7 +1292,7 @@ const MemberOrderAppDetail: React.FC = () => {
                           {items.length}
                         </span>
                       </h2>
-                      {groupStatus !== 'CANCEL_COMPLETE' && groupStatus !== 'RETURN_COMPLETE' && (
+                      {groupStatus !== 'CANCEL_COMPLETE' && groupStatus !== 'RETURN_COMPLETE' && groupStatus !== 'EXCHANGE_COMPLETE' && groupStatus !== 'EXCHANGE_SHIPPINGING' && groupStatus !== 'EXCHANGE_SHIPPING_COMPLETE' && (
                         <div className="relative detail-actions-dropdown">
                           <button
                             className="text-gray-600"
@@ -1045,7 +1304,30 @@ const MemberOrderAppDetail: React.FC = () => {
                           </button>
                           {openDetailActionsGroup === groupNo && (
                             <div className="py-2 px-4 absolute top-full font-medium text-gray-800 left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                              {groupStatus === 'RETURN_APPLY' ? (
+                              {String(groupStatus || '').toUpperCase() === 'EXCHANGE_PAYMENT_COMPLETE' ? (
+                                <>
+                                  <button
+                                    className="w-full py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={() => {
+                                      setOpenDetailActionsGroup(null);
+                                      setInvoiceOrderIds(groupOrderDetailAppIds);
+                                      setIsInvoicePopupOpen(true);
+                                    }}
+                                  >
+                                    송장번호 수정
+                                  </button>
+                                  <button
+                                    className="w-full py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={() => {
+                                      setOpenDetailActionsGroup(null);
+                                      setInvoiceOrderIds(groupOrderDetailAppIds);
+                                      setIsDeleteConfirmOpen(true);
+                                    }}
+                                  >
+                                    송장번호 삭제
+                                  </button>
+                                </>
+                              ) : groupStatus === 'RETURN_APPLY' ? (
                                 <button
                                   className="w-full py-2 text-left text-sm hover:bg-gray-50"
                                   onClick={async () => {
@@ -1097,6 +1379,8 @@ const MemberOrderAppDetail: React.FC = () => {
                                       onClick={async () => {
                                         setOpenDetailActionsGroup(null);
                                         await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'HOLD');
+                                        // 배송보류 설정 시 하단 토스트가 뜨지 않도록 즉시 숨김
+                                        setIsToastVisible(false);
                                       }}
                                     >
                                       배송보류 설정
@@ -1189,7 +1473,7 @@ const MemberOrderAppDetail: React.FC = () => {
                     <div className="mb-2 px-4">
                       <p className="text-sm text-gray-600">{orderDetail?.order_dt}{orderDetail?.order_app_id} · {formatDate(orderDetail?.order_dt || '')}</p>
                     </div>
-                    {(groupStatus === 'RETURN_APPLY' || groupStatus === 'CANCEL_COMPLETE') && (
+                    {(groupStatus === 'RETURN_APPLY' || groupStatus === 'RETURN_GET' || groupStatus === 'RETURN_COMPLETE' || groupStatus === 'CANCEL_COMPLETE' || groupStatus === 'EXCHANGE_APPLY' || groupStatus === 'EXCHANGE_GET' || groupStatus === 'EXCHANGE_COMPLETE') && (
                       <div className="px-4 mb-3">
                         <div className="text-sm font-semibold p-3 bg-gray-50 border-l-4 border-gray-300">
                           <p>
@@ -1199,24 +1483,137 @@ const MemberOrderAppDetail: React.FC = () => {
                       </div>
                     )}
 
-                    {(
-                      (useCustomerTracking && (displayCourierCode || unifiedTrackingNumber)) ||
-                      (!useCustomerTracking && unifiedTrackingNumber && displayCourierCode)
-                    ) && (
-                      <div className="px-4 mb-4 flex justify-start items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-10 text-blue-400">
-                          <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
-                          <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
-                          <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
-                        </svg>
-                        {displayCourierCode && (
-                          <p className="font-bold text-sm text-gray-600 mr-1 ml-1" style={{color: '#0090D4'}}>{getDeliveryCompanyName(String(displayCourierCode))}</p>
-                        )}
-                        {unifiedTrackingNumber && (
-                          <p className="font-bold text-sm text-gray-600" style={{color: '#0090D4'}}>{unifiedTrackingNumber}</p>
-                        )}
-                      </div>
-                    )}
+                    {(() => {
+                      const codeUpper = String(groupStatus || '').toUpperCase();
+                      if (codeUpper === 'EXCHANGE_PAYMENT_COMPLETE' || codeUpper === 'EXCHANGE_SHIPPINGING' || codeUpper === 'EXCHANGE_SHIPPING_COMPLETE') {
+                        const hasReturnGfId = (items || []).some(i => String(i?.product?.return_goodsflow_id || '').trim() !== '');
+                        const exCompanyCode = (() => {
+                          const vals = Array.from(new Set((items || []).map(i => String(i?.product?.company_courier_code || '').trim()).filter(v => v !== '')));
+                          return vals[0] || '';
+                        })();
+                        const exCompanyTracking = (() => {
+                          const vals = Array.from(new Set((items || []).map(i => String(i?.product?.company_tracking_number || '').trim()).filter(v => v !== '')));
+                          return vals[0] || '';
+                        })();
+                        if (exCompanyCode && exCompanyTracking) {
+                          return (
+                            <div className="px-4 mb-4 flex justify-start items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-10 text-blue-400">
+                                <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                                <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                                <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                              </svg>
+                              <p className="font-bold text-sm text-gray-600 mr-1 ml-1" style={{color: '#0090D4'}}>{getDeliveryCompanyName(String(exCompanyCode))}</p>
+                              <p className="font-bold text-sm text-gray-600" style={{color: '#0090D4'}}>{exCompanyTracking}</p>
+                            </div>
+                          );
+                        }
+                        if (codeUpper === 'EXCHANGE_PAYMENT_COMPLETE' && hasReturnGfId && exCompanyCode && !exCompanyTracking) {
+                          return (
+                            <div className="px-4 mb-4">
+                              <div className="flex justify-start items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-10 text-blue-400">
+                                  <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25Z" />
+                                  <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                                  <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                                </svg>
+                                <p className="font-bold text-sm text-gray-600 mr-1 ml-1" style={{color: '#0090D4'}}>{getDeliveryCompanyName(String(exCompanyCode))}</p>
+                              </div>
+                              <p className="text-sm font-semibold" style={{color: '#0090D4'}}>
+                                굿스플로에서 송장번호를 받아오는 중입니다<br/>
+                                (송장 출력을 하지 않았다면 송장삭제를 해주세요)
+                              </p>
+                            </div>
+                          );
+                        }
+                        if (codeUpper === 'EXCHANGE_PAYMENT_COMPLETE' && hasReturnGfId && !exCompanyCode && !exCompanyTracking) {
+                          return (
+                            <div className="px-4 mb-4 flex justify-start items-center gap-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-10 text-gray-400">
+                                <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                                <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                                <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                              </svg>
+                              <p className="text-sm text-gray-500">({orderDetail?.zip_code || '-'}) {orderDetail?.address || '-'}{orderDetail?.address_detail ? ` ${orderDetail.address_detail}` : ''}</p>
+                            </div>
+                          );
+                        }
+                        if (hasReturnGfId) {
+                          return (
+                            <div className="px-4 mb-4">
+                              <p className="text-sm font-semibold" style={{color: '#0090D4'}}>
+                                굿스플로에서 송장번호를 받아오는 중입니다<br/>
+                                (송장 출력을 하지 않았다면 송장삭제를 해주세요)
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }
+                      if (codeUpper === 'EXCHANGE_APPLY') {
+                        const exCustomerCode = (() => {
+                          const vals = Array.from(new Set((items || []).map(i => String(i?.product?.customer_courier_code || '').trim()).filter(v => v !== '')));
+                          return vals[0] || '';
+                        })();
+                        const exCustomerTracking = (() => {
+                          const vals = Array.from(new Set((items || []).map(i => String(i?.product?.customer_tracking_number || '').trim()).filter(v => v !== '')));
+                          return vals[0] || '';
+                        })();
+                        if (exCustomerCode && exCustomerTracking) {
+                          return (
+                            <div className="px-4 mb-4 flex justify-start items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-10 text-blue-400">
+                                <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                                <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                                <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                              </svg>
+                              <p className="font-bold text-sm text-gray-600 mr-1 ml-1" style={{color: '#0090D4'}}>{getDeliveryCompanyName(String(exCustomerCode))}</p>
+                              <p className="font-bold text-sm text-gray-600" style={{color: '#0090D4'}}>{exCustomerTracking}</p>
+                            </div>
+                          );
+                        }
+                      }
+                      const isReturnOrExchange = codeUpper.includes('RETURN') || codeUpper.includes('EXCHANGE');
+                      if (isReturnOrExchange) {
+                        const customerTrackingForGroup = (() => {
+                          try {
+                            const vals = Array.from(new Set((items || []).map(i => String(i?.product?.customer_tracking_number || '').trim()).filter(v => v !== '')));
+                            return vals[0] || String(orderDetail?.customer_tracking_number || '').trim();
+                          } catch (_) {
+                            return String(orderDetail?.customer_tracking_number || '').trim();
+                          }
+                        })();
+                        return (
+                          <div className="px-4 mb-4 flex justify-start items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-10 text-gray-300">
+                              <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                              <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                              <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                            </svg>
+                            <p className="text-sm text-blue-500 font-semibold">{orderDetail?.customer_courier_code || ''}{customerTrackingForGroup ? ` ${customerTrackingForGroup}` : ''}</p>
+                            <p className="text-sm text-gray-500">({orderDetail?.zip_code || '-'}) {orderDetail?.address || '-'}{orderDetail?.address_detail ? ` ${orderDetail.address_detail}` : ''}</p>
+                          </div>
+                        );
+                      }
+                      if ((useCustomerTracking && (displayCourierCode || unifiedTrackingNumber)) || (!useCustomerTracking && unifiedTrackingNumber && displayCourierCode)) {
+                        return (
+                          <div className="px-4 mb-4 flex justify-start items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-10 text-blue-400">
+                              <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                              <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                              <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                            </svg>
+                            {displayCourierCode && (
+                              <p className="font-bold text-sm text-gray-600 mr-1 ml-1" style={{color: '#0090D4'}}>{getDeliveryCompanyName(String(displayCourierCode))}</p>
+                            )}
+                            {unifiedTrackingNumber && (
+                              <p className="font-bold text-sm text-gray-600" style={{color: '#0090D4'}}>{unifiedTrackingNumber}</p>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {!hasUnifiedTracking && groupHasGoodsflowId && !groupHasAnyTracking && (
                       <div className="px-4 mb-4">
@@ -1236,7 +1633,7 @@ const MemberOrderAppDetail: React.FC = () => {
                         <div className="text-center py-6 text-gray-500">조회내용이 없습니다.</div>
                       ) : (
                         items.map(({ product, index }, productIndex: number) => (
-                          <div className={`flex items-center gap-4 px-6 py-3 ${productIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`} key={`${product?.order_app_id}-${product?.product_detail_app_id ?? productIndex}`}>
+                          <div className={`flex items-center gap-4 px-6 py-3 ${productIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`} key={`${groupNo}-${productIndex}-${product?.order_app_id}-${product?.product_detail_app_id ?? 'no-detail'}`}>
                             <div className="flex items-center gap-4 relative">
                               {((isMergeMode && activeMergeGroup !== null && groupNo !== activeMergeGroup) || (isSplitMode && activeSplitGroup === groupNo)) && (
                                 <input
@@ -1293,7 +1690,7 @@ const MemberOrderAppDetail: React.FC = () => {
                       )}
                     </div>
 
-                    {(groupStatus !== 'SHIPPING_COMPLETE' && groupStatus !== 'PURCHASE_CONFIRM' && groupStatus !== 'CANCEL_COMPLETE' && groupStatus !== 'RETURN_COMPLETE') && (
+                    {(groupStatus !== 'SHIPPING_COMPLETE' && groupStatus !== 'PURCHASE_CONFIRM' && groupStatus !== 'CANCEL_COMPLETE' && groupStatus !== 'RETURN_COMPLETE' && groupStatus !== 'EXCHANGE_COMPLETE') && (
                       <div className="mt-8">
                         <div className="flex items-center justify-end">
                           <div className="relative tracking-dropdown mb-6 mr-6">
@@ -1318,7 +1715,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                     navigate('/app/memberOrderAppReturn', {
                                       state: {
                                         orderDetail: enhancedOrderDetail,
-                                        actionType: 'return',
+                                        actionType: 'cancel',
                                         startStep: 3,
                                         selectedOrderAppIds: groupOrderDetailAppIds
                                       }
@@ -1328,13 +1725,215 @@ const MemberOrderAppDetail: React.FC = () => {
                                   취소승인
                                 </button>
                               </div>
+                            ) : groupStatus === 'EXCHANGE_APPLY' ? (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  className="px-4 py-2 text-gray-700 hover:border-black text-sm rounded-lg border border-gray-300"
+                                  onClick={async () => {
+                                    // 반품 거절과 동일: 굿스플로 취소, return_goodsflow_id/customer_tracking_number 초기화, 상태 배송완료
+                                    try {
+                                      // 굿스플로 취소 (serviceId: return_goodsflow_id 우선)
+                                      try {
+                                        const returnGoodsflowIds: string[] = Array.from(new Set(
+                                          (items || [])
+                                            .map(i => String((i?.product?.return_goodsflow_id)).trim())
+                                            .filter(id => id !== '')
+                                        ));
+                                        
+                                        if (returnGoodsflowIds.length > 0) {
+                                          await axios.delete(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/cancel`, {
+                                            data: {
+                                              items: returnGoodsflowIds.map((id: string) => ({ id, reasonType: 'OTHER_SERVICE', contents: '교환 취소' }))
+                                            }
+                                          });
+                                        }
+                                      } catch (gfErr) {
+                                        console.error('굿스플로 교환취소 호출 오류:', gfErr);
+                                      }
+                                      try {
+                                        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+                                          order_detail_app_id: groupOrderDetailAppIds,
+                                          return_goodsflow_id: null,
+                                          userId: user?.index,
+                                        });
+                                      } catch (e) {
+                                        console.error('return_goodsflow_id 초기화 오류:', e);
+                                      }
+                                      try {
+                                        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnCustomerTrackingNumber`, {
+                                          order_detail_app_id: groupOrderDetailAppIds,
+                                          customer_tracking_number: null,
+                                          userId: user?.index,
+                                        });
+                                      } catch (e) {
+                                        console.error('customer_tracking_number 초기화 오류:', e);
+                                      }
+                                      try {
+                                        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnAppApproval`, {
+                                          order_detail_app_id: groupOrderDetailAppIds,
+                                          approval_yn: 'N',
+                                          cancel_yn: 'N',
+                                          userId: user?.index,
+                                        });
+                                      } catch (e) {
+                                        console.error('교환거절 승인 취소 처리 오류:', e);
+                                      }
+                                      await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPING_COMPLETE');
+                                    } catch (e) {
+                                      console.error('교환거절 처리 오류:', e);
+                                    }
+                                  }}
+                                >
+                                  교환거절
+                                </button>
+                                <button
+                                  className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
+                                  onClick={async () => {
+                                    // 수거완료 버튼 클릭 시 확인 팝업 표시 (동작 변경 없음)
+                                    if (groupHasReturnGoodsflowId) {
+                                      setIsExchangePickupConfirmOpen(true);
+                                      setExchangePickupRefundChoice('no');
+                                      try {
+                                        const ids: number[] = Array.from(new Set((items || []).map(i => i?.product?.order_detail_app_id).filter((v: any) => v != null)));
+                                        setExchangeTargetDetailIds(ids);
+                                      } catch (_) {
+                                        setExchangeTargetDetailIds(null);
+                                      }
+                                      return;
+                                    }
+                                    try {
+                                      // 교환 수거신청: 반품과 동일한 굿스플로 수거 API 호출 후 EXCHANGE_GET 처리
+                                      try {
+                                        const nowId = `${Date.now()}`;
+                                        const pickupDateStr = (() => {
+                                          const d = new Date();
+                                          d.setDate(d.getDate() + 1);
+                                          return d.toISOString().slice(0,10);
+                                        })();
+                                        // 그룹의 첫 상품을 기준으로 기본 정보 구성
+                                        const first = (items && items[0] && items[0].product) ? items[0].product : {} as any;
+                                        console.log('first::', first);
+                                        const orderDateStr = (() => {
+                                          const s = String(first?.order_dt || orderDetail?.order_dt || '');
+                                          if (s && s.length >= 12) {
+                                            return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+                                          }
+                                          return new Date().toISOString().slice(0,16).replace('T',' ');
+                                        })();
+                                        const body: any = {
+                                          requestId: `EXC-${orderDetail?.order_app_id}-${nowId}`,
+                                          contractType: 'USER',
+                                          items: [
+                                            {
+                                              centerCode: '1000011886',
+                                              uniqueId: `EXC-${orderDetail?.order_app_id}-${nowId}`,
+                                              boxSize: 'B10',
+                                              transporter: 'KOREX',
+                                              fromName: orderDetail?.receiver_name,
+                                              fromPhoneNo: orderDetail?.receiver_phone,
+                                              fromAddress1: orderDetail?.address,
+                                              fromAddress2: orderDetail?.address_detail,
+                                              fromZipcode: orderDetail?.zip_code,
+                                              toName: '점핑하이',
+                                              toPhoneNo: '07050554754',
+                                              toAddress1: '서울 강서구 마곡서로 133',
+                                              toAddress2: '704동 2층',
+                                              toZipcode: '07798',
+                                              pickupRequestDate: pickupDateStr,
+                                              deliveryMessage: orderDetail?.delivery_request || '',
+                                              consumerName: orderDetail?.receiver_name,
+                                              consumerPhoneNo: orderDetail?.receiver_phone,
+                                              deliveryPaymentMethod: 'RECEIVER_PAY',
+                                              originalInvoiceNo: String(first?.tracking_number || ''),
+                                              originalTransporterCode: orderDetail?.order_courier_code == 'CJ' ? 'KOREX' : orderDetail?.order_courier_code,
+                                              deliveryItems: (items || []).map(({ product }: any) => ({
+                                                orderNo: String(product?.order_app_id || orderDetail?.order_app_id || ''),
+                                                orderDate: orderDateStr,
+                                                name: String(product?.product_name || ''),
+                                                quantity: Number(product?.order_quantity || 1),
+                                                price: Number(product?.price || 0),
+                                                code: String(product?.product_detail_app_id || ''),
+                                                option: String(product?.option_unit || ''),
+                                              })),
+                                            }
+                                          ]
+                                        };
+                                        
+                                        const gfRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/shipping/return/deliveryItems`, body);
+
+                                        try {
+                                          const serviceId =
+                                            gfRes?.data?.data?.items?.[0]?.data?.serviceId ||
+                                            gfRes?.data?.data?.serviceId ||
+                                            gfRes?.data?.serviceId || '';
+                                          if (serviceId) {
+                                            await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+                                              order_detail_app_id: groupOrderDetailAppIds,
+                                              return_goodsflow_id: serviceId,
+                                              userId: user?.index,
+                                            });
+                                            window.location.reload();
+                                          } else {
+                                            console.log('gfRes::', gfRes?.data?.data);
+                                          }
+                                        } catch (saveErr) {
+                                          console.error('[EXCHANGE_FLOW] save return_goodsflow_id error', saveErr);
+                                        }
+                                      } catch (gfErr) {
+                                        console.error('교환 수거신청 굿스플로 호출 오류:', gfErr);
+                                      }
+                                      setExchangeRequestedGroups(prev => new Set([...Array.from(prev), groupNo]));
+                                    } catch (e) {
+                                      console.error('교환 수거신청 처리 오류:', e);
+                                    }
+                                  }}
+                                >
+                                  {groupHasReturnGoodsflowId ? '수거완료' : '수거신청'}
+                                </button>
+                              </div>
                             ) : groupStatus === 'RETURN_APPLY' ? (
                               <div className="flex items-center gap-2">
                                 <button
                                   className="px-4 py-2 text-gray-700 hover:border-black text-sm rounded-lg border border-gray-300"
                                   onClick={async () => {
-                                    // 반품 거절 → 배송완료로 되돌리기와 동일 처리 + ORDER 주소 신규 인서트
                                     try {
+                                      // 굿스플로 반품 취소 (서비스ID 기반)
+                                      try {
+                                        const returnGoodsflowIds: string[] = Array.from(new Set(
+                                          (items || [])
+                                            .map(i => String((i?.product?.return_goodsflow_id)).trim())
+                                            .filter(id => id !== '')
+                                        ));
+                                        
+                                        if (returnGoodsflowIds.length > 0) {
+                                          const payload = {
+                                            items: returnGoodsflowIds.map((id: string) => ({ id, reasonType: 'OTHER_SERVICE', contents: '반품 취소' }))
+                                          };
+                                          
+                                          const res = await axios.delete(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/cancel`, { data: payload });
+                                        }
+                                      } catch (gfErr) {
+                                        console.error('굿스플로 반품취소 호출 오류:', gfErr);
+                                      }
+                                      // 반품 거부 시 return_goodsflow_id, customer_tracking_number 초기화
+                                      try {
+                                        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+                                          order_detail_app_id: groupOrderDetailAppIds,
+                                          goodsflow_id: null,
+                                          userId: user?.index,
+                                        });
+                                      } catch (e) {
+                                        console.error('return_goodsflow_id 초기화 오류:', e);
+                                      }
+                                      try {
+                                        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnCustomerTrackingNumber`, {
+                                          order_detail_app_id: groupOrderDetailAppIds,
+                                          customer_tracking_number: null,
+                                          userId: user?.index,
+                                        });
+                                      } catch (e) {
+                                        console.error('customer_tracking_number 초기화 오류:', e);
+                                      }
                                       await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnAppApproval`, {
                                         order_detail_app_id: groupOrderDetailAppIds,
                                         approval_yn: 'N',
@@ -1389,6 +1988,81 @@ const MemberOrderAppDetail: React.FC = () => {
                               <div className="flex items-center gap-2">
                                 <button
                                   className="px-4 py-2 text-gray-700 hover:border-black text-sm rounded-lg border border-gray-300"
+                                  onClick={async () => {
+                                    // 반품취소 → 배송완료로 되돌리기와 동일 처리 + ORDER 주소 신규 인서트
+                                    try {
+                                      // 굿스플로 반품 취소 (서비스ID 기반)
+                                      try {
+                                        const returnGoodsflowIds: string[] = Array.from(new Set(
+                                          (items || [])
+                                            .map(i => String((i?.product?.return_goodsflow_id)).trim())
+                                            .filter(id => id !== '')
+                                        ));
+
+                                        if (returnGoodsflowIds.length > 0) {
+                                          const payload = {
+                                            items: returnGoodsflowIds.map((id: string) => ({ id, reasonType: 'OTHER_SERVICE', contents: '반품 취소' }))
+                                          };
+                                          
+                                          const res = await axios.delete(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/cancel`, { data: payload });
+                                        }
+
+                                      } catch (gfErr) {
+                                        console.error('굿스플로 반품취소 호출 오류:', gfErr);
+                                      }
+                                      // 반품 취소 시 return_goodsflow_id, customer_tracking_number 초기화
+                                      try {
+                                        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+                                          order_detail_app_id: groupOrderDetailAppIds,
+                                          goodsflow_id: null,
+                                          userId: user?.index,
+                                        });
+                                      } catch (e) {
+                                        console.error('return_goodsflow_id 초기화 오류:', e);
+                                      }
+                                      try {
+                                        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnCustomerTrackingNumber`, {
+                                          order_detail_app_id: groupOrderDetailAppIds,
+                                          customer_tracking_number: null,
+                                          userId: user?.index,
+                                        });
+                                      } catch (e) {
+                                        console.error('customer_tracking_number 초기화 오류:', e);
+                                      }
+                                      await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnAppApproval`, {
+                                        order_detail_app_id: groupOrderDetailAppIds,
+                                        approval_yn: 'N',
+                                        cancel_yn: 'Y',
+                                        userId: user?.index,
+                                      });
+                                    } catch (e) {
+                                      console.error('반품취소 승인취소 처리 오류:', e);
+                                    }
+                                    try {
+                                      const addressInserts = (groupOrderDetailAppIds || []).map((detailId: number) => {
+                                        const found = items.find(i => Number(i.product?.order_detail_app_id) === Number(detailId));
+                                        const prod: any = found?.product || {};
+                                        return axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
+                                          order_detail_app_id: detailId,
+                                          order_address_type: 'ORDER',
+                                          mem_id: orderDetail?.mem_id,
+                                          receiver_name: prod?.receiver_name || orderDetail?.receiver_name || '',
+                                          receiver_phone: prod?.receiver_phone || orderDetail?.receiver_phone || '',
+                                          address: prod?.address || orderDetail?.address || '',
+                                          address_detail: prod?.address_detail || orderDetail?.address_detail || '',
+                                          zip_code: prod?.zip_code || orderDetail?.zip_code || '',
+                                          enter_way: prod?.enter_way || orderDetail?.enter_way || null,
+                                          enter_memo: prod?.enter_memo || orderDetail?.enter_memo || null,
+                                          delivery_request: prod?.delivery_request || orderDetail?.delivery_request || null,
+                                          use_yn: 'Y',
+                                        });
+                                      });
+                                      await Promise.all(addressInserts);
+                                    } catch (e) {
+                                      console.error('반품취소 후 주소 인서트 오류:', e);
+                                    }
+                                    await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPING_COMPLETE');
+                                  }}
                                 >
                                   반품취소
                                 </button>
@@ -1405,7 +2079,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                     navigate('/app/memberOrderAppReturn', {
                                       state: {
                                         orderDetail: enhancedOrderDetail,
-                                        actionType: 'cancel',
+                                        actionType: 'return',
                                         startStep: 3,
                                         selectedOrderAppIds: groupOrderDetailAppIds
                                       }
@@ -1575,21 +2249,27 @@ const MemberOrderAppDetail: React.FC = () => {
                                     </button>
                                   </div>
                                 ) : (
+                                  (() => { const s = String(groupStatus || '').toUpperCase(); const isExchangePayment = (s === 'EXCHANGE_PAYMENT_COMPLETE'); const isExchangeShipping = (s === 'EXCHANGE_SHIPPINGING'); const paymentLike = (s === 'PAYMENT_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE'); if (s === 'EXCHANGE_SHIPPING_COMPLETE') { return null; } return (
                                   <button
                                     className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
                                   onClick={() => {
-                                    if (groupStatus == 'HOLD') {
+                                    if (s == 'HOLD') {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'PAYMENT_COMPLETE');
-                                    } else if (groupStatus == 'PAYMENT_COMPLETE' && hasUnifiedTracking) {
+                                    } else if (paymentLike && hasUnifiedTracking) {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPINGING');
-                                    } else if (groupStatus == 'SHIPPINGING') {
+                                    } else if (s == 'SHIPPINGING') {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPING_COMPLETE');
+                                    } else if (isExchangeShipping) {
+                                      fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'EXCHANGE_SHIPPING_COMPLETE');
+                                    } else if (isExchangePayment && hasExchangeCompanyTracking) {
+                                      fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'EXCHANGE_SHIPPINGING');
                                     } else {
+                                      // EXCHANGE_PAYMENT_COMPLETE 포함: 송장 입력 드롭다운 오픈
                                       setOpenTrackingDropdownGroup(openTrackingDropdownGroup === groupNo ? null : groupNo);
                                     }
                                   }}
                                   >
-                                    {groupStatus == 'PAYMENT_COMPLETE' && !hasUnifiedTracking && (
+                                    {(((isExchangePayment && !hasExchangeCompanyTracking)) || (s === 'PAYMENT_COMPLETE' && !hasUnifiedTracking)) && (
                                       <>
                                         <span className="text-sm">송장추가</span>
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1597,10 +2277,13 @@ const MemberOrderAppDetail: React.FC = () => {
                                         </svg>
                                       </>
                                     )}
-                                    {groupStatus == 'SHIPPINGING' && <span className="text-sm">배송완료 처리</span>}
-                                    {groupStatus == 'HOLD' && <span className="text-sm">배송보류 해제</span>}
-                                    {groupStatus == 'PAYMENT_COMPLETE' && hasUnifiedTracking && <span className="text-sm">배송중 처리</span>}
+                                    {s == 'SHIPPINGING' && <span className="text-sm">배송완료 처리</span>}
+                                    {isExchangeShipping && <span className="text-sm">배송완료 처리</span>}
+                                    {s == 'HOLD' && <span className="text-sm">배송보류 해제</span>}
+                                    {paymentLike && hasUnifiedTracking && <span className="text-sm">배송중 처리</span>}
+                                    {isExchangePayment && hasExchangeCompanyTracking && <span className="text-sm">배송중 처리</span>}
                                   </button>
+                                  ); })()
                                 )}
                                 {openTrackingDropdownGroup === groupNo && (
                                   <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
@@ -1739,8 +2422,14 @@ const MemberOrderAppDetail: React.FC = () => {
         userId={user?.index}
         onSuccess={(trackingNumber, courierCode, actionType) => handleInvoiceSuccess(trackingNumber, courierCode, actionType)}
         mode="input"
-        existingTrackingNumber={orderDetail?.tracking_number}
-        existingCourierCode={orderDetail?.courier_code}
+        existingTrackingNumber={(() => {
+          const s = String(orderDetail?.order_status || '').toUpperCase();
+          return s.startsWith('EXCHANGE') ? (orderDetail as any)?.company_tracking_number : orderDetail?.tracking_number;
+        })()}
+        existingCourierCode={(() => {
+          const s = String(orderDetail?.order_status || '').toUpperCase();
+          return s.startsWith('EXCHANGE') ? (orderDetail as any)?.company_courier_code : orderDetail?.courier_code;
+        })()}
         isShippingMode={orderDetail?.order_status === 'SHIPPINGING'}
       />
 
@@ -1752,9 +2441,73 @@ const MemberOrderAppDetail: React.FC = () => {
            setIsGoodsflowModalOpen(false);
            setGoodsflowOrders([]);
          }}
-         onSuccess={() => {
-           setIsGoodsflowModalOpen(false);
-           setGoodsflowOrders([]);
+         onSuccess={async () => {
+           try {
+             // 굿스플로 송장 등록 성공 시 해당 상세들을 배송중으로 전환
+             const detailIds: number[] = (() => {
+               if (goodsflowOrders && goodsflowOrders.length > 0) {
+                 const first = goodsflowOrders[0] as any;
+                 const list = Array.isArray(first?.products) ? first.products : [];
+                 return Array.from(new Set(list.map((p: any) => p?.order_detail_app_id).filter((v: any) => v != null)));
+               }
+               const list = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
+               return Array.from(new Set(list.map((p: any) => p?.order_detail_app_id).filter((v: any) => v != null)));
+             })();
+             if (detailIds.length > 0) {
+               const isAnyExchangePaymentComplete = (() => {
+                 try {
+                   const products: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
+                   return detailIds.some((id: number) => String(products.find((p: any) => p?.order_detail_app_id === id)?.order_status || '').toUpperCase() === 'EXCHANGE_PAYMENT_COMPLETE');
+                 } catch (_) {
+                   return false;
+                 }
+               })();
+               const nextStatus = isAnyExchangePaymentComplete ? 'EXCHANGE_SHIPPINGING' : 'SHIPPINGING';
+               await fn_updateOrderStatusWithParams(detailIds, nextStatus);
+             }
+
+             // 굿스플로 아이디(goodsflow_id) 즉시 반영하여 파란 트럭/안내문구가 새로고침 없이 보이도록 동기화
+             try {
+               const targetId = orderFromState?.order_app_id || routeOrderId || orderDetail?.order_app_id;
+               if (user?.index && targetId) {
+                 const res = await axios.post(
+                   `${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectMemberOrderAppList`,
+                   {
+                     center_id: user.index,
+                     order_status: '',
+                     searchValue: String(targetId)
+                   }
+                 );
+                 const rows = res.data?.orders || res.data || [];
+                 if (Array.isArray(rows) && rows.length > 0) {
+                   const byDetailId = new Map<number, any>();
+                   rows.forEach((r: any) => {
+                     const did = Number(r?.order_detail_app_id);
+                     if (!isNaN(did)) byDetailId.set(did, r);
+                   });
+                   setOrderDetail((prev) => {
+                     if (!prev) return prev;
+                     const updatedProducts = (prev.products || []).map((p: any) => {
+                       const m = byDetailId.get(Number(p?.order_detail_app_id));
+                       if (!m) return p;
+                       return {
+                         ...p,
+                         goodsflow_id: m?.goodsflow_id || p.goodsflow_id,
+                       };
+                     });
+                     return { ...prev, products: updatedProducts } as any;
+                   });
+                 }
+               }
+             } catch (gfSyncErr) {
+               console.error('굿스플로 아이디 동기화 오류:', gfSyncErr);
+             }
+           } catch (e) {
+             console.error('굿스플로 송장 등록 후 배송중 전환 오류:', e);
+           } finally {
+             setIsGoodsflowModalOpen(false);
+             setGoodsflowOrders([]);
+           }
          }}
        />
 
@@ -1764,6 +2517,86 @@ const MemberOrderAppDetail: React.FC = () => {
         onClose={() => setIsToastVisible(false)}
         variant={toastVariant}
       />
+
+      {/* 교환 수거완료 확인 팝업 */}
+      {isExchangePickupConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div>
+              <h3 className="text-base font-medium mb-3">
+                현재 귀책을 떠나 고객님이 교환 배송비를 선결제 하였습니다.<br />교환 배송비를 환불하시겠습니까?
+              </h3>
+              <div className="space-y-2 mb-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="exchangePickupRefund"
+                    value="yes"
+                    checked={exchangePickupRefundChoice === 'yes'}
+                    onChange={() => setExchangePickupRefundChoice('yes')}
+                  />
+                  예
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="exchangePickupRefund"
+                    value="no"
+                    checked={exchangePickupRefundChoice === 'no'}
+                    onChange={() => setExchangePickupRefundChoice('no')}
+                  />
+                  아니오
+                </label>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setIsExchangePickupConfirmOpen(false)}
+                >
+                  닫기
+                </button>
+                <button
+                  className="px-4 py-2 bg-black text-white font-semibold rounded-lg hover:bg-gray-900"
+                  onClick={async () => {
+                    try {
+                      if (exchangePickupRefundChoice === 'yes') {
+                        const paymentAppId = (orderDetail as any)?.delivery_fee_payment_app_id;
+                        
+                        if (paymentAppId) {
+                          try {
+                            await axios.post(`${process.env.REACT_APP_API_URL}/app/portone/requestPortOneRefund`, {
+                              payment_app_id: paymentAppId,
+                              userId: user?.index,
+                              order_app_id: (orderDetail as any)?.order_app_id,
+                              reason: '교환 배송비 환불',
+                            });
+                          } catch (e) {
+                            console.error('[PortOne] 배송비 환불 요청 오류:', e);
+                          }
+                        }
+                      }
+                      const ids = (exchangeTargetDetailIds && exchangeTargetDetailIds.length > 0)
+                        ? exchangeTargetDetailIds
+                        : Array.from(new Set(((orderDetail?.products || []) as any[])
+                            .map((p: any) => p?.order_detail_app_id)
+                            .filter((v: any) => v != null)));
+                      if (ids && ids.length > 0) {
+                        await fn_updateOrderStatusWithParams(ids, 'EXCHANGE_PAYMENT_COMPLETE');
+                      }
+                    } catch (e) {
+                      console.error('교환 배송비 환불 처리 오류:', e);
+                    } finally {
+                      setIsExchangePickupConfirmOpen(false);
+                    }
+                  }}
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
         {/* 송장번호 삭제 확인 팝업 */}
         {isDeleteConfirmOpen && (

@@ -40,6 +40,7 @@ const MemberOrderAppReturn: React.FC = () => {
   const [refundDeductionAmount, setRefundDeductionAmount] = useState<number>(0);
   const [pointDeductionAmount, setPointDeductionAmount] = useState<number>(0);
   const isRefundCalcMode = startStep === 3 && step === 3;
+  const [latestPointAmount, setLatestPointAmount] = useState<number | null>(null);
 
   useEffect(() => {
     const scriptId = 'daum-postcode-script';
@@ -130,6 +131,29 @@ const MemberOrderAppReturn: React.FC = () => {
     };
     fetchReturnReasons();
   }, []);
+
+  // 포인트 최신값 조회: 새로고침/재진입 시에도 서버 값 반영
+  useEffect(() => {
+    const fetchLatestPoint = async () => {
+      try {
+        if (!user?.index || !orderDetail?.order_app_id) return;
+        const res = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectMemberOrderAppList`, {
+          center_id: user.index,
+          searchValue: String(orderDetail.order_app_id),
+        });
+        const rows = res.data?.orders || res.data || [];
+        const target = Array.isArray(rows)
+          ? rows.find((r: any) => String(r.order_app_id) === String(orderDetail.order_app_id)) || rows[0]
+          : null;
+        if (target && target.point_amount != null) {
+          setLatestPointAmount(Number(target.point_amount));
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchLatestPoint();
+  }, [user?.index, orderDetail?.order_app_id]);
 
   // 취소/반품 접수 처리 함수 (HTML에서 API 호출 제거)
   const fn_handleConfirm = async () => {
@@ -269,6 +293,7 @@ const MemberOrderAppReturn: React.FC = () => {
                   use_yn: 'Y',
                 });
                 const newOrderAddressIdForUpdate = newAddrRes?.data?.order_address_id;
+
                 return axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateMemberReturnApp`, {
                   order_detail_app_id: [item.order_detail_app_id],
                   return_reason_type: selectedReturnReasonType || null,
@@ -319,16 +344,101 @@ const MemberOrderAppReturn: React.FC = () => {
             })
           );
 
+          // 3) 굿스플로 반품 접수(API) 호출: 자동 수거 신청 시
+          try {
+            if (isAutoPickup) {
+              const selectedItem = selectedItems[0]?.item || {};
+              const orderDateStr = (() => {
+                const s = String(orderDetail?.order_dt || '');
+                if (s && s.length >= 12) {
+                  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+                }
+                return new Date().toISOString().slice(0,16).replace('T',' ');
+              })();
+              const nowId = `${Date.now()}`;
+              const pickupDateStr = (() => {
+                const d = new Date();
+                d.setDate(d.getDate() + 1);
+                return d.toISOString().slice(0,10);
+              })();
+              const body = {
+                requestId: `RET-${orderDetail?.order_app_id}-${nowId}`,
+                contractType: 'USER',
+                items: [
+                  {
+                    centerCode: "1000011886",
+                    uniqueId: `RET-${orderDetail?.order_app_id}-${nowId}`,
+                    boxSize: "B10",
+                    transporter: 'KOREX',
+                    fromName: orderDetail?.receiver_name,
+                    fromPhoneNo: orderDetail?.receiver_phone,
+                    fromAddress1: orderDetail?.address,
+                    fromAddress2: orderDetail?.address_detail,
+                    fromZipcode: orderDetail?.zip_code,
+                    toName: '점핑하이',
+                    toPhoneNo: '07050554754',
+                    toAddress1: '서울 강서구 마곡서로 133',
+                    toAddress2: '704동 2층',
+                    toZipcode: '07798',
+                    pickupRequestDate: pickupDateStr,
+                    deliveryMessage: pickupDeliveryRequest || '',
+                    consumerName: orderDetail?.receiver_name,
+                    consumerPhoneNo: orderDetail?.receiver_phone,
+                    deliveryPaymentMethod: 'RECEIVER_PAY',
+                    originalInvoiceNo: String(selectedItem?.tracking_number || ''),
+                    originalTransporterCode: selectedItem?.order_courier_code == 'CJ' ? 'KOREX' : selectedItem?.order_courier_code || '',
+                    deliveryItems: selectedItems.map(({ item, idx }: { item: any; idx: number }) => ({
+                      orderNo: String(orderDetail?.order_app_id || ''),
+                      orderDate: orderDateStr,
+                      name: String(item?.product_name || ''),
+                      quantity: Number(quantityByIndex[idx] ?? 0) || 1,
+                      price: Number(item?.price || 0),
+                      code: String(item?.product_detail_app_id || ''),
+                      option: String(item?.option_unit || ''),
+                    })),
+                  }
+                ]
+              } as any;
+              const gfRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/shipping/return/deliveryItems`, body);
+              // 굿스플로 서비스ID 저장: 반품 전용 컬럼(return_goodsflow_id)에 보관
+              try {
+                const serviceId =
+                  gfRes?.data?.data?.items?.[0]?.data?.serviceId ||
+                  gfRes?.data?.data?.serviceId ||
+                  gfRes?.data?.serviceId || '';
+                const detailIdsForUpdate: number[] = Array.from(new Set(
+                  selectedItems.map(({ item }: any) => item?.order_detail_app_id).filter((v: any) => v != null)
+                ));
+                if (serviceId && detailIdsForUpdate.length > 0) {
+                  await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+                    order_detail_app_id: detailIdsForUpdate,
+                    return_goodsflow_id: serviceId,
+                    userId: user?.index,
+                  });
+                    
+                } else {
+                  console.warn('[RETURN_FLOW] no serviceId to save');
+                }
+              } catch (saveErr) {
+                console.error('[RETURN_FLOW] save return_goodsflow_id error', saveErr);
+              }
+            }
+          } catch (e) {
+            console.error('굿스플로 반품접수 호출 오류:', e);
+          }
+
           const orderDetailAppIds = Array.from(new Set(
             selectedItems
               .map(({ item }: { item: any }) => item?.order_detail_app_id)
               .filter((v: any) => v != null)
           ));
+          
           await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`, {
             order_detail_app_id: orderDetailAppIds,
             order_status: 'RETURN_APPLY',
             userId: user?.index,
           });
+          
         }
       }
       setIsConfirmOpen(false);
@@ -356,7 +466,7 @@ const MemberOrderAppReturn: React.FC = () => {
     };
     fetchOrderStatusCodes();
   }, []);
-console.log(orderDetail);
+  
   // 취소승인 처리 함수: 포트원 환불 → 승인(Y) → 상태 CANCEL_COMPLETE → 적립금 삭제
   const fn_approveCancel = async (_targetDetailIds?: number[]) => {
     try {
@@ -388,10 +498,16 @@ console.log(orderDetail);
       }
 
       // 1-1) 결제 정보 수정
+      const expectedBase = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+        const qty = quantityByIndex[idx] ?? 0;
+        const price = Number(item?.price || 0);
+        return sum + (price * qty);
+      }, 0);
+      const amountToSave = Math.max(expectedBase - Number(refundDeductionAmount || 0), 0);
       await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPaymentApp/updateMemberPaymentApp`, {
         order_app_id: orderDetail?.order_app_id,
         payment_status: 'PAYMENT_REFUND',
-        refund_amount: Math.max(0, Number(finalRefundAmountNumber || 0) - usedPointForRefund),
+        refund_amount: amountToSave,
         userId: user?.index,
       });
 
@@ -410,20 +526,12 @@ console.log(orderDetail);
         userId: user?.index,
       });
 
-      // 4) 적립금 삭제
-      if(orderDetail?.point_use_amount > 0) {
-        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPointApp/deleteMemberPointApp`, {
-          order_app_id: orderDetail?.order_app_id,
-          userId: user?.index,
-        });
-      }
-
       setIsToastVisible(true);
     } catch (e) {
       console.error('취소 승인 처리 오류:', e);
     }
   };
-console.log('orderDetail::', orderDetail);
+
   // 최종 환불 금액(단일 소스): 선택 합계(판매가×수량) 기준으로 차감 반영, 직접입력 우선
   const finalRefundAmountNumber = useMemo(() => {
     const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
@@ -435,6 +543,7 @@ console.log('orderDetail::', orderDetail);
     }, 0);
     const refundAmount = selectedTotal;
     const safeDeduction = Math.min(Number(refundDeductionAmount || 0), refundAmount);
+    const usedPoint = Number(orderDetail?.point_use_amount || 0);
     const autoFinal = Math.max(refundAmount - safeDeduction, 0);
     return isManualFinalRefundAmount ? Number(manualFinalRefundAmount || 0) : autoFinal;
   }, [orderDetail?.products, quantityByIndex, actionType, refundDeductionAmount, isManualFinalRefundAmount, manualFinalRefundAmount]);
@@ -676,7 +785,7 @@ console.log('orderDetail::', orderDetail);
         <div className="flex items-start justify-between mt-10">
           <div className="w-2/3 bg-white p-10 rounded-lg shadow-md">
             <div className="flex items-center justify-between">
-              <p className="text-xl font-semibold">취소 상품</p>
+              <p className="text-xl font-semibold">{actionType === 'return' ? '반품 상품' : '취소 상품'}</p>
               <p className="text-xs font-semibold text-gray-500">주문 {formatAmPmDate(orderDetail?.order_dt)} &nbsp;|&nbsp; 취소 {formatAmPmDate(orderDetail?.return_dt)}</p>
             </div>
             <div className="mt-6 space-y-8">
@@ -733,16 +842,20 @@ console.log('orderDetail::', orderDetail);
                       onChange={(e) => {
                         const raw = e.target.value.replace(/[^0-9]/g, '');
                         const next = Number(raw || 0);
-                        const computedBase = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                          const status = String(item?.order_status || '').trim().toUpperCase();
+                        try {
+
+                        } catch (_) {}
+                        // 제한 기준: 화면의 예상 환불 금액 계산과 동일한 기준(baseAmount)
+                        const baseAmountForLimit = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
                           const qty = quantityByIndex[idx] ?? 0;
                           const price = Number(item?.price || 0);
-                          if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
                           return sum + (price * qty);
                         }, 0);
-                        if (next > computedBase) {
+                        try { console.log('[REFUND_DEBUG] baseAmountForLimit:', baseAmountForLimit); } catch (_) {}
+                        if (next > baseAmountForLimit) {
                           setToastVariant('warning');
                           setToastMessage('입력할 수 없습니다');
+                          try { console.log('[REFUND_DEBUG] block: next > baseAmountForLimit'); } catch (_) {}
                           setIsToastVisible(true);
                           return;
                         }
@@ -755,26 +868,55 @@ console.log('orderDetail::', orderDetail);
                   {!orderDetail?.point_use_amount ? null : (
                     <>
                       <p className="text-sm font-medium mt-4">적립금 차감</p>
-                      <div className="mt-2 relative w-1/2">
-                        <input
-                          type="text"
-                          className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-right"
-                          value={pointDeductionAmount ? pointDeductionAmount.toLocaleString() : ''}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9]/g, '');
-                            const next = Number(raw || 0);
-                            const usedPoint = Number(orderDetail?.point_use_amount || 0);
-                            if (next > usedPoint) {
-                              setToastVariant('warning');
-                              setToastMessage('입력할 수 없습니다');
+                      <div className="mt-2 flex items-center gap-2 w-1/2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-right"
+                            value={pointDeductionAmount ? pointDeductionAmount.toLocaleString() : ''}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              const next = Number(raw || 0);
+                              const usedPointNow = Number((latestPointAmount ?? orderDetail?.point_use_amount) || 0);
+                              if (next > usedPointNow) {
+                                setToastVariant('warning');
+                                setToastMessage('입력할 수 없습니다');
+                                setIsToastVisible(true);
+                                return;
+                              }
+                              setPointDeductionAmount(next);
+                            }}
+                            placeholder="0"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">원</span>
+                        </div>
+                        <button
+                          className="bg-black text-white px-3 py-2 rounded-md text-sm whitespace-nowrap"
+                          onClick={async () => {
+                            if (!window.confirm('포인트를 차감하시겠습니까?')) return;
+                            try {
+                              const usedPoint = Number((latestPointAmount ?? orderDetail?.point_use_amount) || 0);
+                              const deductedPoint = Math.min(Number(pointDeductionAmount || 0), usedPoint);
+                              const finalRefundPoint = Math.max(usedPoint - deductedPoint, 0);
+                              await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPointApp/updatePointAmount`, {
+                                order_app_id: orderDetail?.order_app_id,
+                                userId: user?.index,
+                                point_amount: finalRefundPoint,
+                              });
+                              setLatestPointAmount(finalRefundPoint);
+                              setPointDeductionAmount(0);
+                              setToastVariant('success');
+                              setToastMessage('포인트 차감이 완료되었습니다');
                               setIsToastVisible(true);
-                              return;
+                            } catch (err) {
+                              setToastVariant('warning');
+                              setToastMessage('포인트 차감 중 오류가 발생했습니다');
+                              setIsToastVisible(true);
                             }
-                            setPointDeductionAmount(next);
                           }}
-                          placeholder="0"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">원</span>
+                        >
+                          차감하기
+                        </button>
                       </div>
                     </>
                   )}
@@ -793,7 +935,9 @@ console.log('orderDetail::', orderDetail);
                     return sum + (price * qty);
                   }, 0);
                   const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmount);
-                  const expectedAmount = Math.max(baseAmount - safeDeduction, 0);
+                  const expectedAmount = isManualFinalRefundAmount
+                    ? Number(manualFinalRefundAmount || 0)
+                    : Math.max(baseAmount - safeDeduction, 0);
                   return (
                     <div className="flex items-center justify-between">
                       <p className="text-m font-medium">예상 환불 금액</p>
@@ -811,10 +955,8 @@ console.log('orderDetail::', orderDetail);
                 {(() => {
                   const productTotalAll = (orderDetail.products || []).reduce((sum: number, item: any) => sum + ((item?.original_price || 0) * (item?.order_quantity || 0)), 0);
                   const orderAmount = Number(orderDetail?.payment_amount || 0);
-                  const baseDeliveryFee = Number(orderDetail?.delivery_fee || 0);
                   const usedPoint = Number(orderDetail?.point_use_amount || 0);
                   const paymentBalance = Number(orderDetail?.payment_amount || 0);
-                    console.log(orderDetail);
                   return (
                     <>
                       <div className="flex items-center justify-between">
@@ -839,7 +981,7 @@ console.log('orderDetail::', orderDetail);
                       </div>
                       <div className="flex items-center justify-between">
                         <p className="text-m font-medium">결제 잔액</p>
-                        <p className="text-m font-medium"><span className="text-xl font-bold">{paymentBalance.toLocaleString()}</span>원</p>
+                        <p className="text-m font-medium"><span className="text-xl font-bold">{(paymentBalance - usedPoint).toLocaleString()}</span>원</p>
                       </div>
                       {orderDetail?.refund_amount && (
                         <div className="flex items-center justify-between border-t border-gray-200 pt-2">
@@ -858,24 +1000,20 @@ console.log('orderDetail::', orderDetail);
                 <p className="text-m font-medium">환불 정보</p>
               </div>
               {(() => {
-                const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                  const status = String(item?.order_status || '').trim().toUpperCase();
+                // 예상 환불 금액과 동일한 기준: baseAmount(선택합) - min(차감, baseAmount)
+                const baseAmountForExpected = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
                   const qty = quantityByIndex[idx] ?? 0;
-                  const price = item.price ?? 0;
-                  if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
-                  return sum + qty * price;
+                  const price = Number(item?.price || 0);
+                  return sum + (qty * price);
                 }, 0);
-                const computedRefundAmount = selectedTotal;
-                const refundAmount = computedRefundAmount;
-                const safeDeduction = Math.min(refundDeductionAmount || 0, refundAmount);
-                const autoFinalRefund = Math.max(refundAmount - safeDeduction, 0);
-                const usedPoint = Number(orderDetail?.point_use_amount || 0);
+                const expectedAmountForDisplay = baseAmountForExpected;  
+                const autoFinalForInput = Math.max(baseAmountForExpected - Math.min(Number(refundDeductionAmount || 0), baseAmountForExpected), 0);
                 return (
                   <div className="mt-6 space-y-4">
                     <div>
                       <div className="flex items-center justify-between border-b border-gray-200 pb-2">
                         <p className="text-sm text-gray-500 font-medium">환불 금액</p>
-                        <p className="mt-2 text-gray-500 text-sm font-bold">{formatNumber(refundAmount - usedPoint)} 원</p>
+                        <p className="mt-2 text-gray-500 text-sm font-bold">{formatNumber(expectedAmountForDisplay)} 원</p>
                       </div>
                     </div>
                     <div>
@@ -890,11 +1028,12 @@ console.log('orderDetail::', orderDetail);
                         <input
                           type="text"
                           className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-right"
-                          value={isManualFinalRefundAmount ? formatNumber(manualFinalRefundAmount) : formatNumber(autoFinalRefund - usedPoint)}
+                          value={isManualFinalRefundAmount ? formatNumber(manualFinalRefundAmount) : formatNumber(autoFinalForInput)}
                           onChange={(e) => {
                             const raw = e.target.value.replace(/[^0-9]/g, '');
                             const next = Number(raw || 0);
-                            if (next > refundAmount) {
+                            const limit = baseAmountForExpected;
+                            if (next > limit) {
                               setToastVariant('warning');
                               setToastMessage('입력할 수 없습니다');
                               setIsToastVisible(true);
@@ -902,7 +1041,7 @@ console.log('orderDetail::', orderDetail);
                             }
                             setManualFinalRefundAmount(next);
                           }}
-                          placeholder={`${formatNumber(refundAmount)} 원`}
+                          placeholder={`${formatNumber(baseAmountForExpected)} 원`}
                           disabled={!isManualFinalRefundAmount}
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">원</span>
@@ -913,15 +1052,15 @@ console.log('orderDetail::', orderDetail);
               })()}
             </div>
 
-            {!orderDetail?.point_use_amount ? null : (
+            {!(Number((latestPointAmount ?? orderDetail?.point_use_amount) || 0) > 0) ? null : (
               <div className="bg-white p-10 rounded-lg shadow-md mt-4">
                 <div className="flex items-center justify-between">
                   <p className="text-m font-medium">적립금 정보</p>
                 </div>
                 {(() => {
-                  const usedPoint = Number(orderDetail?.point_use_amount || 0);
+                  const usedPoint = Number((latestPointAmount ?? orderDetail?.point_use_amount) || 0);
                   const deductedPoint = Math.min(Number(pointDeductionAmount || 0), usedPoint);
-                  const finalRefundPoint = Math.max(deductedPoint, 0);
+                  const finalRefundPoint = Math.max(usedPoint - deductedPoint, 0);
                   return (
                     <div className="mt-6 space-y-3">
                       <div className="flex items-center justify-between">
@@ -951,7 +1090,17 @@ console.log('orderDetail::', orderDetail);
                 navigate(-1);
               }}
             >
-              {`${formatNumber(Math.max(0, Number(finalRefundAmountNumber || 0) - Number(orderDetail?.point_use_amount || 0)))}원 환불 처리`}
+              {(() => {
+                const base = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                  const qty = quantityByIndex[idx] ?? 0;
+                  const price = Number(item?.price || 0);
+                  return sum + (qty * price);
+                }, 0);
+                const expected = isManualFinalRefundAmount
+                  ? Number(manualFinalRefundAmount || 0)
+                  : Math.max(base - Math.min(Number(refundDeductionAmount || 0), base), 0);
+                return `${formatNumber(expected)}원 환불 처리`;
+              })()}
             </button>
           </div>
         </div>
@@ -1172,18 +1321,16 @@ console.log('orderDetail::', orderDetail);
                     <span className="text-xl font-bold">{(() => {
                       if (actionType === 'return') {
                         const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                          const qty = quantityByIndex[idx] ?? 0;
-                          const price = item.price ?? 0;
-                          return sum + qty * price;
+                          const point_use_amount = item.point_use_amount ?? 0;
+                          return Number(point_use_amount).toLocaleString();
                         }, 0);
                         return selectedTotal?.toLocaleString();
                       } else if (actionType === 'cancel') {
                         const cancelSelectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
                           const status = String(item?.order_status || '').trim().toUpperCase();
                           if (['SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM'].includes(status)) return sum;
-                          const qty = quantityByIndex[idx] ?? 0;
-                          const price = item.price ?? 0;
-                          return sum + qty * price;
+                          const point_use_amount = item.point_use_amount ?? 0;
+                          return Number(point_use_amount).toLocaleString();
                         }, 0);
                         return cancelSelectedTotal?.toLocaleString();
                       }
@@ -1193,7 +1340,7 @@ console.log('orderDetail::', orderDetail);
                 </div>
               )}
               
-              {orderDetail.delivery_fee && (orderDetail?.payment_amount <= orderDetail?.free_shipping_amount) &&
+              {/* {orderDetail.delivery_fee && (orderDetail?.payment_amount <= orderDetail?.free_shipping_amount) &&
                 orderDetail.products.some((_: any, idx: number) => (quantityByIndex[idx] ?? 0) > 0) &&
                 (
                   orderDetail.free_shipping_amount >= orderDetail.products.reduce((sum: number, item: any, idx: number) => {
@@ -1206,7 +1353,7 @@ console.log('orderDetail::', orderDetail);
                   <p className="text-m font-medium">배송비</p>
                   <p className="text-m font-medium"><span className="text-xl font-bold">{orderDetail?.delivery_fee?.toLocaleString()}</span>원</p>
                 </div>
-              )}
+              )} */}
               <div className="flex items-center justify-between mb-4">
                 <p className="text-m font-medium">금액</p>
                 <p className="text-m font-medium">

@@ -4,10 +4,13 @@ const dayjs = require("dayjs");
 // 결제 정보 수정
 exports.updateMemberPaymentApp = (req, res) => {
   try {
-    const { order_app_id, userId, payment_status, refund_amount } = req.body;
+    const { order_app_id, userId, payment_status, refund_amount, payment_app_id } = req.body;
 
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
+
+    const whereClause = payment_app_id ? 'payment_app_id = ?' : 'order_app_id = ?';
+    const whereValue = payment_app_id ? payment_app_id : order_app_id;
 
     const updateMemberPaymentAppQuery = `
       UPDATE member_payment_app SET
@@ -15,12 +18,12 @@ exports.updateMemberPaymentApp = (req, res) => {
         , refund_amount = COALESCE(refund_amount, 0) + ?
         , mod_dt = ?
         , mod_id = ?
-      WHERE order_app_id = ?
+      WHERE ${whereClause}
     `;
 
     db.query(
       updateMemberPaymentAppQuery,
-      [payment_status, refund_amount, mod_dt, userId, order_app_id],
+      [payment_status, refund_amount, mod_dt, userId, whereValue],
       (err, result) => {
         if (err) {
           console.error("결제 정보 수정 오류:", err);

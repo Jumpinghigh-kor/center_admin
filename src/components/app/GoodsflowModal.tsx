@@ -159,7 +159,7 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
            boxSize: "B10",
            transporter: "KOREX",
            fromName: "점핑하이",
-           fromPhoneNo: "0216610042",
+           fromPhoneNo: "07050554754",
            fromAddress1: "서울 강서구 마곡서로 133",
            fromAddress2: "704동2층",
            fromZipcode: "07798",
@@ -248,8 +248,6 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
             setErrorMessage(`일부 주문 처리에 실패했습니다. (성공: ${successCnt}, 실패: ${failCnt}) ${errorDetails}`);
           } else {
            // 모든 주문이 성공한 경우
-           onSuccess();
-           onClose();
            
            // 성공한 주문들의 serviceId 추출 및 DB 반영
            const successfulItems = response.data.data.items.filter(item => item.success && item.data?.serviceId);
@@ -260,14 +258,27 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
                await Promise.all(successfulItems.map(async (item) => {
                  const mappedOrderAppId = orderAppIdByItemIndex[item.idx];
                  if (mappedOrderAppId && item.data?.serviceId) {
-                   await axios.post(
-                     `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateGoodsflowId`,
-                     {
-                       order_detail_app_id: Array.isArray(mappedOrderAppId) ? mappedOrderAppId : [mappedOrderAppId],
-                       goodsflow_id: item.data.serviceId,
-                       userId: user.index
-                     }
-                   );
+                   // EXCHANGE 계열은 반품과 동일하게 return_goodsflow_id에 저장
+                   const isExchange = String((selectedOrders[0]?.order_status || '')).toUpperCase().startsWith('EXCHANGE');
+                   if (isExchange) {
+                     await axios.post(
+                       `${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`,
+                       {
+                         order_detail_app_id: Array.isArray(mappedOrderAppId) ? mappedOrderAppId : [mappedOrderAppId],
+                         return_goodsflow_id: item.data.serviceId,
+                         userId: user.index
+                       }
+                     );
+                   } else {
+                     await axios.post(
+                       `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateGoodsflowId`,
+                       {
+                         order_detail_app_id: Array.isArray(mappedOrderAppId) ? mappedOrderAppId : [mappedOrderAppId],
+                         goodsflow_id: item.data.serviceId,
+                         userId: user.index
+                       }
+                     );
+                   }
                  }
                }));
              }
@@ -295,6 +306,13 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
              } catch (error) {
                console.error('송장출력 URI 생성 오류:', error);
              }
+           }
+
+           // DB 반영이 완료된 후에 목록 새로고침 및 모달 닫기 호출
+           try {
+             onSuccess();
+           } finally {
+             onClose();
            }
          }
       } else {

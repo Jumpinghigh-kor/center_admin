@@ -76,7 +76,6 @@ interface Order {
   order_group: number;
   goodsflow_id: string;
   point_use_amount: number;
-  point_refund_amount: number;
   quantity: number;
   return_dt: string;
   refund_amount: number;
@@ -86,6 +85,9 @@ interface Order {
   customer_courier_code: string;
   company_courier_code: string;
   return_quantity: number;
+  return_goodsflow_id: string;
+  delivery_fee_portone_imp_uid: string;
+  delivery_fee_portone_merchant_uid: string;
 }
 
 interface CommonCode {
@@ -134,6 +136,7 @@ const MemberOrderApp: React.FC = () => {
   const [orderStatusCodeList, setOrderStatusCodeList] = useState<CommonCode[]>([]);
   const [returnReasonCodeList, setReturnReasonCodeList] = useState<CommonCode[]>([]);
   const [goodsflowInitiatedOrderIds, setGoodsflowInitiatedOrderIds] = useState<number[]>([]);
+  const [isExchangePaymentCompleteForPopup, setIsExchangePaymentCompleteForPopup] = useState(false);
   const user = useUserStore((state) => state.user);
   const { currentPage, totalPages, itemsPerPage, handlePageChange, getCurrentPageData, resetPage } = usePagination({
     totalItems: totalCount,
@@ -365,6 +368,8 @@ const MemberOrderApp: React.FC = () => {
                 extra_zip_code: a.extra_zip_code,
                 enter_way: a.enter_way,
                 enter_memo: a.enter_memo,
+                delivery_fee_portone_imp_uid: a.delivery_fee_portone_imp_uid,
+                delivery_fee_portone_merchant_uid: a.delivery_fee_portone_merchant_uid,
               };
             });
             
@@ -378,6 +383,8 @@ const MemberOrderApp: React.FC = () => {
             g.extra_zip_code = h.extra_zip_code ?? g.extra_zip_code;
             g.enter_way = h.enter_way ?? g.enter_way;
             g.enter_memo = h.enter_memo ?? g.enter_memo;
+            g.delivery_fee_portone_imp_uid = h.delivery_fee_portone_imp_uid ?? g.delivery_fee_portone_imp_uid;
+            g.delivery_fee_portone_merchant_uid = h.delivery_fee_portone_merchant_uid ?? g.delivery_fee_portone_merchant_uid;
           }
         });
       } catch (e) {
@@ -521,6 +528,64 @@ const MemberOrderApp: React.FC = () => {
         }
       } catch (error) {
         console.error('Delivery Tracker fetch error:', error);
+      }
+
+      // Delivery Tracker 연동: delivered면 배송완료로 전환 (반품/교환 제외)
+      try {
+        const toCheckMap = new Map<string, { companyName: string; trackingNumber: string }>();
+        (rawOrders || [])
+          .filter((o: any) => {
+            const s = String(o?.order_status || '').toUpperCase();
+            if (s.includes('RETURN') || s.includes('EXCHANGE')) return false;
+            if (s === 'SHIPPING_COMPLETE' || s === 'PURCHASE_CONFIRM') return false;
+            return !!(String(o?.tracking_number || '').trim() && String(o?.order_courier_code || o?.courier_code || '').trim());
+          })
+          .forEach((o: any) => {
+            const companyName = String(o?.order_courier_code || o?.courier_code || '').trim();
+            const trackingNumber = String(o?.tracking_number).trim();
+            const key = `${companyName}::${trackingNumber}`;
+            if (!toCheckMap.has(key)) {
+              toCheckMap.set(key, { companyName, trackingNumber });
+            }
+          });
+
+        if (toCheckMap.size > 0) {
+          const calls = Array.from(toCheckMap.values()).map(({ companyName, trackingNumber }) =>
+            axios
+              .post(`${process.env.REACT_APP_API_URL}/app/trackingService/trackingService`, { companyName, trackingNumber })
+              .then((res) => ({ companyName, trackingNumber, data: res.data }))
+              .catch((err) => ({ companyName, trackingNumber, error: err }))
+          );
+
+          const results = await Promise.all(calls);
+
+          const deliveredPairs = results.filter((r: any) => {
+            if ((r as any).error) return false;
+            const ok = (r as any).data?.success;
+            const statusName = String((r as any).data?.data?.status || '').toUpperCase();
+            const statusCode = String((r as any).data?.data?.statusCode || '').toUpperCase();
+            const delivered = statusName.includes('DELIVER') || statusCode === 'DELIVERED';
+            return ok && delivered;
+          });
+
+          for (const p of deliveredPairs) {
+            const companyName = (p as any).companyName;
+            const trackingNumber = (p as any).trackingNumber;
+            const targets = (rawOrders || []).filter((o: any) => {
+              const s = String(o?.order_status || '').toUpperCase();
+              if (s.includes('RETURN') || s.includes('EXCHANGE')) return false;
+              if (s === 'SHIPPING_COMPLETE' || s === 'PURCHASE_CONFIRM') return false;
+              const cc = String(o?.order_courier_code || o?.courier_code || '').trim();
+              const tn = String(o?.tracking_number || '').trim();
+              return cc === companyName && tn === trackingNumber;
+            });
+            for (const o of targets) {
+              await fn_updateOrderStatus(o.order_detail_app_id, 'SHIPPING_COMPLETE');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Delivery Tracker delivered sync error:', error);
       }
 
       // Delivery Tracker 연동(반품): 고객 반품 운송장이 있고 상태가 RETURN_APPLY인 경우 delivered면 RETURN_GET으로 변경
@@ -712,7 +777,7 @@ const MemberOrderApp: React.FC = () => {
 
               {/* 공통코드 기반 상태 탭 */}
               {orderStatusCodeList
-                .filter((code) => !['CANCEL_COMPLETE', 'EXCHANGE_COMPLETE', 'RETURN_COMPLETE'].includes(code.common_code))
+                .filter((code) => ['PAYMENT_COMPLETE', 'SHIPPINGING', 'SHIPPING_COMPLETE', 'CANCEL_APPLY', 'RETURN_APPLY', 'PURCHASE_CONFIRM'].includes(code.common_code))
                 .map((code) => (
                 <div
                   key={code.common_code}
@@ -903,8 +968,14 @@ const MemberOrderApp: React.FC = () => {
                           return groups.map(([groupNo, groupItems], idx) => {
                             const groupFirst = groupItems[0] || {} as any;
                             const groupStatus = String(groupFirst?.order_status || '');
-                            const groupTracking = groupFirst?.tracking_number || '';
-                            const groupCourier = groupFirst?.order_courier_code || groupFirst?.courier_code || '';
+                            const statusUpper = String(groupStatus).toUpperCase();
+                            const useCompanyTracking = statusUpper === 'EXCHANGE_PAYMENT_COMPLETE' || statusUpper === 'EXCHANGE_SHIPPINGING' || statusUpper === 'EXCHANGE_SHIPPING_COMPLETE';
+                            const groupTracking = useCompanyTracking
+                              ? (groupFirst?.company_tracking_number || '')
+                              : (groupFirst?.tracking_number || '');
+                            const groupCourier = useCompanyTracking
+                              ? (groupFirst?.company_courier_code || '')
+                              : (groupFirst?.order_courier_code || groupFirst?.courier_code || '');
                             const groupHasOOS = groupItems.some((p: any) => p?.quantity == 0);
                             const groupOrderIds = groupItems.map((p: any) => p.order_detail_app_id).filter(Boolean);
                             const isGoodsflowInitiated = groupItems.some((p: any) => goodsflowInitiatedOrderIds.includes(p.order_detail_app_id));
@@ -912,124 +983,260 @@ const MemberOrderApp: React.FC = () => {
                               const id = p?.goodsflow_id;
                               return (typeof id === 'string' && id.trim() !== '') || (typeof id === 'number' && !isNaN(id));
                             });
+                            const hasReturnStatus = groupItems.some((p: any) => ['RETURN_APPLY', 'RETURN_GET'].includes(String(p?.order_status || '')));
+                            const hasExchangeStatus = groupItems.some((p: any) => ['EXCHANGE_APPLY', 'EXCHANGE_GET'].includes(String(p?.order_status || '')));
+                            const hasCancelApply = groupItems.some((p: any) => String(p?.order_status || '') === 'CANCEL_APPLY');
                             
                             return (
-                              <div key={`order-${order.order_app_id}-group-${groupNo}`} className={`flex items-center mt-2 space-x-2 border border-gray-200 p-4 rounded-lg ${idx > 0 ? 'mt-4' : ''}`}>
-                                <div className="text-sm w-full">
-                                  <div>
-                                    <p className="text-sm font-bold">
-                                      {orderStatusCodeList.find(c => c.common_code === String(groupStatus || ''))?.common_code_name || ''}
-                                    </p>
+                              <div key={`order-${order.order_app_id}-group-${groupNo}-wrap`}>
+                                {hasCancelApply && (
+                                  <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" shapeRendering="crispEdges">
+                                      <path d="M12 3l9 16H3l9-16z" />
+                                    </svg>
+                                    <span className="text-sm font-bold">취소 필요</span>
                                   </div>
-
-                                  {groupHasOOS && groupItems.map((product: any, i: number) => (
-                                    product.quantity == 0 && (
-                                      <div key={`oos-${groupNo}-${i}`}>
-                                        <div className="mt-2 bg-gray-100 px-2 py-1 flex items-center gap-2">
-                                          <p className="border border-gray-400 rounded-full p-1"><span className="text-xs text-gray-400 w-2 h-2 flex items-center justify-center">i</span></p>
-                                          <p className="text-xs font-semibold">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : product.option_gender == 'M' ? '남성' : '공용'} 품절</p>
-                                        </div>
-                                      </div>
-                                    )
-                                  ))}
-
-                                  <div className="mt-2 pl-2" style={{borderLeft: '4px solid #E2E5E9'}}>
-                                    {groupStatus?.toUpperCase().includes('CANCEL') ? (
-                                      <div className="flex items-center gap-2 bg-gray-50 p-2">
-                                        <p className="text-sm mb-1 border border-gray-500 rounded-full p-1"><span className="text-xs text-gray-400 w-2 h-2 flex items-center justify-center">i</span></p>
-                                        <p className="text-sm mb-1 font-semibold">
-                                          {(() => {
-                                            const groupReasonType = groupItems.map((p: any) => p?.return_reason_type).find((v: any) => v != null && String(v).trim() !== '') || (order as any)?.return_reason_type;
-                                            return getReturnReasonName(String(groupReasonType));
-                                          })() || '-'}
-                                        </p>
-                                      </div>
-                                    ) : groupTracking ? (
-                                      <div className="flex items-center gap-2">
-                                        <p className="text-sm mb-1">
-                                          {deliveryCompanyList.find(company => company.common_code === groupCourier)?.common_code_name || groupCourier}
-                                          {groupTracking ? ' ' + groupTracking : '-'}
-                                        </p>
-                                        <a href={`https://search.naver.com/search.naver?where=nexearch&sm=top_sug.pre&fbm=0&acr=1&acq=%ED%83%9D%EB%B0%B0+&qdt=0&ie=utf8&query=%ED%83%9D%EB%B0%B0+%EB%B0%B0%EC%86%A1%EC%A1%B0%ED%9A%8C&ackey=gkzogb1b`} target="_blank" rel="noopener noreferrer">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                          </svg>
-                                        </a>
-                                      </div>
-                                    ) : (
-                                      (() => {
-                                        if (
-                                          order.order_status === 'CANCEL_COMPLETE' ||
-                                          groupHasOOS ||
-                                          groupStatus?.toUpperCase().includes('CANCEL') ||
-                                          groupStatus?.toUpperCase() === 'HOLD'
-                                        ) {
-                                          return null;
-                                        }
-                                        if (groupHasGoodsflowId || isGoodsflowInitiated) {
-                                          return (
-                                            <div className="flex items-center gap-2">
-                                              <div className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-7 text-blue-400">
-                                                  <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
-                                                  <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
-                                                  <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
-                                                </svg>
-                                              </div>
-                                              <span className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
-                                                굿스플로에서 송장번호를 받아오고 있습니다<br/>
-                                                (송장 출력을 하지 않았다면 송장삭제를 해주세요)
-                                              </span>
-                                            </div>
-                                          );
-                                        }
-                                        return (
-                                          <p className="text-sm font-semibold" style={{ color: '#0090D4' }}>
-                                            <span
-                                              className="cursor-pointer"
-                                              onClick={() => {
-                                                const orderDetailAppIds = groupOrderIds.length > 0 ? groupOrderIds : [order.order_detail_app_id];
-                                                setSelectedOrderDetailAppId(orderDetailAppIds);
-                                                setPopupMode('input');
-                                                setIsInvoicePopupOpen(true);
-                                              }}
-                                            >
-                                              송장번호 입력 +
-                                            </span>
-                                          </p>
-                                        );
-                                      })()
-                                    )}
-                                    {/* 주소 표시는 상품별 영역에서 출력 */}
+                                )}
+                                {hasReturnStatus && (
+                                  <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" shapeRendering="crispEdges">
+                                      <path d="M12 3l9 16H3l9-16z" />
+                                    </svg>
+                                    <span className="text-sm font-bold">반품 필요</span>
                                   </div>
+                                )}
+                                {hasExchangeStatus && (
+                                  <div className="flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" shapeRendering="crispEdges">
+                                      <path d="M12 3l9 16H3l9-16z" />
+                                    </svg>
+                                    <span className="text-sm font-bold">교환 필요</span>
+                                  </div>
+                                )}
 
-                                  <div>
-                                    {groupItems.map((product: any, productIndex: number) => (
-                                      <div key={product.product_detail_app_id || `${groupNo}-${productIndex}`}>
-                                        <div className="mb-4 border-l-4 border-gray-200 pl-2 pt-1">
-                                          <div className="flex items-center gap-2 mb-1">
-                                            <p className="text-xs font-medium">{product?.receiver_name ? product.receiver_name : '-'}</p>
-                                            <p className="text-xs text-gray-500">{product?.receiver_phone ? product.receiver_phone : '-'}</p>
-                                          </div>
-                                          <p className="text-xs">{product?.zip_code ? '(' + product.zip_code + ')' : '(-)'} {product?.address ? product.address : '-'}{product?.address_detail ? ' ' + product.address_detail : ''}</p>
-                                          <p className="text-xs text-gray-500">{product?.delivery_request ? product.delivery_request : '-'}</p>
-                                        </div>
-                                        <div className="flex items-start justify-between mb-3 last:mb-0">
-                                          <div className="flex items-start justify-between">
-                                            <img src={productImages.find(img => img.productAppId === product.product_app_id)?.imageUrl} alt="상품 이미지" className="w-12 h-12" />
-                                            <div className="ml-4">
-                                              <p className="text-xs text-gray-500">{product.order_dt}{product.order_app_id}-{product.product_detail_app_id || '00'}</p>
-                                              <p className="font-medium">{product.product_name}</p>
-                                              <p className="inline-block font-bold text-xs bg-gray-200 px-2 py-1 rounded-lg mt-2">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : '남성'}</p>
-                                            </div>
-                                          </div>
-                                          <div className="flex items-center justify-between">
-                                            <p>x {product.order_quantity}</p>
-                                            <p className="font-medium ml-4">{product.original_price.toLocaleString()} 원</p>
+                                <div key={`order-${order.order_app_id}-group-${groupNo}`} className={`flex items-center mt-2 mb-2 space-x-2 border border-gray-200 p-4 rounded-lg ${idx > 0 ? 'mt-3' : ''}`}>
+                                  <div className="text-sm w-full">
+                                    <div>
+                                      <p className="text-sm font-bold">
+                                        {orderStatusCodeList.find(c => c.common_code === String(groupStatus || ''))?.common_code_name || ''}
+                                      </p>
+                                    </div>
+
+                                    {groupHasOOS && groupItems.map((product: any, i: number) => (
+                                      product.quantity == 0 && (
+                                        <div key={`oos-${groupNo}-${i}`}>
+                                          <div className="mt-2 bg-gray-100 px-2 py-1 flex items-center gap-2">
+                                            <p className="border border-gray-400 rounded-full p-1"><span className="text-xs text-gray-400 w-2 h-2 flex items-center justify-center">i</span></p>
+                                            <p className="text-xs font-semibold">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : product.option_gender == 'M' ? '남성' : '공용'} 품절</p>
                                           </div>
                                         </div>
-                                      </div>
+                                      )
                                     ))}
+
+                                    <div className="mt-2 pl-2" style={{borderLeft: '4px solid #E2E5E9'}}>
+                                      {groupStatus?.toUpperCase().includes('CANCEL') ? (
+                                        <div className="flex items-center gap-2 bg-gray-50 p-2">
+                                          <p className="text-sm mb-1 border border-gray-500 rounded-full p-1"><span className="text-xs text-gray-400 w-2 h-2 flex items-center justify-center">i</span></p>
+                                          <p className="text-sm mb-1 font-semibold">
+                                            {(() => {
+                                              const groupReasonType = groupItems.map((p: any) => p?.return_reason_type).find((v: any) => v != null && String(v).trim() !== '') || (order as any)?.return_reason_type;
+                                              return getReturnReasonName(String(groupReasonType));
+                                            })() || '-'}
+                                          </p>
+                                        </div>
+                                      ) : String(groupStatus || '').toUpperCase() === 'EXCHANGE_APPLY' ? (
+                                        (() => {
+                                          const exCustomerTracking = (() => {
+                                            const vals = Array.from(new Set(groupItems.map((p: any) => String(p?.customer_tracking_number || '').trim()).filter((v: string) => v !== '')));
+                                            return vals[0] || '';
+                                          })();
+                                          const exCustomerCourier = (() => {
+                                            const vals = Array.from(new Set(groupItems.map((p: any) => String(p?.customer_courier_code || '').trim()).filter((v: string) => v !== '')));
+                                            return vals[0] || '';
+                                          })();
+                                          const hasReturnGfId = groupItems.some((p: any) => String(p?.return_goodsflow_id || '').trim() !== '');
+                                          if (exCustomerTracking && exCustomerCourier) {
+                                            return (
+                                              <div className="flex items-center gap-2">
+                                                <p className="text-sm mb-1">
+                                                  {deliveryCompanyList.find(company => company.common_code === exCustomerCourier)?.common_code_name || exCustomerCourier}
+                                                  {exCustomerTracking ? ' ' + exCustomerTracking : '-'}
+                                                </p>
+                                                <a href={`https://search.naver.com/search.naver?where=nexearch&sm=top_sug.pre&fbm=0&acr=1&acq=%ED%83%9D%EB%B0%B0+&qdt=0&ie=utf8&query=%ED%83%9D%EB%B0%B0+%EB%B0%B0%EC%86%A1%EC%A1%B0%ED%9A%8C&ackey=gkzogb1b`} target="_blank" rel="noopener noreferrer">
+                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                  </svg>
+                                                </a>
+                                              </div>
+                                            );
+                                          }
+                                          if (hasReturnGfId) {
+                                            return (
+                                              <div className="flex items-center gap-2">
+                                                <div className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
+                                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-7 text-blue-400">
+                                                    <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                                                    <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                                                    <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                                                  </svg>
+                                                </div>
+                                                <span className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
+                                                  굿스플로에서 송장번호를 받아오고 있습니다<br/>
+                                                  (송장 출력을 하지 않았다면 송장삭제를 해주세요)
+                                                </span>
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        })()
+                                      ) : String(groupStatus || '').toUpperCase() === 'EXCHANGE_PAYMENT_COMPLETE' ? (
+                                        (() => {
+                                          const exCompanyTracking = (() => {
+                                            const vals = Array.from(new Set(groupItems.map((p: any) => String(p?.company_tracking_number || '').trim()).filter((v: string) => v !== '')));
+                                            return vals[0] || '';
+                                          })();
+                                          const exCompanyCourier = (() => {
+                                            const vals = Array.from(new Set(groupItems.map((p: any) => String(p?.company_courier_code || '').trim()).filter((v: string) => v !== '')));
+                                            return vals[0] || '';
+                                          })();
+                                          const hasReturnGfId = groupItems.some((p: any) => String(p?.return_goodsflow_id || '').trim() !== '');
+                                          if (exCompanyTracking && exCompanyCourier) {
+                                            return (
+                                              <div className="flex items-center gap-2">
+                                                <p className="text-sm mb-1">
+                                                  {deliveryCompanyList.find(company => company.common_code === exCompanyCourier)?.common_code_name || exCompanyCourier}
+                                                  {exCompanyTracking ? ' ' + exCompanyTracking : '-'}
+                                                </p>
+                                                <a href={`https://search.naver.com/search.naver?where=nexearch&sm=top_sug.pre&fbm=0&acr=1&acq=%ED%83%9D%EB%B0%B0+&qdt=0&ie=utf8&query=%ED%83%9D%EB%B0%B0+%EB%B0%B0%EC%86%A1%EC%A1%B0%ED%9A%8C&ackey=gkzogb1b`} target="_blank" rel="noopener noreferrer">
+                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                  </svg>
+                                                </a>
+                                              </div>
+                                            );
+                                          }
+                                          if (hasReturnGfId) {
+                                            return (
+                                              <div className="flex items-center gap-2">
+                                                <div className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
+                                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-7 text-blue-400">
+                                                    <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                                                    <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                                                    <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                                                  </svg>
+                                                </div>
+                                                <span className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
+                                                  굿스플로에서 송장번호를 받아오고 있습니다<br/>
+                                                  (송장 출력을 하지 않았다면 송장삭제를 해주세요)
+                                                </span>
+                                              </div>
+                                            );
+                                          }
+                                          return (
+                                            <p className="text-sm font-semibold" style={{ color: '#0090D4' }}>
+                                              <span
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                  const orderDetailAppIds = groupOrderIds.length > 0 ? groupOrderIds : [order.order_detail_app_id];
+                                                  setSelectedOrderDetailAppId(orderDetailAppIds);
+                                                  setPopupMode('input');
+                                                  setIsInvoicePopupOpen(true);
+                                                  setIsExchangePaymentCompleteForPopup(false);
+                                                }}
+                                              >
+                                                송장번호 입력 +
+                                              </span>
+                                            </p>
+                                          );
+                                        })()
+                                      ) : groupTracking ? (
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-sm mb-1">
+                                            {deliveryCompanyList.find(company => company.common_code === groupCourier)?.common_code_name || groupCourier}
+                                            {groupTracking ? ' ' + groupTracking : '-'}
+                                          </p>
+                                          <a href={`https://search.naver.com/search.naver?where=nexearch&sm=top_sug.pre&fbm=0&acr=1&acq=%ED%83%9D%EB%B0%B0+&qdt=0&ie=utf8&query=%ED%83%9D%EB%B0%B0+%EB%B0%B0%EC%86%A1%EC%A1%B0%ED%9A%8C&ackey=gkzogb1b`} target="_blank" rel="noopener noreferrer">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                            </svg>
+                                          </a>
+                                        </div>
+                                      ) : (
+                                        (() => {
+                                          if (
+                                            order.order_status === 'CANCEL_COMPLETE' ||
+                                            groupHasOOS ||
+                                            groupStatus?.toUpperCase().includes('CANCEL') ||
+                                            groupStatus?.toUpperCase() === 'HOLD'
+                                          ) {
+                                            return null;
+                                          }
+                                          if (groupHasGoodsflowId || isGoodsflowInitiated) {
+                                            return (
+                                              <div className="flex items-center gap-2">
+                                                <div className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
+                                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-7 text-blue-400">
+                                                    <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
+                                                    <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
+                                                    <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                                                  </svg>
+                                                </div>
+                                                <span className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
+                                                  굿스플로에서 송장번호를 받아오고 있습니다<br/>
+                                                  (송장 출력을 하지 않았다면 송장삭제를 해주세요)
+                                                </span>
+                                              </div>
+                                            );
+                                          }
+                                          return (
+                                            <p className="text-sm font-semibold" style={{ color: '#0090D4' }}>
+                                              <span
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                  const orderDetailAppIds = groupOrderIds.length > 0 ? groupOrderIds : [order.order_detail_app_id];
+                                                  setSelectedOrderDetailAppId(orderDetailAppIds);
+                                                  setPopupMode('input');
+                                                  setIsInvoicePopupOpen(true);
+                                                  setIsExchangePaymentCompleteForPopup(true);
+                                                }}
+                                              >
+                                                송장번호 입력 +
+                                              </span>
+                                            </p>
+                                          );
+                                        })()
+                                      )}
+                                      {/* 주소 표시는 상품별 영역에서 출력 */}
+                                    </div>
+
+                                    <div>
+                                      {groupItems.map((product: any, productIndex: number) => (
+                                        <div key={`prod-${product.order_detail_app_id ?? `${order.order_app_id}-${groupNo}-${productIndex}`}` }>
+                                          <div className="mb-4 border-l-4 border-gray-200 pl-2 pt-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <p className="text-xs font-medium">{product?.receiver_name ? product.receiver_name : '-'}</p>
+                                              <p className="text-xs text-gray-500">{product?.receiver_phone ? product.receiver_phone : '-'}</p>
+                                            </div>
+                                            <p className="text-xs">{product?.zip_code ? '(' + product.zip_code + ')' : '(-)'} {product?.address ? product.address : '-'}{product?.address_detail ? ' ' + product.address_detail : ''}</p>
+                                            <p className="text-xs text-gray-500">{product?.delivery_request ? product.delivery_request : '-'}</p>
+                                          </div>
+                                          <div className="flex items-start justify-between mb-3 last:mb-0">
+                                            <div className="flex items-start justify-between">
+                                              <img src={productImages.find(img => img.productAppId === product.product_app_id)?.imageUrl} alt="상품 이미지" className="w-12 h-12" />
+                                              <div className="ml-4">
+                                                <p className="text-xs text-gray-500">{product.order_dt}{product.order_app_id}-{product.product_detail_app_id || '00'}</p>
+                                                <p className="font-medium">{product.product_name}</p>
+                                                <p className="inline-block font-bold text-xs bg-gray-200 px-2 py-1 rounded-lg mt-2">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : '남성'}</p>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                              <p>x {product.order_quantity}</p>
+                                              <p className="font-medium ml-4">{product.original_price.toLocaleString()} 원</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -1049,12 +1256,12 @@ const MemberOrderApp: React.FC = () => {
                             <p className="text-sm text-gray-500">상품 금액</p>
                             <p className="text-sm text-gray-500">{(order?.original_price * order?.add_order_quantity)?.toLocaleString()} 원</p>
                           </div>
-                          {(order?.free_shipping_amount >= order?.payment_amount) && (
+                          {/* {(order?.free_shipping_amount >= order?.payment_amount) && (
                             <div className="flex items-center justify-between">
                               <p className="text-sm text-gray-500">배송비</p>
                               <p className="text-sm text-gray-500">{order?.delivery_fee?.toLocaleString()} 원</p>
                             </div>
-                          )}
+                          )} */}
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">할인</p>
                             <p className="text-sm text-gray-500">-{((order?.original_price * order?.add_order_quantity) * (order?.discount / 100)).toLocaleString()} 원</p>
@@ -1067,8 +1274,7 @@ const MemberOrderApp: React.FC = () => {
                           }
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">환불</p>
-                            <p className="text-sm text-gray-500">{order?.return_status == 'RETURN_APPLY' ? order?.payment_amount?.toLocaleString() : '0'} 원</p>
-                            {/* <p className="text-sm text-gray-500">{order?.return_status == 'RETURN_APPLY'  ? order?.return_type == 'FREE_FEE' ? '0': (order?.payment_amount - order?.delivery_fee).toLocaleString() : '0'} 원</p> */}
+                            <p className="text-sm text-gray-500">{order?.refund_amount ? -Number(order?.refund_amount)?.toLocaleString() : '0'} 원</p>
                           </div>
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">결제수단</p>
@@ -1226,6 +1432,18 @@ const MemberOrderApp: React.FC = () => {
                           return (typeof id === 'string' && id.trim() !== '') || (typeof id === 'number' && !isNaN(id));
                         }
                       });
+
+                      // RETURN_/EXCHANGE_ 상태 포함 여부
+                      const anyReturnOrExchange = selectedOrders.some(order => {
+                        const has = (o: any) => {
+                          const s = String(o?.order_status || '').toUpperCase();
+                          return s.startsWith('RETURN_') || s.startsWith('EXCHANGE_');
+                        };
+                        if (order?.products) {
+                          return order.products.some((p: any) => has(p));
+                        }
+                        return has(order);
+                      });
                       
                       return (
                         <>
@@ -1256,9 +1474,6 @@ const MemberOrderApp: React.FC = () => {
                             
                             setSelectedOrdersForGoodsflow(selectedOrders);
                             setIsGoodsflowModalOpen(true);
-                            // 굿스플로 송장등록 버튼을 누른 주문들 표시용 (아이콘 전환)
-                            const idsToMark = selectedOrders.flatMap((order: any) => order?.products ? order.products.map((p: any) => p.order_detail_app_id) : [order?.order_detail_app_id]);
-                            setGoodsflowInitiatedOrderIds(prev => Array.from(new Set([...(prev || []), ...idsToMark.filter(Boolean)])));
                             setIsOrderProcessOpen(false);
                           }}>송장등록 - 굿스플로</p>
                           <p className={`px-4 py-2 text-sm cursor-pointer text-white hover:bg-gray-700`} onClick={async () => {
@@ -1345,7 +1560,7 @@ const MemberOrderApp: React.FC = () => {
                             setIsToastVisible(true);
                           }}>배송보류 해제</p>
                           <p className={`px-4 py-2 text-sm cursor-pointer text-white hover:bg-gray-700`} onClick={async () => {
-                            if (!allHaveTrackingNumber || allShippingComplete || allShipping) {
+                            if (anyReturnOrExchange || !allHaveTrackingNumber || allShippingComplete || allShipping) {
                               setErrorMessage({
                                 title: '배송중 처리할 수 없어요',
                                 content: '배송중 처리할 수 있어요.'
@@ -1363,7 +1578,7 @@ const MemberOrderApp: React.FC = () => {
                             setIsOrderProcessOpen(false);
                           }}>배송중 처리</p>
                           <p className={`px-4 py-2 text-sm cursor-pointer text-white hover:bg-gray-700`} onClick={async () => {
-                            if (!allHaveTrackingNumber || allShippingComplete) {
+                            if (anyReturnOrExchange || !allHaveTrackingNumber || allShippingComplete) {
                               setErrorMessage({
                                 title: '배송완료 처리할 수 없어요',
                                 content: '배송완료 처리할 수 없어요'

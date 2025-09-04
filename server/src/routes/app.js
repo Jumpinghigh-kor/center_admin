@@ -21,6 +21,7 @@ const portoneRouter = require("./app/portone");
 const memberOrderAddressRouter = require("./app/memberOrderAddress");
 const memberPointAppRouter = require("./app/memberPointApp");
 const memberPaymentAppRouter = require("./app/memberPaymentApp");
+const trackingServiceRouter = require("./app/trackingService");
 
 // 배너 라우터 연결
 router.use("/bannerApp", bannerRouter);
@@ -84,6 +85,10 @@ router.use("/memberPointApp", memberPointAppRouter);
 
 // 회원 결제 라우트
 router.use("/memberPaymentApp", memberPaymentAppRouter);
+
+// 배송 추적 라우트
+router.use("/trackingService", trackingServiceRouter);
+
 
 
 module.exports = router;

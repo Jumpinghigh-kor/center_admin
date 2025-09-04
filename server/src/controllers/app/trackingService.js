@@ -1,4 +1,4 @@
-import { apiRequest } from '../apiRequest';
+// removed unused import to avoid module not found errors
 
 // Delivery Tracker API 설정
 const DELIVERY_TRACKER_CLIENT_ID = process.env.DELIVERY_TRACKER_CLIENT_ID; // 발급받은 클라이언트 ID
@@ -52,7 +52,7 @@ const getOAuth2Token = async () => {
       throw new Error('OAuth2 토큰 획득 실패');
     }
   } catch (error) {
-    console.error('OAuth2 토큰 획득 에러:', error);
+    // console.error('OAuth2 토큰 획득 에러:', error);
     throw error;
   }
 };
@@ -83,17 +83,14 @@ const graphqlRequest = async (query, variables = {}) => {
     
     return data.data;
   } catch (error) {
-    console.error('GraphQL request error:', error);
+    // console.error('GraphQL request error:', error);
     throw error;
   }
 };
 
 // 배송 추적 정보 조회
-export const getTrackingInfo = async (companyName, trackingNumber) => {
+const getTrackingInfo = async (companyName, trackingNumber) => {
   try {
-    console.log('companyName', companyName);
-    console.log('trackingNumber', trackingNumber);
-    
     const carrierId = COMPANY_CODES[companyName];
     if (!carrierId) {
       return {
@@ -108,7 +105,7 @@ export const getTrackingInfo = async (companyName, trackingNumber) => {
     // 캐시에서 확인
     const cachedData = cache.get(cacheKey);
     if (cachedData && (Date.now() - cachedData.timestamp) < CACHE_DURATION) {
-      console.log('캐시에서 데이터 반환');
+      // console.log('캐시에서 데이터 반환');
       return {
         success: true,
         data: cachedData.data
@@ -188,7 +185,7 @@ export const getTrackingInfo = async (companyName, trackingNumber) => {
       data: result
     };
   } catch (error) {
-    console.error('배송 추적 조회 실패:', error);
+    // console.error('배송 추적 조회 실패:', error);
     
     // 할당량 초과 에러인 경우 특별 처리
     if (error.message && error.message.includes('rate limit exceeded')) {
@@ -207,7 +204,7 @@ export const getTrackingInfo = async (companyName, trackingNumber) => {
 };
 
 // 택배사 목록 조회
-export const getCompanyList = async () => {
+const getCompanyList = async () => {
   try {
     const query = 
       `query Carriers($first: Int!) {
@@ -238,7 +235,7 @@ export const getCompanyList = async () => {
       data: carriers
     };
   } catch (error) {
-    console.error('택배사 목록 조회 실패:', error);
+    // console.error('택배사 목록 조회 실패:', error);
     return {
       success: false,
       error: error.message
@@ -247,7 +244,7 @@ export const getCompanyList = async () => {
 };
 
 // 택배사 검색 (텍스트로 검색)
-export const searchCarriers = async (searchText) => {
+const searchCarriers = async (searchText) => {
   try {
     const query = 
       `query Carriers($searchText: String!, $first: Int!) {
@@ -279,7 +276,7 @@ export const searchCarriers = async (searchText) => {
       data: carriers
     };
   } catch (error) {
-    console.error('택배사 검색 실패:', error);
+    // console.error('택배사 검색 실패:', error);
     return {
       success: false,
       error: error.message
@@ -288,7 +285,7 @@ export const searchCarriers = async (searchText) => {
 };
 
 // 택배사 자동 감지 (운송장 번호로 택배사 추천)
-export const getRecommendedCarriers = async (trackingNumber) => {
+const getRecommendedCarriers = async (trackingNumber) => {
   try {
     const query = 
       `query RecommendCarriers($trackingNumber: String!) {
@@ -316,12 +313,20 @@ export const getRecommendedCarriers = async (trackingNumber) => {
       data: carriers
     };
   } catch (error) {
-    console.error('택배사 추천 조회 실패:', error);
+    // console.error('택배사 추천 조회 실패:', error);
     return {
       success: false,
       error: error.message
     };
   }
+};
+
+// CommonJS 호환 내보내기 (서버 라우터에서 require로 불러올 때 대비)
+module.exports = {
+  getTrackingInfo,
+  getCompanyList,
+  searchCarriers,
+  getRecommendedCarriers,
 };
 
 // 테스트 실행 (개발 중에만 사용)

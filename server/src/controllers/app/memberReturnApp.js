@@ -180,3 +180,122 @@ exports.updateMemberReturnAppApproval = (req, res) => {
     res.status(500).json({ error: "서버 오류가 발생했습니다." });
   }
 };
+
+// 굿스플로 반품 아이디 입력
+exports.updateReturnGoodsflowId = (req, res) => {
+  try {
+    const { order_detail_app_id, return_goodsflow_id, userId } = req.body;
+    
+    const now = dayjs();
+    const mod_dt = now.format("YYYYMMDDHHmmss");
+
+    const updateReturnGoodsflowIdQuery = `
+      UPDATE member_return_app SET
+        return_goodsflow_id = ?
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE order_detail_app_id IN (?)
+    `;
+
+    db.query(
+      updateReturnGoodsflowIdQuery,
+      [return_goodsflow_id, mod_dt, userId, order_detail_app_id],
+      (err, result) => {
+        if (err) {
+          console.error("굿스플로 반품 아이디 입력 오류:", err);
+          return res
+            .status(500)
+            .json({ error: "굿스플로 반품 아이디 입력 중 오류가 발생했습니다." });
+        }
+
+        res.status(200).json({
+          message: "굿스플로 반품 아이디가 성공적으로 입력되었습니다.",
+          success: true
+        });
+      }
+    );
+  } catch (error) {
+    console.error("굿스플로 반품 아이디 입력 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};
+
+// 구매자 송장 번호 입력
+exports.updateReturnCustomerTrackingNumber = (req, res) => {
+  try {
+    const { order_detail_app_id, customer_tracking_number, userId } = req.body;
+    
+    const now = dayjs();
+    const mod_dt = now.format("YYYYMMDDHHmmss");
+
+    const updateReturnCustomerInfoQuery = `
+      UPDATE member_return_app SET
+        customer_tracking_number = ?
+        , return_goodsflow_id = NULL
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE order_detail_app_id IN (?)
+    `;
+
+    db.query(
+      updateReturnCustomerInfoQuery,
+      [customer_tracking_number, mod_dt, userId, order_detail_app_id],
+      (err, result) => {
+        if (err) {
+          console.error("구매자 송장 정보 입력 오류:", err);
+          return res
+            .status(500)
+            .json({ error: "구매자 송장 정보 중 오류가 발생했습니다." });
+        }
+
+        res.status(200).json({
+          message: "구매자 송장 정보가 성공적으로 입력되었습니다.",
+          success: true
+        });
+      }
+    );
+  } catch (error) {
+    console.error("구매자 송장 정보 입력 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};
+
+// 교환 회사 송장 번호 입력
+exports.updateExchangeCompanyTrackingInfo = (req, res) => {
+  try {
+    const { order_detail_app_id, company_tracking_number, company_courier_code, userId } = req.body;
+    
+    const now = dayjs();
+    const mod_dt = now.format("YYYYMMDDHHmmss");
+
+    const updateExchangeCompanyTrackingInfoQuery = `
+      UPDATE member_return_app SET
+        company_tracking_number = ?
+        , company_courier_code = ?
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE order_detail_app_id IN (?)
+    `;
+
+    db.query(
+      updateExchangeCompanyTrackingInfoQuery,
+      [company_tracking_number, company_courier_code, mod_dt, userId, order_detail_app_id],
+      (err, result) => {
+        if (err) {
+          console.error("교환 회사 송장 정보 입력 오류:", err);
+          return res
+            .status(500)
+            .json({ error: "교환 회사 송장 정보 중 오류가 발생했습니다." });
+        }
+
+        res.status(200).json({
+          message: "교환 회사 송장 정보가 성공적으로 입력되었습니다.",
+          success: true
+        });
+      }
+    );
+  } catch (error) {
+    console.error("교환 회사 송장 정보 입력 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};

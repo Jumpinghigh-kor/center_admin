@@ -6,7 +6,7 @@ exports.selectMemberOrderAppList = (req, res) => {
   const { order_status, center_id, searchValue } = req.body;
   
   let filter = '';
-  if (order_status !== 'TOTAL_COUNT') {
+  if (order_status && order_status !== 'TOTAL_COUNT') {
     filter = `AND moda.order_status = ?`
   }
 
@@ -15,9 +15,11 @@ exports.selectMemberOrderAppList = (req, res) => {
               AND (m.mem_name LIKE CONCAT('%', ?, '%')
               OR  m.mem_phone LIKE CONCAT('%', ?, '%')
               OR  CONCAT(moa.order_dt, moa.order_app_id) LIKE CONCAT('%', ?, '%')
-              OR  moda.tracking_number LIKE CONCAT('%', ?, '%'))`;
+              OR  (moda.tracking_number LIKE CONCAT('%', ?, '%') 
+                  OR mra.company_tracking_number LIKE CONCAT('%', ?, '%')
+                  OR mra.customer_tracking_number LIKE CONCAT('%', ?, '%') ))`;
     
-    if (order_status) {
+    if (order_status && order_status !== 'TOTAL_COUNT') {
       filter += ` ${searchFilter}`;
     } else {
       filter = searchFilter;
@@ -74,6 +76,7 @@ exports.selectMemberOrderAppList = (req, res) => {
         , mra.customer_courier_code
         , mra.company_courier_code
         , mra.quantity AS return_quantity
+        , mra.return_goodsflow_id
         , CASE
             WHEN mra.return_applicator = 'ADMIN' THEN '판매자'
             ELSE '구매자'
@@ -81,19 +84,28 @@ exports.selectMemberOrderAppList = (req, res) => {
         , mra.reg_dt AS return_dt
         , (
             SELECT
-              SUM(smpa.payment_amount)
+              smpa.payment_app_id
             FROM	member_payment_app	smpa
             WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'DELIVERY_FEE'
+          ) AS delivery_fee_payment_app_id
+        , (
+            SELECT
+              SUM(smpa.payment_amount) - IFNULL(SUM(smpa.refund_amount), 0)
+            FROM	member_payment_app	smpa
+            WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'PRODUCT_BUY'
           ) AS payment_amount
         , (
             SELECT
-              SUM(smpa.refund_amount)
+              IFNULL(SUM(smpa.refund_amount), 0)
             FROM	member_payment_app	smpa
             WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'PRODUCT_BUY'
           ) AS refund_amount
         , (
             SELECT
-              SUM(smpa.point_amount)
+              IFNULL(SUM(smpa.point_amount), 0)
             FROM	member_point_app	smpa
             WHERE	smpa.order_app_id = moa.order_app_id
             AND		smpa.del_yn = 'N'
@@ -101,24 +113,46 @@ exports.selectMemberOrderAppList = (req, res) => {
           ) AS point_use_amount
         , (
             SELECT
-              SUM(smpa.point_amount)
-            FROM	member_point_app	smpa
-            WHERE	smpa.order_app_id = moa.order_app_id
-            AND		smpa.del_yn = 'Y'
-            AND		smpa.point_status = 'POINT_MINUS'
-          ) AS point_refund_amount
-        , (
-            SELECT
               smpa.portone_imp_uid
             FROM	member_payment_app	smpa
             WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'PRODUCT_BUY'
           ) AS portone_imp_uid
         , (
             SELECT
               smpa.portone_merchant_uid
             FROM	member_payment_app	smpa
             WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'PRODUCT_BUY'
           ) AS portone_merchant_uid
+        , (
+            SELECT
+              SUM(smpa.payment_amount)
+            FROM	member_payment_app	smpa
+            WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'DELIVER_FEE'
+          ) AS delivery_fee_payment_amount
+        , (
+            SELECT
+              smpa.portone_imp_uid
+            FROM	member_payment_app	smpa
+            WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'DELIVERY_FEE'
+          ) AS delivery_fee_portone_imp_uid
+        , (
+            SELECT
+              smpa.portone_imp_uid
+            FROM	member_payment_app	smpa
+            WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'DELIVERY_FEE'
+          ) AS delivery_fee_portone_imp_uid
+        , (
+            SELECT
+              smpa.portone_merchant_uid
+            FROM	member_payment_app	smpa
+            WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'DELIVERY_FEE'
+          ) AS delivery_fee_portone_merchant_uid
         , (
             SELECT
               CASE
@@ -144,7 +178,7 @@ exports.selectMemberOrderAppList = (req, res) => {
     
     let queryParams = [center_id];
     
-    if (order_status) {
+    if (order_status && order_status !== 'TOTAL_COUNT') {
       queryParams.push(order_status);
     }
     

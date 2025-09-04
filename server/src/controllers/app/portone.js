@@ -78,42 +78,54 @@ const getPortOneToken = async (req, res) => {
 // Express 핸들러: 환불 요청
 const requestPortOneRefund = async (req, res) => {
   try {
-    const { imp_uid, merchant_uid, refundAmount, reason } = req.body || {};
+    let { imp_uid, merchant_uid, refundAmount, reason, payment_app_id, order_app_id, userId } = req.body || {};
+
+    // payment_app_id로 넘어오면 DB에서 식별자/금액 보강
+    let paymentRow = null;
+    if ((!imp_uid && !merchant_uid) || typeof refundAmount !== 'number') {
+      if (payment_app_id) {
+        try {
+          const sql = `SELECT payment_app_id, payment_type, payment_amount, portone_imp_uid, portone_merchant_uid FROM member_payment_app WHERE payment_app_id = ? LIMIT 1`;
+          await new Promise((resolve, reject) => {
+            db.query(sql, [payment_app_id], (err, rows) => {
+              if (err) return reject(err);
+              paymentRow = rows && rows[0] ? rows[0] : null;
+              resolve();
+            });
+          });
+          if (paymentRow) {
+            if (!imp_uid && paymentRow.portone_imp_uid) imp_uid = paymentRow.portone_imp_uid;
+            if (!merchant_uid && paymentRow.portone_merchant_uid) merchant_uid = paymentRow.portone_merchant_uid;
+            if (typeof refundAmount !== 'number') refundAmount = Number(paymentRow.payment_amount || 0);
+          }
+        } catch (lookupErr) {
+          console.error('[PortOne] payment_app lookup error:', lookupErr);
+        }
+      }
+    }
+
     const result = await requestPortOneRefundCore(imp_uid, merchant_uid, refundAmount, reason);
     // 취소 성공 시 결제상태 업데이트
     try {
-      const { payment_app_id, userId, order_app_id } = req.body || {};
       if (payment_app_id) {
         const mod_dt = dayjs().format('YYYYMMDDHHmmss');
         const updateQuery = `
           UPDATE member_payment_app SET
             payment_status = 'PAYMENT_REFUND'
             , portone_status = 'REFUND'
+            , refund_amount = COALESCE(refund_amount, 0) + ?
             , mod_dt = ?
             , mod_id = ?
           WHERE payment_app_id = ?
         `;
-        db.query(updateQuery, [mod_dt, userId || null, payment_app_id], (err) => {
+        db.query(updateQuery, [Number(refundAmount || 0), mod_dt, userId || null, payment_app_id], (err) => {
           if (err) {
             console.error('[PortOne] Update member_payment_app error:', err);
           }
         });
       }
-      // 포인트 이력 del 처리
-      if (order_app_id) {
-        const updatePointQuery = `
-          UPDATE member_point_app SET
-            del_yn = 'Y'
-            , mod_dt = ?
-            , mod_id = ?
-          WHERE order_app_id IN (?)
-        `;
-        db.query(updatePointQuery, [userId || null, order_app_id], (err) => {
-          if (err) {
-            console.error('[PortOne] Update member_point_app error:', err);
-          }
-        });
-      }
+      // 배송비 결제(DELIVERY_FEE) 환불의 경우 포인트 이력 미변경
+      // (product 환불 등 다른 케이스는 별도 처리에서 수행)
     } catch (e) {
       console.error('[PortOne] Post-refund update error:', e);
     }

@@ -78,7 +78,8 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
 
   // 택배사 목록이 로드된 후 기존 값 설정
   useEffect(() => {
-    if (deliveryCompanyList.length > 0 && isOpen && existingTrackingNumber && existingCourierCode) {
+    if (!isOpen || deliveryCompanyList.length === 0) return;
+    if (existingTrackingNumber && existingCourierCode) {
       setInvoiceNumber(existingTrackingNumber);
       const courierName = deliveryCompanyList.find(company => company.common_code === existingCourierCode)?.common_code_name || '';
       setDeliveryCompany(courierName);
@@ -88,22 +89,52 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
   // 송장번호 업데이트 함수
   const updateTrackingNumber = async (trackingNumber: string, orderStatus: string, actionType: 'input_only' | 'shipping_process') => {
     try {
-      
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateTrackingNumber`,
-        {
-          order_detail_app_id: orderDetailAppId,
-          tracking_number: trackingNumber,
-          order_status: orderStatus,
-          userId: userId,
-          courier_code: deliveryCompanyList.find(company => company.common_code_name === deliveryCompany)?.common_code || ''
-        }
-      );
+      // EXCHANGE_PAYMENT_COMPLETE(교환 배송비 결제완료) 상태에서는 회사 송장/택배사 정보를 교환 테이블에 저장
+      const courier_code = deliveryCompanyList.find(company => company.common_code_name === deliveryCompany)?.common_code || '';
+      let response;
+      const isExchange = String(orderStatus || '').toUpperCase().startsWith('EXCHANGE');
+      if (isExchange) {
+        response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateExchangeCompanyTrackingInfo`,
+          {
+            order_detail_app_id: orderDetailAppId,
+            company_tracking_number: trackingNumber,
+            company_courier_code: courier_code,
+            userId: userId,
+          }
+        );
+      } else {
+        response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateTrackingNumber`,
+          {
+            order_detail_app_id: orderDetailAppId,
+            tracking_number: trackingNumber,
+            order_status: orderStatus,
+            userId: userId,
+            courier_code,
+          }
+        );
+      }
 
       // API 응답이 성공이면 처리
       if (response.data.success || response.status === 200) {
+        try {
+          if (actionType === 'shipping_process') {
+            const nextStatus = isExchange ? 'EXCHANGE_SHIPPINGING' : 'SHIPPINGING';
+            await axios.post(
+              `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`,
+              {
+                order_detail_app_id: orderDetailAppId,
+                order_status: nextStatus,
+                userId: userId,
+              }
+            );
+          }
+        } catch (e) {
+          console.error('상태 변경 오류:', e);
+        }
         setMessage("송장번호가 성공적으로 등록되었습니다.");
-        const courierCode = deliveryCompanyList.find(company => company.common_code_name === deliveryCompany)?.common_code || '';
+        const courierCode = courier_code;
         onSuccess(trackingNumber, courierCode, actionType);
         onClose();
         setIsToastVisible(true);

@@ -49,7 +49,8 @@ interface OrderDetail {
   free_shipping_amount: number;
   products?: any[];
   point_use_amount: number;
-  point_refund_amount: number;
+  delivery_fee_portone_imp_uid: string;
+  delivery_fee_portone_merchant_uid: string;
 }
 
 interface OrderPrintModalProps {
