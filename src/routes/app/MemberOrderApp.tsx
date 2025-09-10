@@ -1604,7 +1604,7 @@ const MemberOrderApp: React.FC = () => {
             </div>
 
             <div className="relative">
-              <button 
+              {/* <button 
                 onClick={() => {
                   setIsOrderPrintOpen(!isOrderPrintOpen);
                   setIsOrderProcessOpen(false);
@@ -1614,10 +1614,10 @@ const MemberOrderApp: React.FC = () => {
                 <svg className="w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                 </svg>
-              </button>
+              </button> */}
                 
               {/* 주문서 출력 드롭다운 메뉴 */}
-              {isOrderPrintOpen && (
+              {/* {isOrderPrintOpen && (
               <div className="absolute bottom-full right-0 mb-7 bg-gray-800 rounded-lg shadow-lg z-50 min-w-32" style={{backgroundColor: '#15181E'}}>
                 <div className="py-2">
                   <div 
@@ -1638,7 +1638,7 @@ const MemberOrderApp: React.FC = () => {
                   </div>
                 </div>
               </div>
-              )}
+              )} */}
             </div>
           </div>
         </div>

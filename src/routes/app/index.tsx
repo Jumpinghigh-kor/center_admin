@@ -20,6 +20,9 @@ import ExerciseApp from "./ExerciseApp"
 import InquiryShoppingApp from "./InquiryShoppingApp";
 import InquiryAdminApp from "./InquiryAdminApp";
 import MemberOrderAppReturn from "./MemberOrderAppReturn";
+import CenterMemberOrderAppList from "./CenterMemberOrderAppList";
+import PostApp from "./PostApp";
+import PostAppDetail from "./PostAppDetail";
 
 const MemberApp: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -68,6 +71,8 @@ const MemberApp: React.FC = () => {
       setActiveTab("exerciseApp");
     } else if (location.pathname.includes("/memberOrderAppReturn")) {
       setActiveTab("memberOrderAppReturn");
+    } else if (location.pathname.includes("/postApp")) {
+      setActiveTab("postApp");
     }
 
     // 햄버거 메뉴 클릭 시 사이드바가 표시되는 것 방지
@@ -114,6 +119,9 @@ const MemberApp: React.FC = () => {
             <Route path="/eventApp" element={<EventApp />} />
             <Route path="/exerciseApp" element={<ExerciseApp />} />
             <Route path="/memberOrderAppReturn" element={<MemberOrderAppReturn />} />
+            <Route path="/centerMemberOrderAppList" element={<CenterMemberOrderAppList />} />
+            <Route path="/postApp" element={<PostApp />} />
+            <Route path="/postApp/postAppDetail" element={<PostAppDetail />} />
             <Route path="/settings" element={<div>설정 페이지</div>} />
             {/* Add more routes as needed */}
           </Routes>

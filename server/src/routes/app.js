@@ -22,6 +22,8 @@ const memberOrderAddressRouter = require("./app/memberOrderAddress");
 const memberPointAppRouter = require("./app/memberPointApp");
 const memberPaymentAppRouter = require("./app/memberPaymentApp");
 const trackingServiceRouter = require("./app/trackingService");
+const postAppRouter = require("./app/postApp");
+const memberAppRouter = require("./app/memberApp");
 
 // 배너 라우터 연결
 router.use("/bannerApp", bannerRouter);
@@ -89,6 +91,11 @@ router.use("/memberPaymentApp", memberPaymentAppRouter);
 // 배송 추적 라우트
 router.use("/trackingService", trackingServiceRouter);
 
+// 우편함 라우트
+router.use("/postApp", postAppRouter);
+
+// 회원 라우트
+router.use("/memberApp", memberAppRouter);
 
 
 module.exports = router;

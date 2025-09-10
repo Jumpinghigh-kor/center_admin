@@ -349,12 +349,14 @@ exports.insertMemberOrderDetailApp = (req, res) => {
         , courier_code
         , tracking_number
         , goodsflow_id
+        , purchase_confirm_dt
         , reg_dt
         , reg_id
         , mod_dt
         , mod_id
       ) VALUES (
         ?
+        , ?
         , ?
         , ?
         , ?
@@ -380,6 +382,7 @@ exports.insertMemberOrderDetailApp = (req, res) => {
         courier_code,
         tracking_number,
         goodsflow_id,
+        null,
         reg_dt,
         userId,
         null,
@@ -782,6 +785,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                       , courier_code
                       , tracking_number
                       , goodsflow_id
+                      , purchase_confirm_dt
                       , reg_dt
                       , reg_id
                       , mod_dt
@@ -795,6 +799,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                       , ?
                       , ?
                       , ?
+                      , NULL
                       , ?
                       , ?
                       , NULL
@@ -1008,4 +1013,132 @@ exports.deleteMemberOrderApp = (req, res) => {
     console.error("주문 삭제 중 오류 발생:", error);
     res.status(500).json({ error: "서버 오류가 발생했습니다." });
   }
+};
+
+// 센터별 주문 목록 조회
+exports.selectCenterMemberOrderAppList = (req, res) => {
+  const { center_id, mem_name, order_status, start_order_dt, end_order_dt, start_purchase_confirm_dt, end_purchase_confirm_dt, min_center_payback, max_center_payback } = req.body;
+
+  const parseNumberOrNull = (value) => {
+    if (value === undefined || value === null) return null;
+    const raw = String(value).replace(/,/g, '').trim();
+    if (raw === '') return null;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const minCenterPaybackNum = parseNumberOrNull(min_center_payback);
+  const maxCenterPaybackNum = parseNumberOrNull(max_center_payback);
+
+  let filter = '';
+  let params = [center_id];
+
+  if(mem_name) {
+    filter += ` AND A.mem_name LIKE CONCAT('%', ?, '%')`;
+    params.push(mem_name);
+  }
+  
+  if(order_status) {
+    if (order_status === 'NOT_PURCHASE_CONFIRM') {
+      filter += ` AND A.order_status != 'PURCHASE_CONFIRM'`;
+    } else {
+      filter += ` AND A.order_status = ?`;
+      params.push(order_status);
+    }
+  }
+  
+  
+  if(start_order_dt && end_order_dt) {
+    filter += ` AND A.order_dt BETWEEN ? AND ?`;
+    params.push(start_order_dt.replace(/-/g, '')+'000001', end_order_dt.replace(/-/g, '')+'235959');
+  } else if(start_order_dt) {
+    filter += ` AND A.order_dt >= ?`;
+    params.push(start_order_dt.replace(/-/g, '')+'000001');
+  } else if(end_order_dt) {
+    filter += ` AND A.order_dt <= ?`;
+    params.push(end_order_dt.replace(/-/g, '')+'235959');
+  }
+
+  if(start_purchase_confirm_dt && end_purchase_confirm_dt) {
+    filter += ` AND A.purchase_confirm_dt BETWEEN ? AND ?`;
+    params.push(start_purchase_confirm_dt.replace(/-/g, '')+'000001', end_purchase_confirm_dt.replace(/-/g, '')+'235959');
+  } else if(start_purchase_confirm_dt) {
+    filter += ` AND A.purchase_confirm_dt >= ?`;
+    params.push(start_purchase_confirm_dt.replace(/-/g, '')+'000001');
+  } else if(end_purchase_confirm_dt) {
+    filter += ` AND A.purchase_confirm_dt <= ?`;
+    params.push(end_purchase_confirm_dt.replace(/-/g, '')+'235959');
+  }
+
+  if(minCenterPaybackNum !== null && maxCenterPaybackNum !== null) {
+    filter += ` AND A.center_payback BETWEEN ? AND ?`;
+    filter += ` AND A.order_status = 'PURCHASE_CONFIRM'`;
+    params.push(minCenterPaybackNum, maxCenterPaybackNum);
+  } else if(minCenterPaybackNum !== null) {
+    filter += ` AND A.center_payback >= ?`;
+    filter += ` AND A.order_status = 'PURCHASE_CONFIRM'`;
+    params.push(minCenterPaybackNum);
+  } else if(maxCenterPaybackNum !== null) {
+    filter += ` AND A.center_payback <= ?`;
+    filter += ` AND A.order_status = 'PURCHASE_CONFIRM'`;
+    params.push(maxCenterPaybackNum);
+  } 
+
+  const query = `
+    SELECT
+      *
+    FROM (
+        SELECT
+          m.mem_name
+          , m.mem_phone
+          , m.mem_app_status
+          , DATE_FORMAT(moa.order_dt, '%Y-%m-%d %H:%i:%s') AS formatted_order_dt
+          , order_dt
+          , moda.order_status
+          , moda.order_quantity
+          , DATE_FORMAT(moda.purchase_confirm_dt, '%Y-%m-%d %H:%i:%s') AS formatted_purchase_confirm_dt
+          , purchase_confirm_dt
+          , pa.product_name
+          , FORMAT(pa.original_price, 0) AS original_price
+          , pa.discount
+          , pa.price
+          , pa.give_point
+          , pda.option_type
+          , pda.option_unit
+          , pda.option_gender
+          , pda.option_amount
+          , (
+              SELECT
+                IFNULL(SUM(smpa.point_amount), 0)
+              FROM	member_point_app smpa
+              WHERE	smpa.order_app_id = moa.order_app_id
+              AND		smpa.del_yn = 'N'
+              AND		smpa.point_status = 'POINT_MINUS'
+            ) AS point_amount
+          , CASE
+              WHEN pa.brand_name = '점핑하이' THEN TRUNCATE(pa.original_price * 0.1 * moda.order_quantity, 0)
+              WHEN pa.brand_name = '더마핏'   THEN TRUNCATE(pa.original_price * 0.05 * moda.order_quantity, 0)
+              ELSE 0
+            END AS center_payback
+          , order_group
+        FROM		    members m
+        INNER JOIN	member_order_app moa			    ON m.mem_id = moa.mem_id
+        LEFT JOIN	  member_order_detail_app moda 	ON moa.order_app_id = moda.order_app_id
+        LEFT JOIN	  product_detail_app pda			  ON moda.product_detail_app_id = pda.product_detail_app_id
+        LEFT JOIN	  product_app pa					      ON pda.product_app_id = pa.product_app_id
+        WHERE		    m.center_id = ?
+        AND			    moa.del_yn = 'N'
+        ORDER BY moa.order_app_id DESC
+      ) A
+      WHERE 1 = 1
+      ${filter}
+  ;`;
+    
+  db.query(query, params, (err, result) => {
+    if (err) {
+      console.error("주문 목록 조회 오류:", err);
+      return res.status(500).json({ error: "주문 목록을 조회하는 도중 오류가 발생했습니다." });
+    }
+    res.status(200).json(result);
+  });
 };

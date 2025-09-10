@@ -71,65 +71,95 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
             </button>
           </li>
 
-                     <li className="mb-1">
-             <button
-               onClick={() =>
-                 handleNavigation("/app/exerciseApp", "exerciseApp")
-               }
-               className={`flex items-center w-full py-2 px-4 text-left ${
-                 activeTab === "exerciseApp"
-                   ? "bg-gray-200 text-gray-900"
-                   : "text-gray-700 hover:bg-gray-100"
-               }`}
-               title="운동 관리"
-             >
-               <svg
-                 className="w-6 h-6 md:mr-3"
-                 fill="none"
-                 stroke="currentColor"
-                 viewBox="0 0 24 24"
-                 xmlns="http://www.w3.org/2000/svg"
-               >
-                 <path
-                   strokeLinecap="round"
-                   strokeLinejoin="round"
-                   strokeWidth="2"
-                   d="M13 10V3L4 14h7v7l9-11h-7z"
-                 />
-               </svg>
-               <span className="hidden md:inline">운동 관리</span>
-             </button>
-           </li>
+          <li className="mb-1">
+            <button
+              onClick={() =>
+                handleNavigation("/app/exerciseApp", "exerciseApp")
+              }
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === "exerciseApp"
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="운동 관리"
+            >
+              <svg
+                className="w-6 h-6 md:mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              <span className="hidden md:inline">운동 관리</span>
+            </button>
+          </li>
 
-                     <li className="mb-1">
-             <button
-               onClick={() =>
-                 handleNavigation("/app/inquiryApp", "inquiryApp")
-               }
-               className={`flex items-center w-full py-2 px-4 text-left ${
-                 activeTab === "inquiryApp"
-                   ? "bg-gray-200 text-gray-900"
-                   : "text-gray-700 hover:bg-gray-100"
-               }`}
-               title="업데이트 로그 관리"
-             >
-               <svg
-                 className="w-6 h-6 md:mr-3"
-                 fill="none"
-                 stroke="currentColor"
-                 viewBox="0 0 24 24"
-                 xmlns="http://www.w3.org/2000/svg"
-               >
-                 <path
-                   strokeLinecap="round"
-                   strokeLinejoin="round"
-                   strokeWidth="2"
-                   d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                 />
-               </svg>
-               <span className="hidden md:inline">센터 문의 관리</span>
-             </button>
-           </li>
+          <li className="mb-1">
+            <button
+              onClick={() =>
+                handleNavigation("/app/centerMemberOrderAppList", "centerMemberOrderAppList")
+              }
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === "centerMemberOrderAppList"
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="주문 관리"
+            >
+              <svg
+                className="w-6 h-6 md:mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                />
+              </svg>
+              <span className="hidden md:inline">주문 관리</span>
+            </button>
+          </li>
+
+          <li className="mb-1">
+            <button
+              onClick={() =>
+                handleNavigation("/app/inquiryApp", "inquiryApp")
+              }
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === "inquiryApp"
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="센터 문의 관리"
+            >
+              <svg
+                className="w-6 h-6 md:mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+              </svg>
+              <span className="hidden md:inline">센터 문의 관리</span>
+            </button>
+          </li>
 
           {/* 공통 관리 */}
           {user.usr_role === 'admin' && (
@@ -194,65 +224,95 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                 </button>
               </li>
 
-                             <li className="mb-1">
-                 <button
-                   onClick={() =>
-                     handleNavigation("/app/updateLogApp", "updateLogApp")
-                   }
-                   className={`flex items-center w-full py-2 px-4 text-left ${
-                     activeTab === "updateLogApp"
-                       ? "bg-gray-200 text-gray-900"
-                       : "text-gray-700 hover:bg-gray-100"
-                   }`}
-                   title="업데이트 로그 관리"
-                 >
-                   <svg
-                     className="w-6 h-6 md:mr-3"
-                     fill="none"
-                     stroke="currentColor"
-                     viewBox="0 0 24 24"
-                     xmlns="http://www.w3.org/2000/svg"
-                   >
-                     <path
-                       strokeLinecap="round"
-                       strokeLinejoin="round"
-                       strokeWidth="2"
-                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                     />
-                   </svg>
-                   <span className="hidden md:inline">업데이트 로그 관리</span>
-                 </button>
-               </li>
+              <li className="mb-1">
+                <button
+                  onClick={() =>
+                    handleNavigation("/app/postApp", "postApp")
+                  }
+                  className={`flex items-center w-full py-2 px-4 text-left ${
+                    activeTab === "postApp"
+                      ? "bg-gray-200 text-gray-900"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  title="우편함 관리"
+                >
+                  <svg
+                    className="w-6 h-6 md:mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span className="hidden md:inline">우편함 관리</span>
+                </button>
+              </li>
 
-                             <li className="mb-1">
-                 <button
-                   onClick={() =>
-                     handleNavigation("/app/inquiryAdminApp", "inquiryAdminApp")
-                   }
-                   className={`flex items-center w-full py-2 px-4 text-left ${
-                     activeTab === "inquiryAdminApp"
-                       ? "bg-gray-200 text-gray-900"
-                       : "text-gray-700 hover:bg-gray-100"
-                   }`}
-                   title="관리자 문의 관리"
-                 >
-                   <svg
-                     className="w-6 h-6 md:mr-3"
-                     fill="none"
-                     stroke="currentColor"
-                     viewBox="0 0 24 24"
-                     xmlns="http://www.w3.org/2000/svg"
-                   >
-                     <path
-                       strokeLinecap="round"
-                       strokeLinejoin="round"
-                       strokeWidth="2"
-                       d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                     />
-                   </svg>
-                   <span className="hidden md:inline">관리자 문의 관리</span>
-                 </button>
-               </li>
+              <li className="mb-1">
+                <button
+                  onClick={() =>
+                    handleNavigation("/app/updateLogApp", "updateLogApp")
+                  }
+                  className={`flex items-center w-full py-2 px-4 text-left ${
+                    activeTab === "updateLogApp"
+                      ? "bg-gray-200 text-gray-900"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  title="업데이트 로그 관리"
+                >
+                  <svg
+                    className="w-6 h-6 md:mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  <span className="hidden md:inline">업데이트 로그 관리</span>
+                </button>
+              </li>
+
+              <li className="mb-1">
+                <button
+                  onClick={() =>
+                    handleNavigation("/app/inquiryAdminApp", "inquiryAdminApp")
+                  }
+                  className={`flex items-center w-full py-2 px-4 text-left ${
+                    activeTab === "inquiryAdminApp"
+                      ? "bg-gray-200 text-gray-900"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  title="관리자 문의 관리"
+                >
+                  <svg
+                    className="w-6 h-6 md:mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span className="hidden md:inline">관리자 문의 관리</span>
+                </button>
+              </li>
 
               {/* 쇼핑몰 관리 */}
               <li className="mb-1 bg-gray-500 text-gray-300">

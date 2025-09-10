@@ -217,54 +217,54 @@ const ExerciseApp: React.FC = () => {
                   />
                 </td>
                 <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">점프 운동 강도</td>
-                  <td className="border border-gray-300 p-2">
-                    <div className="flex items-center space-x-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="jumping_intensity_level"
-                          value=""
-                          checked={searchData.jumping_intensity_level === ''}
-                          onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
-                          className="mr-1"
-                        />
-                        <span className="text-sm">전체</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="jumping_intensity_level"
-                          value="LOW"
-                          checked={searchData.jumping_intensity_level === 'LOW'}
-                          onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
-                          className="mr-1"
-                        />
-                        <span className="text-sm">저강도</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="jumping_intensity_level"
-                          value="MODERATE"
-                          checked={searchData.jumping_intensity_level === 'MODERATE'}
-                          onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
-                          className="mr-1"
-                        />
-                        <span className="text-sm">중강도</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="jumping_intensity_level"
-                          value="HIGH"
-                          checked={searchData.jumping_intensity_level === 'HIGH'}
-                          onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
-                          className="mr-1"
-                        />
-                        <span className="text-sm">고강도</span>
-                      </label>
-                    </div>
-                  </td>
+                <td className="border border-gray-300 p-2">
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="jumping_intensity_level"
+                        value=""
+                        checked={searchData.jumping_intensity_level === ''}
+                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">전체</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="jumping_intensity_level"
+                        value="LOW"
+                        checked={searchData.jumping_intensity_level === 'LOW'}
+                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">저강도</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="jumping_intensity_level"
+                        value="MODERATE"
+                        checked={searchData.jumping_intensity_level === 'MODERATE'}
+                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">중강도</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="jumping_intensity_level"
+                        value="HIGH"
+                        checked={searchData.jumping_intensity_level === 'HIGH'}
+                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">고강도</span>
+                    </label>
+                  </div>
+                </td>
               </tr>
               <tr>
                 <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">기타 운동 종류</td>

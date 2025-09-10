@@ -13,7 +13,8 @@ const {
     , updateNewMemberOrderApp
     , deleteMemberOrderApp
     , insertMemberOrderApp
-    , insertMemberOrderDetailApp } = require("../../controllers/app/memberOrderApp");
+    , insertMemberOrderDetailApp
+    , selectCenterMemberOrderAppList } = require("../../controllers/app/memberOrderApp");
 
 // 회원 주문 목록 조회
 router.post("/selectMemberOrderAppList", selectMemberOrderAppList);
@@ -53,5 +54,8 @@ router.post("/insertMemberOrderApp", insertMemberOrderApp);
 
 // 주문 상세 등록
 router.post("/insertMemberOrderDetailApp", insertMemberOrderDetailApp);
+
+// 회원 주문 목록 조회
+router.post("/selectCenterMemberOrderAppList", selectCenterMemberOrderAppList);
 
 module.exports = router;
