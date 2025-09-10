@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import Pagination from "../../components/Pagination";
-import { usePagination } from "../../hooks/usePagination";
-import SelectMemberAppPopup from "../../components/app/SelectMemberAppPopup";
+import { useUserStore } from "../../../store/store";
+import SelectMemberAppPopup from "../../../components/app/SelectMemberAppPopup";
 
 interface PostAppDetail {
   post_app_id: number;
@@ -19,8 +17,8 @@ interface PostAppDetail {
 
 const PostAppDetail: React.FC = () => {
   const navigate = useNavigate();
-  const [postList, setPostList] = useState<PostAppDetail[]>([]);
   const user = useUserStore((state) => state.user);
+  const postAppId = new URLSearchParams(window.location.search).get("post_app_id");
 
   const [formData, setFormData] = useState<PostAppDetail>({
     post_app_id: 0,
@@ -39,8 +37,70 @@ const PostAppDetail: React.FC = () => {
   const [isPopup, setIsPopup] = useState(false);
   const [selectedMemberNames, setSelectedMemberNames] = useState<string>("");
   
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  useEffect(() => {
+    const fetchPostAppDetail = async () => {
+      try {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/selectMemberPostAppList`, { post_app_id: postAppId });
+      const rows = res?.data?.result || [];
+      if (rows.length > 0) {
+        const base = rows[0];
+        setPostType(base.post_type || "ALL");
+        setAllSendYn(base.all_send_yn || "Y");
+        setPushSendYn(base.push_send_yn || "Y");
+
+        const ids = rows.filter((r: any) => r.mem_id != null).map((r: any) => r.mem_id).join(",");
+        const names = rows.filter((r: any) => r.mem_name).map((r: any) => r.mem_name).join(", ");
+
+        setFormData((prev) => ({
+          ...prev,
+          post_app_id: Number(postAppId) || 0,
+          post_type: base.post_type || "",
+          all_send_yn: base.all_send_yn || "",
+          title: base.title || "",
+          content: base.content || "",
+          mem_id: base.all_send_yn === "N" ? ids : "",
+        }));
+
+        if (base.all_send_yn === "N") {
+          setSelectedMemberNames(names);
+        } else {
+          setSelectedMemberNames("");
+        }
+      }
+      } catch (err) {
+        console.error(err);
+        alert("우편함 상세 조회에 실패했습니다.");
+      }
+    };
+
+    if (postAppId) {
+      fetchPostAppDetail();
+    }
+  }, []);
+
+  // 우편함 삭제
+  const onSubmitPostApp = async () => {
+    const confirm = window.confirm("이미 읽은 회원이 있을 수 있습니다. 정말 삭제하시겠습니까?");
+    
+    if (!confirm) {
+      return;
+    }
+
+    try {
+      const deletePostAppRes = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/postApp/deletePostApp`,
+        {
+          post_app_id: postAppId,
+          userId: user.index,
+        }
+      );
+
+      alert("삭제가 완료되었습니다.");
+      navigate("/app/postApp");
+    } catch (err) {
+      console.error(err);
+      alert("삭제에 실패했습니다.");
+    }
   };
 
   const handleInputChange = (
@@ -50,46 +110,14 @@ const PostAppDetail: React.FC = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleTestPush = async () => {
-    try {
-      const apiUrl = `${process.env.REACT_APP_API_URL}/app/postApp/testSendPostPush`;
-      const memIds = (formData.mem_id || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s)
-        .map((s) => Number(s))
-        .filter((n) => !Number.isNaN(n));
-
-      await axios.post(
-        apiUrl,
-        {
-          title: formData.title || "테스트 알림",
-          body: formData.content || "테스트 메시지입니다.",
-          mem_ids: memIds.length ? memIds : undefined,
-          center_id: memIds.length ? undefined : user?.center_id,
-        },
-        { withCredentials: true }
-      );
-      alert("푸시 테스트 발송 완료");
-    } catch (e) {
-      console.error(e);
-      alert("푸시 테스트 발송 실패");
-    }
-  };
-
-  useEffect(() => {
-    if (user && user.index) {
-    }
-  }, [user]);
-
   return (
     <>
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold">우편함 등록</h2>
+          <h2 className="text-xl font-semibold">우편함 수정</h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form className="space-y-6">
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white border border-gray-200">
               <tbody>
@@ -107,6 +135,7 @@ const PostAppDetail: React.FC = () => {
                           checked={postType === "ALL"}
                           onChange={() => setPostType("ALL")}
                           className="mr-2"
+                          disabled
                         />
                         전체 섹션
                       </label>
@@ -118,6 +147,7 @@ const PostAppDetail: React.FC = () => {
                           checked={postType === "SHOPPING"}
                           onChange={() => setPostType("SHOPPING")}
                           className="mr-2"
+                          disabled
                         />
                         쇼핑몰 섹션
                       </label>
@@ -129,6 +159,7 @@ const PostAppDetail: React.FC = () => {
                           checked={postType === "JUMPING"}
                           onChange={() => setPostType("JUMPING")}
                           className="mr-2"
+                          disabled
                         />
                         점핑하이 섹션
                       </label>
@@ -150,6 +181,7 @@ const PostAppDetail: React.FC = () => {
                           checked={allSendYn === "Y"}
                           onChange={() => setAllSendYn("Y")}
                           className="mr-2"
+                          disabled
                         />
                         전체 발송
                       </label>
@@ -161,6 +193,7 @@ const PostAppDetail: React.FC = () => {
                           checked={allSendYn === "N"}
                           onChange={() => setAllSendYn("N")}
                           className="mr-2"
+                          disabled
                         />
                         개별 발송
                       </label>
@@ -177,7 +210,9 @@ const PostAppDetail: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsPopup(true)}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={pushSendYn === "N"}
+                        title={pushSendYn === "N" ? "푸쉬 발송이 '아니오'인 경우 회원 선택이 비활성화됩니다." : undefined}
                       >
                         회원 선택
                       </button>
@@ -202,6 +237,7 @@ const PostAppDetail: React.FC = () => {
                           checked={pushSendYn === "Y"}
                           onChange={() => setPushSendYn("Y")}
                           className="mr-2"
+                          disabled
                         />
                         네
                       </label>
@@ -213,6 +249,7 @@ const PostAppDetail: React.FC = () => {
                           checked={pushSendYn === "N"}
                           onChange={() => setPushSendYn("N")}
                           className="mr-2"
+                          disabled
                         />
                         아니오
                       </label>
@@ -230,9 +267,10 @@ const PostAppDetail: React.FC = () => {
                       name="title"
                       value={formData.title}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="상품 제목을 입력하세요"
                       required
+                      disabled
                     />
                   </td>
                 </tr>
@@ -246,8 +284,9 @@ const PostAppDetail: React.FC = () => {
                       name="content"
                       value={formData.content}
                       onChange={handleInputChange}
-                      className="h-[150px] w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="h-[150px] w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="내용을 입력하세요"
+                      disabled
                     />
                   </td>
                 </tr>
@@ -265,17 +304,11 @@ const PostAppDetail: React.FC = () => {
               취소
             </button>
             <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
-            >
-              등록
-            </button>
-            <button
               type="button"
-              onClick={handleTestPush}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50"
+              onClick={onSubmitPostApp}
             >
-              푸시 발송(테스트)
+              삭제
             </button>
           </div>
         </form>
@@ -291,6 +324,12 @@ const PostAppDetail: React.FC = () => {
           setSelectedMemberNames(names);
           setIsPopup(false);
         }}
+        preselectedIds={(formData.mem_id || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s)
+          .map((s) => Number(s))
+          .filter((n) => !Number.isNaN(n))}
       />
     </>
   );

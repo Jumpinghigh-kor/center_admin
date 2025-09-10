@@ -10,7 +10,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const navigate = useNavigate();
   const user = useUserStore((state) => state.user);
-
+console.log(activeTab);
   const handleNavigation = (path: string, tab: string) => {
     setActiveTab(tab);
     navigate(path);
@@ -41,8 +41,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
 
       <div className="py-4 flex-1">
         <ul>
-        
-          
           <li className="mb-1">
             <button
               onClick={() => handleNavigation("/app", "dashboard")}
@@ -74,10 +72,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           <li className="mb-1">
             <button
               onClick={() =>
-                handleNavigation("/app/exerciseApp", "exerciseApp")
+                handleNavigation("/app/exerciseAppList", "exerciseAppList")
               }
               className={`flex items-center w-full py-2 px-4 text-left ${
-                activeTab === "exerciseApp"
+                activeTab === "exerciseAppList"
                   ? "bg-gray-200 text-gray-900"
                   : "text-gray-700 hover:bg-gray-100"
               }`}
@@ -104,14 +102,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           <li className="mb-1">
             <button
               onClick={() =>
-                handleNavigation("/app/centerMemberOrderAppList", "centerMemberOrderAppList")
+                handleNavigation("/app/centerOrderAppList", "centerOrderAppList")
               }
               className={`flex items-center w-full py-2 px-4 text-left ${
-                activeTab === "centerMemberOrderAppList"
+                activeTab === "centerOrderAppList"
                   ? "bg-gray-200 text-gray-900"
                   : "text-gray-700 hover:bg-gray-100"
               }`}
-              title="주문 관리"
+              title="센터 주문 관리"
             >
               <svg
                 className="w-6 h-6 md:mr-3"
@@ -127,17 +125,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                   d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
                 />
               </svg>
-              <span className="hidden md:inline">주문 관리</span>
+              <span className="hidden md:inline">센터 주문 관리</span>
             </button>
           </li>
 
           <li className="mb-1">
             <button
               onClick={() =>
-                handleNavigation("/app/inquiryApp", "inquiryApp")
+                handleNavigation("/app/centerInquiryAppList", "centerInquiryAppList")
               }
               className={`flex items-center w-full py-2 px-4 text-left ${
-                activeTab === "inquiryApp"
+                activeTab === "centerInquiryAppList"
                   ? "bg-gray-200 text-gray-900"
                   : "text-gray-700 hover:bg-gray-100"
               }`}
@@ -227,10 +225,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
               <li className="mb-1">
                 <button
                   onClick={() =>
-                    handleNavigation("/app/postApp", "postApp")
+                    handleNavigation("/app/postAppList", "postAppList")
                   }
                   className={`flex items-center w-full py-2 px-4 text-left ${
-                    activeTab === "postApp"
+                    activeTab === "postAppList"
                       ? "bg-gray-200 text-gray-900"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -287,14 +285,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
               <li className="mb-1">
                 <button
                   onClick={() =>
-                    handleNavigation("/app/inquiryAdminApp", "inquiryAdminApp")
+                    handleNavigation("/app/MobileInquiryAppList", "mobileInquiryAppList")
                   }
                   className={`flex items-center w-full py-2 px-4 text-left ${
-                    activeTab === "inquiryAdminApp"
+                    activeTab === "mobileInquiryAppList"
                       ? "bg-gray-200 text-gray-900"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
-                  title="관리자 문의 관리"
+                  title="어플 문의 관리"
                 >
                   <svg
                     className="w-6 h-6 md:mr-3"
@@ -310,7 +308,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                       d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                     />
                   </svg>
-                  <span className="hidden md:inline">관리자 문의 관리</span>
+                  <span className="hidden md:inline">어플 문의 관리</span>
                 </button>
               </li>
 

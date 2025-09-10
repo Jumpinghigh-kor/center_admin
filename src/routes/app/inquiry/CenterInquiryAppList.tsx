@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import UpdateLogAppModal from "../../components/app/UpdateLogAppModal";
-import InquiryAppModal from "../../components/app/InquiryAppModal";
-import Pagination from "../../components/Pagination";
-import { usePagination } from "../../hooks/usePagination";
+import { useUserStore } from "../../../store/store";
+import Pagination from "../../../components/Pagination";
+import { usePagination } from "../../../hooks/usePagination";
 
 interface InquiryApp {
   inquiry_app_id: number;
@@ -18,13 +16,10 @@ interface InquiryApp {
   reg_dt: string;
 }
 
-const InquiryApp: React.FC = () => {
+const CenterInquiryAppList: React.FC = () => {
   const navigate = useNavigate();
   const [inquiryList, setInquiryList] = useState<InquiryApp[]>([]);
   const user = useUserStore((state) => state.user);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [selectedInquiryForModal, setSelectedInquiryForModal] =
-    useState<InquiryApp | null>(null);
 
   // 검색 데이터 상태
   const [searchData, setSearchData] = useState({
@@ -116,7 +111,7 @@ const InquiryApp: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">이름</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">이름</td>
                 <td className="border border-gray-300 p-2">
                   <input
                     type="text"
@@ -126,7 +121,7 @@ const InquiryApp: React.FC = () => {
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">앱 회원상태</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">앱 회원상태</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -177,7 +172,7 @@ const InquiryApp: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">답변여부</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">답변여부</td>
                 <td className="border border-gray-300 p-2" colSpan={3}>
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -242,10 +237,13 @@ const InquiryApp: React.FC = () => {
           </div>
         ) : (
           <>
+            <div className="mt-4 mb-4">
+              <p className="text-sm font-bold">총 {inquiryList.length}건</p>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">
                 <thead>
-                  <tr className="w-full h-16 border-b border-gray-200">
+                  <tr className="w-full h-16 border-b border-gray-200 bg-gray-200">
                     <th className="text-center pl-4 whitespace-nowrap">번호</th>
                     <th className="text-center whitespace-nowrap">이름</th>
                     <th className="text-center whitespace-nowrap hidden md:table-cell">
@@ -267,11 +265,9 @@ const InquiryApp: React.FC = () => {
                   {currentInquiries?.map((inquiry, index) => (
                     <tr
                       key={inquiry.inquiry_app_id}
-                      className="h-16 border-b border-gray-200 hover:bg-gray-50"
-                      onClick={() => {}}
-                      onDoubleClick={() => {
-                        setSelectedInquiryForModal(inquiry);
-                        setIsModalOpen(true);
+                      className="h-16 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        navigate("/app/commonInquiryAppDetail", { state: { selectedInquiry: inquiry } });
                       }}
                     >
                       <td className="pl-4 text-center">
@@ -327,25 +323,8 @@ const InquiryApp: React.FC = () => {
           </>
         )}
       </div>
-
-      <InquiryAppModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={() => {
-          setIsModalOpen(false);
-          selectInquiryAppList();
-        }}
-        selectedInquiry={selectedInquiryForModal ? {
-          inquiry_app_id: selectedInquiryForModal.inquiry_app_id,
-          title: selectedInquiryForModal.title || "",
-          content: selectedInquiryForModal.content,
-          answer: selectedInquiryForModal.answer || "",
-          mem_name: selectedInquiryForModal.mem_name,
-          answer_dt: selectedInquiryForModal.answer_dt || ""
-        } : null}
-      />
     </>
   );
 };
 
-export default InquiryApp;
+export default CenterInquiryAppList;

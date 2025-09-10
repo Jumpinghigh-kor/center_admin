@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import Pagination from "../../components/Pagination";
-import { usePagination } from "../../hooks/usePagination";
-import SettlementAppModal from "../../components/app/SettlementAppModal";
-import { openInputDatePicker } from "../../utils/commonUtils";
+import { useUserStore } from "../../../store/store";
+import Pagination from "../../../components/Pagination";
+import { usePagination } from "../../../hooks/usePagination";
+import SettlementAppModal from "../../../components/app/SettlementAppModal";
+import { openInputDatePicker } from "../../../utils/commonUtils";
 
-interface CenterMemberOrderApp {
+interface CenterOrderApp {
   order_app_id: number;
   order_detail_app_id: number;
   mem_name: string;
@@ -39,9 +39,9 @@ interface CommonCodeItem {
   common_code_name: string;
 }
 
-const CenterMemberOrderAppList: React.FC = () => {
+const CenterOrderAppList: React.FC = () => {
   const navigate = useNavigate();
-  const [orderList, setOrderList] = useState<CenterMemberOrderApp[]>([]);
+  const [orderList, setOrderList] = useState<CenterOrderApp[]>([]);
   const user = useUserStore((state) => state.user);
   const [orderStatusCodeList, setOrderStatusCodeList] = useState<CommonCodeItem[]>([]);
   const [isSettlementOpen, setIsSettlementOpen] = useState<boolean>(false);
@@ -208,7 +208,7 @@ const CenterMemberOrderAppList: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">이름</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">이름</td>
                 <td className="border border-gray-300 p-2">
                   <input
                     type="text"
@@ -218,7 +218,7 @@ const CenterMemberOrderAppList: React.FC = () => {
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <td className="border p-2 text-center bg-gray-50 font-medium">주문일시</td>
+                <td className="border p-2 text-center bg-gray-200 font-medium">주문일시</td>
                 <td className="border p-2 flex items-center justify-between" onClick={(e) => {
                   const target = e.target as HTMLElement;
                   if (target && target.tagName.toLowerCase() === 'input') return;
@@ -245,7 +245,7 @@ const CenterMemberOrderAppList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">주문상태</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">주문상태</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -283,7 +283,7 @@ const CenterMemberOrderAppList: React.FC = () => {
                     </label>
                   </div>
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">정산금</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">정산금</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-2">
                     <input
@@ -309,7 +309,7 @@ const CenterMemberOrderAppList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border p-2 text-center bg-gray-50 font-medium">구매확정일시</td>
+                <td className="border p-2 text-center bg-gray-200 font-medium">구매확정일시</td>
                 <td className="border p-2 flex items-center justify-between" onClick={(e) => {
                   const target = e.target as HTMLElement;
                   if (target && target.tagName.toLowerCase() === 'input') return;
@@ -457,4 +457,4 @@ const CenterMemberOrderAppList: React.FC = () => {
   );
 };
 
-export default CenterMemberOrderAppList;
+export default CenterOrderAppList;

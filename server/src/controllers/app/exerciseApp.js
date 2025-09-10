@@ -39,8 +39,6 @@ exports.selectExerciseAppList = (req, res) => {
     params.push(other_exercise_type);
   }
 
-  console.log(other_exercise_calory_min, other_exercise_calory_max);
-
   if(other_exercise_calory_min && other_exercise_calory_max) {
     addCondition += ` AND mea.other_exercise_calory BETWEEN ? AND ?`;
     params.push(other_exercise_calory_min, other_exercise_calory_max);

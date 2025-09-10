@@ -19,8 +19,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { useUserStore } from "../../store/store";
-import DashboardMemberPopup from "../../components/DashboardMemberPopup";
+import { useUserStore } from "../../../store/store";
+import DashboardMemberPopup from "../../../components/DashboardMemberPopup";
 
 // 샘플 데이터
 const userGrowthData = [

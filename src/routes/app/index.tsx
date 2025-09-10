@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useUserStore } from "../../store/store";
-import Dashboard from "./Dashboard";
+import Dashboard from "./dashboard/Dashboard";
 import UserManagement from "./UserManagement";
 import AppSidebar from "../../components/app/Sidebar";
 import { useSidebarStore } from "../../store/store";
@@ -14,15 +14,17 @@ import MemberOrderApp from "./MemberOrderApp";
 import MemberOrderAppDetail from "./MemberOrderAppDetail";
 import MemberReviewApp from "./MemberReviewApp";
 import CouponApp from "./CouponApp";
-import InquiryApp from "./InquiryApp";
+import CenterInquiryAppList from "./inquiry/CenterInquiryAppList";
+import CommonInquiryAppDetail from "./inquiry/CommonInquiryAppDetail";
+import MobileInquiryAppList from "./inquiry/MobileInquiryAppList";
 import EventApp from "./EventApp"
-import ExerciseApp from "./ExerciseApp"
+import ExerciseAppList from "./exercise/ExerciseAppList";
 import InquiryShoppingApp from "./InquiryShoppingApp";
-import InquiryAdminApp from "./InquiryAdminApp";
 import MemberOrderAppReturn from "./MemberOrderAppReturn";
-import CenterMemberOrderAppList from "./CenterMemberOrderAppList";
-import PostApp from "./PostApp";
-import PostAppDetail from "./PostAppDetail";
+import CenterOrderAppList from "./centerOrder/CenterOrderAppList";
+import PostAppList from "./post/PostAppList";
+import PostAppDetail from "./post/PostAppDetail";
+import PostAppRegister from "./post/PostAppRegister";
 
 const MemberApp: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -59,20 +61,20 @@ const MemberApp: React.FC = () => {
       setActiveTab("memberOrderApp");
     } else if (location.pathname.includes("/couponApp")) {
       setActiveTab("couponApp");
-    } else if (location.pathname.includes("/inquiryApp")) {
-      setActiveTab("inquiryApp");
+    } else if (location.pathname.includes("/centerInquiryAppList")) {
+      setActiveTab("centerInquiryAppList");
     } else if (location.pathname.includes("/inquiryShoppingApp")) {
       setActiveTab("inquiryShoppingApp");
-    } else if (location.pathname.includes("/inquiryAdminApp")) {
-      setActiveTab("inquiryAdminApp");
+    } else if (location.pathname.includes("/mobileInquiryAppList")) {
+      setActiveTab("mobileInquiryAppList");
     } else if (location.pathname.includes("/eventApp")) {
       setActiveTab("eventApp");
-    } else if (location.pathname.includes("/exerciseApp")) {
-      setActiveTab("exerciseApp");
+    } else if (location.pathname.includes("/exerciseAppList")) {
+      setActiveTab("exerciseAppList");
     } else if (location.pathname.includes("/memberOrderAppReturn")) {
       setActiveTab("memberOrderAppReturn");
-    } else if (location.pathname.includes("/postApp")) {
-      setActiveTab("postApp");
+    } else if (location.pathname.includes("/postAppList")) {
+      setActiveTab("postAppList");
     }
 
     // 햄버거 메뉴 클릭 시 사이드바가 표시되는 것 방지
@@ -113,15 +115,17 @@ const MemberApp: React.FC = () => {
             <Route path="/memberOrderApp/detail/:orderId" element={<MemberOrderAppDetail />} />
             <Route path="/memberReviewApp" element={<MemberReviewApp />} />
             <Route path="/couponApp" element={<CouponApp />} />
-            <Route path="/inquiryApp" element={<InquiryApp />} />
+            <Route path="/centerInquiryAppList" element={<CenterInquiryAppList />} />
+            <Route path="/commonInquiryAppDetail" element={<CommonInquiryAppDetail />} />
+            <Route path="/mobileInquiryAppList" element={<MobileInquiryAppList />} />
             <Route path="/inquiryShoppingApp" element={<InquiryShoppingApp />} />
-            <Route path="/inquiryAdminApp" element={<InquiryAdminApp />} />
             <Route path="/eventApp" element={<EventApp />} />
-            <Route path="/exerciseApp" element={<ExerciseApp />} />
+            <Route path="/exerciseAppList" element={<ExerciseAppList />} />
             <Route path="/memberOrderAppReturn" element={<MemberOrderAppReturn />} />
-            <Route path="/centerMemberOrderAppList" element={<CenterMemberOrderAppList />} />
-            <Route path="/postApp" element={<PostApp />} />
+            <Route path="/centerOrderAppList" element={<CenterOrderAppList />} />
+            <Route path="/postAppList" element={<PostAppList />} />
             <Route path="/postApp/postAppDetail" element={<PostAppDetail />} />
+            <Route path="/postApp/postAppRegister" element={<PostAppRegister />} />
             <Route path="/settings" element={<div>설정 페이지</div>} />
             {/* Add more routes as needed */}
           </Routes>

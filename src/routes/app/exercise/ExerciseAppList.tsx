@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import Pagination from "../../components/Pagination";
-import { usePagination } from "../../hooks/usePagination";
-import { formatExerciseTime } from "../../utils/formatUtils";
+import { useUserStore } from "../../../store/store";
+import Pagination from "../../../components/Pagination";
+import { usePagination } from "../../../hooks/usePagination";
+import { formatExerciseTime } from "../../../utils/formatUtils";
 
 interface ExerciseApp {
   exercise_app_id: number;
@@ -27,8 +27,7 @@ interface CommonCode {
   common_code_name: string;
 }
 
-const ExerciseApp: React.FC = () => {
-  const navigate = useNavigate();
+const ExerciseAppList: React.FC = () => {
   const [exerciseAppList, setExerciseAppList] = useState<ExerciseApp[]>([]);
   const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
      const [searchData, setSearchData] = useState({
@@ -147,10 +146,10 @@ const ExerciseApp: React.FC = () => {
 
         {/* 검색 필터 테이블 */}
         <div className="mb-6">
-          <table className="w-full border border-gray-300">
+          <table className="w-full">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">이름</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">이름</td>
                 <td className="border border-gray-300 p-2">
                   <input
                     type="text"
@@ -160,7 +159,7 @@ const ExerciseApp: React.FC = () => {
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">성별</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">성별</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -200,8 +199,8 @@ const ExerciseApp: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">운동일시</td>
-                <td className="border border-gray-300 p-2 flex items-center justify-between">
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">운동일시</td>
+                <td className="border p-2 flex items-center justify-between">
                   <input
                     type="date"
                     value={searchData.exercise_start_dt}
@@ -216,7 +215,7 @@ const ExerciseApp: React.FC = () => {
                     className="w-1/2 px-2 py-1 border border-gray-300 rounded"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">점프 운동 강도</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">점프 운동 강도</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -267,7 +266,7 @@ const ExerciseApp: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">기타 운동 종류</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">기타 운동 종류</td>
                 <td className="border border-gray-300 p-2">
                   <select
                     value={searchData.other_exercise_type}
@@ -282,7 +281,7 @@ const ExerciseApp: React.FC = () => {
                     ))}
                   </select>
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">운동 칼로리</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">운동 칼로리</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-2">
                     <input
@@ -331,12 +330,12 @@ const ExerciseApp: React.FC = () => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <div className="mt-4 ml-6">
+              <div className="mt-4 mb-4">
                 <p className="text-sm font-bold">총 {exerciseAppList.length}건</p>
               </div>
               <table className="min-w-full bg-white">
                 <thead>
-                  <tr className="w-full h-16 border-b border-gray-200">
+                  <tr className="w-full h-16 border-b border-gray-200 bg-gray-200">
                     <th className="text-center pl-4 whitespace-nowrap">번호</th>
                     <th className="text-center whitespace-nowrap">이름</th>
                     <th className="text-center whitespace-nowrap">성별</th>
@@ -426,4 +425,4 @@ const ExerciseApp: React.FC = () => {
   );
 };
 
-export default ExerciseApp;
+export default ExerciseAppList;

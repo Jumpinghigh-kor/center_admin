@@ -24,6 +24,7 @@ interface SelectMemberAppPopupProps {
   onClose: () => void;
   onSelect: (members: MemberAppItem[]) => void;
   multi?: boolean;
+  preselectedIds?: number[]; // 추가: 미리 선택할 mem_id 배열
 }
 
 const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
@@ -31,6 +32,7 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
   onClose,
   onSelect,
   multi = true,
+  preselectedIds,
 }) => {
   const user = useUserStore((state) => state.user);
 
@@ -67,7 +69,7 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
       // 이전 검색/선택값 초기화 후 초기 조회
       setMemName("");
       setMemAppStatus("");
-      setSelectedIds(new Set());
+      setSelectedIds(new Set(preselectedIds || []));
       setErrorMessage("");
       setCenterId("");
 

@@ -3,28 +3,28 @@ const router = express.Router();
 const {
   selectPostAppList,
   insertPostApp,
+  updatePostApp,
   insertMemberPostApp,
   deletePostApp,
   deleteMemberPostApp,
-  testSendPostPush,
+  selectMemberPostAppList,
 } = require("../../controllers/app/postApp");
 
 // 우편함 목록 조회
 router.post("/selectPostAppList", selectPostAppList);
 
+// 우편함 회원 목록 조회
+router.post("/selectMemberPostAppList", selectMemberPostAppList);
+
 // 우편함 등록
 router.post("/insertPostApp", insertPostApp);
 
-// 우편함 수정
-router.post("/deletePostApp", deletePostApp);
 
 // 회원 우편함 등록
 router.post("/insertMemberPostApp", insertMemberPostApp);
 
-// 회원 우편함 삭제
-router.post("/deleteMemberPostApp", deleteMemberPostApp);
+// 우편함 수정
+router.post("/deletePostApp", deletePostApp);
 
-// 테스트용 푸시 발송 라우트
-router.post("/testSendPostPush", testSendPostPush);
 
 module.exports = router;
