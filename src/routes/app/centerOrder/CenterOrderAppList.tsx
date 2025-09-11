@@ -193,6 +193,14 @@ const CenterOrderAppList: React.FC = () => {
     selectOrderStatusCodeList();
   }, []);
 
+  const isInCurrentMonth = (dateStr: string) => {
+    if (!dateStr) return false;
+    const yearMonth = dateStr.slice(0, 7);
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return yearMonth === currentYearMonth;
+  };
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -218,8 +226,8 @@ const CenterOrderAppList: React.FC = () => {
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <td className="border p-2 text-center bg-gray-200 font-medium">주문일시</td>
-                <td className="border p-2 flex items-center justify-between" onClick={(e) => {
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">주문일시</td>
+                <td className="p-2 flex items-center justify-between" onClick={(e) => {
                   const target = e.target as HTMLElement;
                   if (target && target.tagName.toLowerCase() === 'input') return;
                   const firstInput = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
@@ -362,14 +370,17 @@ const CenterOrderAppList: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="flex justify-start items-center mb-2">
-              <p className="text-sm font-semibold">총 {orderList.length}건</p>
-              <div className="ml-4">
-                <p className="text-red-500">
-                  <span className="font-bold">*</span>
-                  정산은 매월 <span className="font-bold">구매확정일시</span>를 기준으로 계산하며, 익월 10일에 정산금을 지급합니다.
-                </p>
+            <div className="mb-4">
+              <p className="text-sm font-semibold mb-2">정산안내</p>
+              <div className="border border-gray-300 rounded-lg p-4">
+                <p>- 정산금은 점핑하이(https://www.jumping-high.com/) 사이트에서 사용되는 <span className="font-bold">포인트</span>를 의미합니다.</p>
+                <p>- 정산은 매월 <span className="font-bold">구매확정일시</span>를 기준으로 계산하며, 익월 10일에 정산금을 지급합니다.</p>
+                <p>- 브랜드 또는 상품별로 정산 비율이 다르게 적용됩니다.</p>
+                <p>- 정산 관련하여 궁금하시다면, <a href="https://jumpingportal.gabia.io/inquiry" target="_blank" className="text-blue-500">https://jumpingportal.gabia.io/inquiry</a> 로 문의해주세요.</p>
               </div>
+            </div>
+            <div className="mb-4">
+              <p className="text-sm font-semibold">총 {orderList.length}건</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">
@@ -430,7 +441,7 @@ const CenterOrderAppList: React.FC = () => {
                           {ele.formatted_order_dt}
                         </td>
                         <td className="text-center whitespace-nowrap">
-                          {ele.formatted_purchase_confirm_dt ? ele.formatted_purchase_confirm_dt : '-'}
+                          {ele.formatted_purchase_confirm_dt && ele.order_status == 'PURCHASE_CONFIRM' ? ele.formatted_purchase_confirm_dt : '-'}
                         </td>
                         <td className="text-center whitespace-nowrap">
                           {ele.order_status == 'PURCHASE_CONFIRM' ? Number(ele.center_payback)?.toLocaleString() : 0}원
@@ -440,6 +451,10 @@ const CenterOrderAppList: React.FC = () => {
                   })}
                 </tbody>
               </table>
+
+              <div className="mt-4 mb-4 text-right">
+                <p>이번달 정산금 : {orderList.filter((ele) => ele.order_status == 'PURCHASE_CONFIRM' && isInCurrentMonth(ele.purchase_confirm_dt)).reduce((acc, ele) => acc + Number(ele.center_payback), 0).toLocaleString()}원</p>
+              </div>
             </div>
 
             {/* 페이지네이션 */}
