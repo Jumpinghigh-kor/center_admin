@@ -6,7 +6,9 @@ import UserManagement from "./UserManagement";
 import AppSidebar from "../../components/app/Sidebar";
 import { useSidebarStore } from "../../store/store";
 import BannerList from "./BannerList";
-import NoticesAppList from "./NoticesAppList";
+import NoticesAppList from "./notice/NoticesAppList";
+import NoticesAppRegister from "./notice/NoticesAppRegister";
+import NoticesAppDetail from "./notice/NoticesAppDetail";
 import ProductAppList from "./ProductAppList";
 import ProductAppDetail from "./ProductAppDetail";
 import UpdateLogAppList from "./UpdateLogAppList";
@@ -49,8 +51,8 @@ const MemberApp: React.FC = () => {
       setActiveTab("banner");
     } else if (location.pathname.includes("/products")) {
       setActiveTab("products");
-    } else if (location.pathname.includes("/noticesApp")) {
-      setActiveTab("noticesApp");
+    } else if (location.pathname.includes("/noticesAppList")) {
+      setActiveTab("noticesAppList");
     } else if (location.pathname.includes("/updateLogApp")) {
       setActiveTab("updateLogApp");
     } else if (location.pathname.includes("/settings")) {
@@ -107,7 +109,9 @@ const MemberApp: React.FC = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/banner" element={<BannerList />} />
-            <Route path="/noticesApp" element={<NoticesAppList />} />
+            <Route path="/noticesAppList" element={<NoticesAppList />} />
+            <Route path="/notice/noticesAppRegister" element={<NoticesAppRegister />} />
+            <Route path="/notice/noticesAppDetail" element={<NoticesAppDetail />} />
             <Route path="/productApp" element={<ProductAppList />} />
             <Route path="/productApp/detail" element={<ProductAppDetail />} />
             <Route path="/updateLogApp" element={<UpdateLogAppList />} />

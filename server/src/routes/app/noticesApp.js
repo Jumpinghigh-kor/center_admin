@@ -5,6 +5,7 @@ const {
   insertNoticesApp,
   updateNoticesApp,
   batchDeleteNoticesApp,
+  selectNoticesAppDetail,
 } = require("../../controllers/app/noticesApp");
 
 // 배너 목록 조회
@@ -18,5 +19,8 @@ router.post("/updateNoticesApp", updateNoticesApp);
 
 // 공지사항 일괄 삭제
 router.post("/batchDeleteNoticesApp", batchDeleteNoticesApp);
+
+// 공지사항 상세 조회
+router.post("/selectNoticesAppDetail", selectNoticesAppDetail);
 
 module.exports = router;

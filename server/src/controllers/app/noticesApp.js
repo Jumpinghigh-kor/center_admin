@@ -1,50 +1,105 @@
 const db = require("../../../db");
 const dayjs = require("dayjs");
 
-// 배너 목록 조회
+// 공지사항 목록 조회
 exports.selectNoticesAppList = (req, res) => {
+  const { title, notices_type, start_dt: startDt, end_dt: endDt, view_yn } = req.body;
+
+  let processedStartDt = startDt;
+  let processedEndDt = endDt;
+
+  if (startDt) {
+    processedStartDt = startDt.replace(/[-:T]/g, '')+'00';
+  }
+  if (endDt) {
+    processedEndDt = endDt.replace(/[-:T]/g, '')+'00';
+  }
+
+  let addCondition = '';
+  let params = [];
+
+  if(title) {
+    addCondition += `AND title LIKE CONCAT('%', ?, '%')`;
+    params.push(title);
+  }
+
+  if(notices_type) {
+    addCondition += `AND notices_type = ?`;
+    params.push(notices_type);
+  }
+
+  if(processedStartDt) {
+    addCondition += `AND start_dt <= ?`;
+    params.push(processedStartDt);
+  }
+
+  if(processedEndDt) {
+    addCondition += `AND end_dt >= ?`;
+    params.push(processedEndDt);
+  }
+
+  if(view_yn) {
+    addCondition += `AND view_yn = ?`;
+    params.push(view_yn);
+  }
+
   const query = `
     SELECT
       notices_app_id
       , notices_type
       , title
       , content
+      , DATE_FORMAT(start_dt, '%Y-%m-%d %H:%i:%s') AS start_dt
+      , DATE_FORMAT(end_dt, '%Y-%m-%d %H:%i:%s') AS end_dt
       , view_yn
       , del_yn
-      , reg_dt
-      , mod_dt
-    FROM        notices_app
-    WHERE       del_yn = 'N'
-    ORDER BY    notices_app_id DESC
+      , DATE_FORMAT(reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
+    FROM      notices_app
+    WHERE     del_yn = 'N'
+    ${addCondition}
+    ORDER BY  notices_app_id DESC
   `;
 
-  db.query(query, (err, results) => {
+  db.query(query, params, (err, result) => {
     if (err) {
-      console.error("공지사항 목록 조회 오류:", err);
-      return res
-        .status(500)
-        .json({ error: "공지사항 목록을 조회하는 도중 오류가 발생했습니다." });
+      res.status(500).json(err);
     }
+    res.status(200).json({ result: result });
+  });
+};
 
-    const noticesApp = results.map((notice) => ({
-      noticesAppId: notice.notices_app_id,
-      noticesType: notice.notices_type,
-      title: notice.title,
-      content: notice.content,
-      viewYn: notice.view_yn,
-      delYn: notice.del_yn,
-      regDate: notice.reg_dt,
-      modDate: notice.mod_dt,
-    }));
+// 공지사항 상세 조회
+exports.selectNoticesAppDetail = (req, res) => {
+  const { notices_app_id } = req.body;
 
-    res.status(200).json(noticesApp);
+  const query = `
+    SELECT
+      notices_app_id
+      , notices_type
+      , title
+      , content
+      , start_dt
+      , end_dt
+      , view_yn
+      , del_yn
+      , DATE_FORMAT(reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
+    FROM      notices_app
+    WHERE     del_yn = 'N'
+    AND       notices_app_id = ?
+  `;
+
+  db.query(query, [notices_app_id], (err, result) => {
+    if (err) {
+      res.status(500).json(err);
+    }
+    res.status(200).json({ result: result });
   });
 };
 
 // 공지사항 등록
 exports.insertNoticesApp = (req, res) => {
   try {
-    const { noticesType, title, content, viewYn, userId } = req.body;
+    const { notices_type, title, content, start_dt, end_dt, view_yn, userId } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
@@ -56,6 +111,8 @@ exports.insertNoticesApp = (req, res) => {
         notices_type
         , title
         , content
+        , start_dt
+        , end_dt
         , view_yn
         , del_yn
         , reg_dt
@@ -72,21 +129,25 @@ exports.insertNoticesApp = (req, res) => {
         , ?
         , ?
         , ?
+        , ?
+        , ?
       )
     `;
 
     db.query(
       noticesInsertQuery,
       [
-        noticesType,
+        notices_type,
         title,
         content,
-        viewYn,
+        start_dt,
+        end_dt,
+        view_yn,
         "N",
         reg_dt,
         userId || null,
-        null, // mod_dt
-        null, // mod_id
+        null,
+        null,
       ],
       (noticesErr, noticesResult) => {
         if (noticesErr) {
@@ -111,10 +172,8 @@ exports.insertNoticesApp = (req, res) => {
 // 공지사항 수정
 exports.updateNoticesApp = (req, res) => {
   try {
-    const { noticesAppId, noticesType, title, content, viewYn, delYn, userId } =
-      req.body;
+    const { noticesAppId, notices_type, title, content, start_dt, end_dt, view_yn, del_yn, userId } = req.body;
 
-    console.log(req.body);
     // 현재 날짜 형식화
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
@@ -124,8 +183,9 @@ exports.updateNoticesApp = (req, res) => {
       UPDATE notices_app SET notices_type = ?
         , title = ?
         , content = ?
+        , start_dt = ?
+        , end_dt = ?
         , view_yn = ?
-        , del_yn = ?
         , mod_dt = ?
         , mod_id = ?
       WHERE notices_app_id = ?
@@ -134,11 +194,12 @@ exports.updateNoticesApp = (req, res) => {
     db.query(
       noticesUpdateQuery,
       [
-        noticesType,
+        notices_type,
         title,
         content,
-        viewYn,
-        delYn,
+        start_dt,
+        end_dt,
+        view_yn,
         mod_dt,
         userId || null,
         noticesAppId,
@@ -165,12 +226,12 @@ exports.updateNoticesApp = (req, res) => {
 // 공지사항 일괄 삭제
 exports.batchDeleteNoticesApp = (req, res) => {
   try {
-    const { noticesAppIds, userId } = req.body;
-    console.log(req.body);
+    const { notices_app_ids, userId } = req.body;
+    
     if (
-      !noticesAppIds ||
-      !Array.isArray(noticesAppIds) ||
-      noticesAppIds.length === 0
+      !notices_app_ids ||
+      !Array.isArray(notices_app_ids) ||
+      notices_app_ids.length === 0
     ) {
       return res
         .status(400)
@@ -192,7 +253,7 @@ exports.batchDeleteNoticesApp = (req, res) => {
 
     db.query(
       noticesDeleteQuery,
-      [mod_dt, userId || null, noticesAppIds],
+      [mod_dt, userId || null, notices_app_ids],
       (err, result) => {
         if (err) {
           console.error("공지사항 일괄 삭제 오류:", err);

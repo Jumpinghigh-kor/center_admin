@@ -149,19 +149,19 @@ const PostAppList: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">제목</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-3 text-center bg-gray-200 font-medium">제목</td>
+                <td className="border border-gray-300 p-3">
                   <input
                     type="text"
                     name="title"
                     value={searchData.title}
                     onChange={(e) => handleSearchChange('title', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded"
+                    className="w-full px-2 border border-gray-300 rounded"
                     placeholder="제목을 입력하세요"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">우편 유형</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-3 text-center bg-gray-200 font-medium">우편 유형</td>
+                <td className="border border-gray-300 p-3">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input
@@ -211,8 +211,8 @@ const PostAppList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">전체 발송 여부</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-3 text-center bg-gray-200 font-medium">전체 발송 여부</td>
+                <td className="border border-gray-300 p-3">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input
@@ -249,8 +249,8 @@ const PostAppList: React.FC = () => {
                     </label>
                   </div>
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">푸쉬 발송 여부</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-3 text-center bg-gray-200 font-medium">푸쉬 발송 여부</td>
+                <td className="border border-gray-300 p-3">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input

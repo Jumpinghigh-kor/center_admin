@@ -141,19 +141,10 @@ console.log(activeTab);
               }`}
               title="센터 문의 관리"
             >
-              <svg
-                className="w-6 h-6 md:mr-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
+              <svg className="w-6 h-6 md:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                  d="M16.862 3.487a2.25 2.25 0 113.182 3.182L7.5 19.313 3 21l1.687-4.5L16.862 3.487z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 7.5l-3-3" />
               </svg>
               <span className="hidden md:inline">센터 문의 관리</span>
             </button>
@@ -196,9 +187,9 @@ console.log(activeTab);
 
               <li className="mb-1">
                 <button
-                  onClick={() => handleNavigation("/app/noticesApp", "noticesApp")}
+                  onClick={() => handleNavigation("/app/noticesAppList", "noticesAppList")}
                   className={`flex items-center w-full py-2 px-4 text-left ${
-                    activeTab === "noticesApp"
+                    activeTab === "noticesAppList"
                       ? "bg-gray-200 text-gray-900"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -294,19 +285,10 @@ console.log(activeTab);
                   }`}
                   title="어플 문의 관리"
                 >
-                  <svg
-                    className="w-6 h-6 md:mr-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
+                  <svg className="w-6 h-6 md:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                      d="M16.862 3.487a2.25 2.25 0 113.182 3.182L7.5 19.313 3 21l1.687-4.5L16.862 3.487z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 7.5l-3-3" />
                   </svg>
                   <span className="hidden md:inline">어플 문의 관리</span>
                 </button>
@@ -387,19 +369,10 @@ console.log(activeTab);
                   }`}
                   title="쇼핑몰 문의 관리"
                 >
-                  <svg
-                    className="w-6 h-6 md:mr-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
+                  <svg className="w-6 h-6 md:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                      d="M16.862 3.487a2.25 2.25 0 113.182 3.182L7.5 19.313 3 21l1.687-4.5L16.862 3.487z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 7.5l-3-3" />
                   </svg>
                   <span className="hidden md:inline">쇼핑몰 문의 관리</span>
                 </button>

@@ -453,7 +453,10 @@ const CenterOrderAppList: React.FC = () => {
               </table>
 
               <div className="mt-4 mb-4 text-right">
-                <p>이번달 정산금 : {orderList.filter((ele) => ele.order_status == 'PURCHASE_CONFIRM' && isInCurrentMonth(ele.purchase_confirm_dt)).reduce((acc, ele) => acc + Number(ele.center_payback), 0).toLocaleString()}원</p>
+                <p>이번달 정산금 : {orderList
+                  .filter((ele) => ele.order_status == 'PURCHASE_CONFIRM' && isInCurrentMonth(ele.formatted_purchase_confirm_dt))
+                  .reduce((acc, ele) => acc + Number(ele.center_payback), 0)
+                  .toLocaleString()}원</p>
               </div>
             </div>
 
