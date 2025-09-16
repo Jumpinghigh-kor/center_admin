@@ -155,8 +155,8 @@ exports.deleteCheckinLog = (req, res) => {
 
 //특정 회원번호와 날짜로 회원권 조회
 exports.selectTargetCheckinLogList = (req, res) => {
-  const { checkinNumber, checkinDate } = req.body;
-
+  const { checkinNumber, checkinDate, center_id } = req.body;
+  
   const query = `
     SELECT
       m.mem_id
@@ -177,8 +177,9 @@ exports.selectTargetCheckinLogList = (req, res) => {
     WHERE     m.mem_checkin_number = ?
     AND       (DATE_FORMAT(mo.memo_start_date, '%Y%m%d') <= DATE_FORMAT(?, '%Y%m%d')
                 AND DATE_FORMAT(?, '%Y%m%d') <= DATE_FORMAT(mo.memo_end_date, '%Y%m%d'))
+    AND       m.center_id = ?
     `;
-  db.query(query, [checkinNumber, checkinDate, checkinDate], (err, result) => {
+  db.query(query, [checkinNumber, checkinDate, checkinDate, center_id], (err, result) => {
     if (err) {
       res.status(500).json(err);
     }

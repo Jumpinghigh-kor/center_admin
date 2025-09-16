@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import { useCheckbox } from "../../hooks/useCheckbox";
-import { usePagination } from "../../hooks/usePagination";
-import Pagination from "../../components/Pagination";
-import MemberOrderAppPopup from "../../components/app/MemberOrderAppPopup";
-import OrderPrintModal from "../../components/app/OrderPrintModal";
-import GoodsflowModal from "../../components/app/GoodsflowModal";
-import CustomToastModal from "../../components/CustomToastModal";
-import blueI from "../../images/blue_i.png";
-import grayI from "../../images/gray_i.png";
-import editGray from "../../images/edit_gray.png";
-import penGray from "../../images/pen_gray.png";
-import trashGray from "../../images/trash_gray.png";
-import checkGray from "../../images/check_gray.png";
+import { useUserStore } from "../../../store/store";
+import { useCheckbox } from "../../../hooks/useCheckbox";
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../../components/Pagination";
+import MemberOrderAppPopup from "../../../components/app/MemberOrderAppPopup";
+import OrderPrintModal from "../../../components/app/OrderPrintModal";
+import GoodsflowModal from "../../../components/app/GoodsflowModal";
+import CustomToastModal from "../../../components/CustomToastModal";
+import blueI from "../../../images/blue_i.png";
+import grayI from "../../../images/gray_i.png";
+import editGray from "../../../images/edit_gray.png";
+import penGray from "../../../images/pen_gray.png";
+import trashGray from "../../../images/trash_gray.png";
+import checkGray from "../../../images/check_gray.png";
 
 interface Order {
   mem_id: string;
@@ -105,7 +105,7 @@ interface ProductImage {
   productAppId: number;
 }
 
-const MemberOrderApp: React.FC = () => {
+const MemberOrderAppList: React.FC = () => {
   const navigate = useNavigate();
   const [orderList, setOrderList] = useState<Order[]>([]);
   const [deliveryCompanyList, setDeliveryCompanyList] = useState<CommonCode[]>([]);
@@ -1786,4 +1786,4 @@ const MemberOrderApp: React.FC = () => {
   );
 };
 
-export default MemberOrderApp;
+export default MemberOrderAppList;

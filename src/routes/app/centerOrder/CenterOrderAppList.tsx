@@ -4,6 +4,7 @@ import axios from "axios";
 import { useUserStore } from "../../../store/store";
 import Pagination from "../../../components/Pagination";
 import { usePagination } from "../../../hooks/usePagination";
+import { useSearch } from "../../../hooks/useSearch";
 import SettlementAppModal from "../../../components/app/SettlementAppModal";
 import { openInputDatePicker } from "../../../utils/commonUtils";
 
@@ -55,21 +56,6 @@ const CenterOrderAppList: React.FC = () => {
     }));
   }, [orderList]);
 
-  
-
-  // 검색 데이터 상태
-  const [searchData, setSearchData] = useState({
-    mem_name: "",
-    order_status: "",
-    mem_app_status: "",
-    start_order_dt: "",
-    end_order_dt: "",
-    start_purchase_confirm_dt: "",
-    end_purchase_confirm_dt: "",
-    min_center_payback: "",
-    max_center_payback: ""
-  });
-
   // 페이지네이션 훅 사용
   const pagination = usePagination({
     totalItems: orderList.length,
@@ -78,33 +64,6 @@ const CenterOrderAppList: React.FC = () => {
 
   // 현재 페이지에 표시할 데이터
   const currentInquiries = pagination.getCurrentPageData(orderList);
-
-  // 검색 조건 변경 핸들러
-  const handleSearchChange = (field: string, value: string) => {
-    setSearchData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // 검색 처리
-  const handleSearch = async () => {
-    if (paybackError) return;
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectCenterMemberOrderAppList`,
-        {
-          center_id: user.center_id,
-          ...searchData
-        }
-      );
-      
-      setOrderList(response.data);
-      pagination.resetPage();
-    } catch (err) {
-      console.error("주문 목록 검색 오류:", err);
-    }
-  };
 
   const formatNumberWithCommas = (value: string) => {
     const digitsOnly = value.replace(/[^0-9]/g, "");
@@ -133,29 +92,14 @@ const CenterOrderAppList: React.FC = () => {
     });
   };
 
-  // 검색 초기화
-  const handleReset = () => {
-    setSearchData({
-      mem_name: "",
-      order_status: "",
-      mem_app_status: "",
-      start_order_dt: "",
-      end_order_dt: "",
-      start_purchase_confirm_dt: "",
-      end_purchase_confirm_dt: "",
-      min_center_payback: "",
-      max_center_payback: ""
-    });
-    selectCenterMemberOrderAppList();
-  };
-
-  // 리뷰 목록 불러오기
-  const selectCenterMemberOrderAppList = async () => {
+  // 주문 목록 불러오기
+  const selectCenterMemberOrderAppList = async (searchParams?: any) => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectCenterMemberOrderAppList`,
         {
-          center_id: user.center_id
+          center_id: user.center_id,
+          ...searchParams
         }
       );
       
@@ -166,6 +110,25 @@ const CenterOrderAppList: React.FC = () => {
     } finally {
     }
   };
+
+  // 검색 공통 훅 사용
+  const { searchData, setSearchData, handleSearch, handleReset } = useSearch({
+    onSearch: (searchParams) => {
+      if (paybackError) return;
+      selectCenterMemberOrderAppList(searchParams);
+    },
+    initialSearchData: {
+      mem_name: "",
+      order_status: "",
+      mem_app_status: "",
+      start_order_dt: "",
+      end_order_dt: "",
+      start_purchase_confirm_dt: "",
+      end_purchase_confirm_dt: "",
+      min_center_payback: "",
+      max_center_payback: ""
+    }
+  });
 
   // 주문 상태 코드 목록 불러오기
   const selectOrderStatusCodeList = async () => {
@@ -221,7 +184,7 @@ const CenterOrderAppList: React.FC = () => {
                   <input
                     type="text"
                     value={searchData.mem_name}
-                    onChange={(e) => handleSearchChange('mem_name', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, mem_name: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                     placeholder="이름을 입력하세요"
                   />
@@ -236,7 +199,7 @@ const CenterOrderAppList: React.FC = () => {
                   <input
                     type="date"
                     value={searchData.start_order_dt}
-                    onChange={(e) => handleSearchChange('start_order_dt', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, start_order_dt: e.target.value })}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
                     className="w-1/2 px-2 py-1 border cursor-pointer border-gray-300 rounded"
@@ -245,7 +208,7 @@ const CenterOrderAppList: React.FC = () => {
                   <input
                     type="date"
                     value={searchData.end_order_dt}
-                    onChange={(e) => handleSearchChange('end_order_dt', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, end_order_dt: e.target.value })}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
                     className="w-1/2 px-2 py-1 border cursor-pointer border-gray-300 rounded"
@@ -262,7 +225,7 @@ const CenterOrderAppList: React.FC = () => {
                         name="order_status"
                         value=""
                         checked={searchData.order_status === ''}
-                        onChange={(e) => handleSearchChange('order_status', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, order_status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -273,7 +236,7 @@ const CenterOrderAppList: React.FC = () => {
                         name="order_status"
                         value="PURCHASE_CONFIRM"
                         checked={searchData.order_status === 'PURCHASE_CONFIRM'}
-                        onChange={(e) => handleSearchChange('order_status', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, order_status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">구매 확정</span>
@@ -284,7 +247,7 @@ const CenterOrderAppList: React.FC = () => {
                         name="order_status"
                         value="NOT_PURCHASE_CONFIRM"
                         checked={searchData.order_status !== '' && searchData.order_status !== 'PURCHASE_CONFIRM'}
-                        onChange={(e) => handleSearchChange('order_status', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, order_status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">구매 미확정</span>
@@ -327,7 +290,7 @@ const CenterOrderAppList: React.FC = () => {
                   <input
                     type="date"
                     value={searchData.start_purchase_confirm_dt}
-                    onChange={(e) => handleSearchChange('start_purchase_confirm_dt', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, start_purchase_confirm_dt: e.target.value })}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
                     className="w-1/2 px-2 py-1 border cursor-pointer border-gray-300 rounded"
@@ -336,7 +299,7 @@ const CenterOrderAppList: React.FC = () => {
                   <input
                     type="date"
                     value={searchData.end_purchase_confirm_dt}
-                    onChange={(e) => handleSearchChange('end_purchase_confirm_dt', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, end_purchase_confirm_dt: e.target.value })}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
                     className="w-1/2 px-2 py-1 border cursor-pointer border-gray-300 rounded"

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import Pagination from "../../components/Pagination";
-import { usePagination } from "../../hooks/usePagination";
-import InquiryShoppingAppModal from "../../components/app/InquiryShoppingAppModal";
+import { useUserStore } from "../../../store/store";
+import Pagination from "../../../components/Pagination";
+import { usePagination } from "../../../hooks/usePagination";
+import { useSearch } from "../../../hooks/useSearch";
 
 interface CommonCode {
   common_code: string;
@@ -23,66 +23,17 @@ interface InquiryShoppingApp {
   reg_dt: string;
 }
 
-const InquiryShoppingApp: React.FC = () => {
+const InquiryShoppingAppList: React.FC = () => {
   const navigate = useNavigate();
   const [shoppingInquiryList, setShoppingInquiryList] = useState<InquiryShoppingApp[]>([]);
   const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
   const user = useUserStore((state) => state.user);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [selectedInquiryForModal, setSelectedInquiryForModal] =
-    useState<InquiryShoppingApp | null>(null);
-
-  // 검색 데이터 상태
-  const [searchData, setSearchData] = useState({
-    memName: "",
-    inquiryType: "",
-    answerStatus: ""
-  });
-
-  // 검색 조건 변경 핸들러
-  const handleSearchChange = (field: string, value: string) => {
-    setSearchData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // 검색 처리
-  const handleSearch = async () => {
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/inquiryShoppingApp/selectInquiryShoppingAppList`,
-        {
-          center_id: user.center_id,
-          ...searchData
-        }
-      );
-      
-      setShoppingInquiryList(response.data.result);
-      pagination.resetPage();
-    } catch (err) {
-      console.error("문의 목록 검색 오류:", err);
-    }
-  };
-
-  // 검색 초기화
-  const handleReset = () => {
-    setSearchData({
-      memName: "",
-      inquiryType: "",
-      answerStatus: ""
-    });
-    selectInquiryShoppingAppList();
-  };
-
-  // 페이지네이션 훅 사용
   const pagination = usePagination({
     totalItems: shoppingInquiryList.length,
     itemsPerPage: 10,
   });
-
-  // 현재 페이지에 표시할 데이터
   const currentInquiries = pagination.getCurrentPageData(shoppingInquiryList);
+
 
   // 공통 코드 목록 불러오기
   const selectCommonCodeList = async () => {
@@ -101,24 +52,34 @@ const InquiryShoppingApp: React.FC = () => {
     }
   };
 
-  // 리뷰 목록 불러오기
-  const selectInquiryShoppingAppList = async () => {
+  // 쇼핑몰 문의 목록 불러오기
+  const selectInquiryShoppingAppList = async (searchParams?: any) => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/inquiryShoppingApp/selectInquiryShoppingAppList`,
         {
           center_id: user.center_id,
-          ...searchData
+          ...searchParams
         }
       );
       
       setShoppingInquiryList(response.data.result);
-      pagination.resetPage(); // 데이터 새로고침 시 첫 페이지로 리셋
+      pagination.resetPage();
     } catch (err) {
       console.error("문의 목록 로딩 오류:", err);
     } finally {
     }
   };
+
+  // 검색 공통 훅 사용
+  const { searchData, setSearchData, handleSearch, handleReset } = useSearch({
+    onSearch: selectInquiryShoppingAppList,
+    initialSearchData: {
+      memName: "",
+      inquiryType: "",
+      answerStatus: ""
+    }
+  });
 
   useEffect(() => {
     if (user && user.index) {
@@ -139,21 +100,21 @@ const InquiryShoppingApp: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <th className="border border-gray-300 p-2 text-center bg-gray-50 font-medium w-[10%]">이름</th>
-                <td className="border border-gray-300 p-2 w-[15%]">
+                <th className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">이름</th>
+                <td className="border border-gray-300 p-2 w-2/6">
                   <input
                     type="text"
                     value={searchData.memName}
-                    onChange={(e) => handleSearchChange('memName', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, memName: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <th className="border border-gray-300 p-2 text-center bg-gray-50 font-medium w-[10%]">문의 유형</th>
-                <td className="border border-gray-300 p-2 w-[15%]">
+                <th className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">문의 유형</th>
+                <td className="border border-gray-300 p-2 w-2/6">
                   <select
                     value={searchData.inquiryType}
-                    onChange={(e) => handleSearchChange('inquiryType', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, inquiryType: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                   >
                     <option value="">전체</option>
@@ -165,46 +126,46 @@ const InquiryShoppingApp: React.FC = () => {
                   </select>
                 </td>
               </tr>
-                             <tr>
-                 <th className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">답변 여부</th>
-                 <td className="border border-gray-300 p-2" colSpan={3}>
-                   <div className="flex items-center space-x-4 py-1">
-                     <label className="flex items-center">
-                       <input
-                         type="radio"
-                         name="answerStatus"
-                         value=""
-                         checked={searchData.answerStatus === ''}
-                         onChange={(e) => handleSearchChange('answerStatus', e.target.value)}
-                         className="mr-1"
-                       />
-                       <span className="text-sm">전체</span>
-                     </label>
-                     <label className="flex items-center">
-                       <input
-                         type="radio"
-                         name="answerStatus"
-                         value="Y"
-                         checked={searchData.answerStatus === 'Y'}
-                         onChange={(e) => handleSearchChange('answerStatus', e.target.value)}
-                         className="mr-1"
-                       />
-                       <span className="text-sm">대답완료</span>
-                     </label>
-                     <label className="flex items-center">
-                       <input
-                         type="radio"
-                         name="answerStatus"
-                         value="N"
-                         checked={searchData.answerStatus === 'N'}
-                         onChange={(e) => handleSearchChange('answerStatus', e.target.value)}
-                         className="mr-1"
-                       />
-                       <span className="text-sm">미대답</span>
-                     </label>
-                   </div>
-                 </td>
-               </tr>
+              <tr>
+                <th className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">답변 여부</th>
+                <td className="border border-gray-300 p-2 w-2/6">
+                  <div className="flex items-center space-x-4 py-1">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="answerStatus"
+                        value=""
+                        checked={searchData.answerStatus === ''}
+                        onChange={(e) => setSearchData({ ...searchData, answerStatus: e.target.value })}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">전체</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="answerStatus"
+                        value="Y"
+                        checked={searchData.answerStatus === 'Y'}
+                        onChange={(e) => setSearchData({ ...searchData, answerStatus: e.target.value })}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">대답완료</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="answerStatus"
+                        value="N"
+                        checked={searchData.answerStatus === 'N'}
+                        onChange={(e) => setSearchData({ ...searchData, answerStatus: e.target.value })}
+                        className="mr-1"
+                      />
+                      <span className="text-sm">미대답</span>
+                    </label>
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
 
@@ -231,10 +192,13 @@ const InquiryShoppingApp: React.FC = () => {
           </div>
         ) : (
           <>
+            <div className="mb-6">
+              <p className="text-sm font-bold">총 {shoppingInquiryList.length}건</p>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">
                 <thead>
-                  <tr className="w-full h-16 border-b border-gray-200">
+                  <tr className="w-full h-16 border-b border-gray-200 bg-gray-200">
                     <th className="text-center pl-4 whitespace-nowrap">번호</th>
                     <th className="text-center whitespace-nowrap">이름</th>
                     <th className="text-center whitespace-nowrap hidden md:table-cell">
@@ -256,11 +220,9 @@ const InquiryShoppingApp: React.FC = () => {
                   {currentInquiries?.map((inquiry, index) => (
                     <tr
                       key={inquiry.inquiry_shopping_app_id}
-                      className="h-16 border-b border-gray-200 hover:bg-gray-50"
-                      onClick={() => {}}
-                      onDoubleClick={() => {
-                        setSelectedInquiryForModal(inquiry);
-                        setIsModalOpen(true);
+                      className="h-16 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        navigate("/app/inquiryShoppingAppDetail", { state: { selectedInquiry: inquiry } });
                       }}
                     >
                       <td className="pl-4 text-center">
@@ -319,28 +281,8 @@ const InquiryShoppingApp: React.FC = () => {
           </>
         )}
       </div>
-
-      <InquiryShoppingAppModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={() => {
-          setIsModalOpen(false);
-          selectInquiryShoppingAppList();
-        }}
-        selectedInquiry={selectedInquiryForModal ? {
-          mem_id: selectedInquiryForModal.mem_id,
-          inquiry_shopping_app_id: selectedInquiryForModal.inquiry_shopping_app_id,
-          inquiry_type: selectedInquiryForModal.inquiry_type,
-          title: selectedInquiryForModal.title || "",
-          content: selectedInquiryForModal.content,
-          answer: selectedInquiryForModal.answer || "",
-          mem_name: selectedInquiryForModal.mem_name,
-          answer_dt: selectedInquiryForModal.answer_dt || "",
-          reg_dt: selectedInquiryForModal.reg_dt
-        } : null}
-      />
     </>
   );
 };
 
-export default InquiryShoppingApp;
+export default InquiryShoppingAppList;

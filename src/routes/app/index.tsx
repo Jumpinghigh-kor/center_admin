@@ -2,31 +2,35 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useUserStore } from "../../store/store";
 import Dashboard from "./dashboard/Dashboard";
-import UserManagement from "./UserManagement";
 import AppSidebar from "../../components/app/Sidebar";
 import { useSidebarStore } from "../../store/store";
-import BannerList from "./BannerList";
+import BannerAppList from "./banner/BannerAppList";
+import BannerAppDetail from "./banner/BannerAppDetail";
+import BannerAppRegister from "./banner/BannerAppRegister";
 import NoticesAppList from "./notice/NoticesAppList";
 import NoticesAppRegister from "./notice/NoticesAppRegister";
 import NoticesAppDetail from "./notice/NoticesAppDetail";
 import ProductAppList from "./ProductAppList";
 import ProductAppDetail from "./ProductAppDetail";
-import UpdateLogAppList from "./UpdateLogAppList";
-import MemberOrderApp from "./MemberOrderApp";
-import MemberOrderAppDetail from "./MemberOrderAppDetail";
-import MemberReviewApp from "./MemberReviewApp";
+import UpdateLogAppList from "./updateLogApp/UpdateLogAppList";
+import UpdateLogAppRegister from "./updateLogApp/UpdateLogAppRegister";
+import UpdateLogAppDetail from "./updateLogApp/UpdateLogAppDetail";
+import MemberOrderAppList from "./order/MemberOrderAppList";
+import MemberOrderAppDetail from "./order/MemberOrderAppDetail";
+import MemberReviewApp from "./review/MemberReviewAppList";
 import CouponApp from "./CouponApp";
 import CenterInquiryAppList from "./inquiry/CenterInquiryAppList";
 import CommonInquiryAppDetail from "./inquiry/CommonInquiryAppDetail";
 import MobileInquiryAppList from "./inquiry/MobileInquiryAppList";
 import EventApp from "./EventApp"
 import ExerciseAppList from "./exercise/ExerciseAppList";
-import InquiryShoppingApp from "./InquiryShoppingApp";
-import MemberOrderAppReturn from "./MemberOrderAppReturn";
+import InquiryShoppingAppList from "./inquiryShopping/InquiryShoppingAppList";
+import MemberOrderAppReturn from "./order/MemberOrderAppReturn";
 import CenterOrderAppList from "./centerOrder/CenterOrderAppList";
 import PostAppList from "./post/PostAppList";
 import PostAppDetail from "./post/PostAppDetail";
 import PostAppRegister from "./post/PostAppRegister";
+import InquiryShoppingAppDetail from "./inquiryShopping/InquiryShoppingAppDetail";
 
 const MemberApp: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -59,8 +63,8 @@ const MemberApp: React.FC = () => {
       setActiveTab("settings");
     } else if (location.pathname.includes("/memberReviewApp")) {
       setActiveTab("memberReviewApp");
-    } else if (location.pathname.includes("/memberOrderApp")) {
-      setActiveTab("memberOrderApp");
+    } else if (location.pathname.includes("/memberOrderAppList")) {
+      setActiveTab("memberOrderAppList");
     } else if (location.pathname.includes("/couponApp")) {
       setActiveTab("couponApp");
     } else if (location.pathname.includes("/centerInquiryAppList")) {
@@ -97,7 +101,6 @@ const MemberApp: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* 사이드바 - 항상 표시 */}
       <div className="bg-white shadow-lg">
         <AppSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
@@ -107,22 +110,26 @@ const MemberApp: React.FC = () => {
         <div className="container mx-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<UserManagement />} />
-            <Route path="/banner" element={<BannerList />} />
+            <Route path="/banner" element={<BannerAppList />} />
+            <Route path="/banner/bannerAppDetail" element={<BannerAppDetail />} />
+            <Route path="/banner/bannerAppRegister" element={<BannerAppRegister />} />
             <Route path="/noticesAppList" element={<NoticesAppList />} />
             <Route path="/notice/noticesAppRegister" element={<NoticesAppRegister />} />
             <Route path="/notice/noticesAppDetail" element={<NoticesAppDetail />} />
             <Route path="/productApp" element={<ProductAppList />} />
             <Route path="/productApp/detail" element={<ProductAppDetail />} />
             <Route path="/updateLogApp" element={<UpdateLogAppList />} />
-            <Route path="/memberOrderApp" element={<MemberOrderApp />} />
+            <Route path="/updateLogApp/updateLogAppRegister" element={<UpdateLogAppRegister />} />
+            <Route path="/updateLogApp/updateLogAppDetail" element={<UpdateLogAppDetail />} />
+            <Route path="/memberOrderAppList" element={<MemberOrderAppList />} />
             <Route path="/memberOrderApp/detail/:orderId" element={<MemberOrderAppDetail />} />
             <Route path="/memberReviewApp" element={<MemberReviewApp />} />
             <Route path="/couponApp" element={<CouponApp />} />
             <Route path="/centerInquiryAppList" element={<CenterInquiryAppList />} />
             <Route path="/commonInquiryAppDetail" element={<CommonInquiryAppDetail />} />
             <Route path="/mobileInquiryAppList" element={<MobileInquiryAppList />} />
-            <Route path="/inquiryShoppingApp" element={<InquiryShoppingApp />} />
+            <Route path="/inquiryShoppingApp" element={<InquiryShoppingAppList />} />
+            <Route path="/inquiryShoppingAppDetail" element={<InquiryShoppingAppDetail />} />
             <Route path="/eventApp" element={<EventApp />} />
             <Route path="/exerciseAppList" element={<ExerciseAppList />} />
             <Route path="/memberOrderAppReturn" element={<MemberOrderAppReturn />} />
@@ -131,7 +138,6 @@ const MemberApp: React.FC = () => {
             <Route path="/postApp/postAppDetail" element={<PostAppDetail />} />
             <Route path="/postApp/postAppRegister" element={<PostAppRegister />} />
             <Route path="/settings" element={<div>설정 페이지</div>} />
-            {/* Add more routes as needed */}
           </Routes>
         </div>
       </div>

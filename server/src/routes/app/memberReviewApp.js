@@ -8,7 +8,7 @@ const {
 } = require("../../controllers/app/memberReviewApp");
 
 // 리뷰 목록 조회
-router.get("/selectMemberReviewAppList", selectMemberReviewAppList);
+router.post("/selectMemberReviewAppList", selectMemberReviewAppList);
 
 // 리뷰 이미지 조회
 router.post("/selectMemberReviewAppImgList", selectMemberReviewAppImgList);

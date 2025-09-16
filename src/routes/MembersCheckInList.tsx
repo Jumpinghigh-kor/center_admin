@@ -22,6 +22,7 @@ const MembersCheckInList: React.FC = () => {
   const [deleteModalToggle, setDeleteModalToggle] = useState<boolean>(false);
   const [addModalToggle, setAddModalToggle] = useState<boolean>(false);
   const user = useUserStore((state) => state.user);
+  console.log(user);
   const [logs, setLogs] = useState<Log[]>([]);
   const [date, setDate] = useState<Date>(new Date());
   const [selectedLog, setSelectedLog] = useState<Number>(0);
@@ -103,6 +104,7 @@ const MembersCheckInList: React.FC = () => {
         {
           checkinNumber: checkinNumber,
           checkinDate: checkinDate,
+          center_id: user.center_id,
         }
       );
       setMemberships(result.data.result);

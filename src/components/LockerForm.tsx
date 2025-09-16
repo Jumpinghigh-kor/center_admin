@@ -263,7 +263,7 @@ const LockerForm: React.FC<LockerFormProps> = ({
                 className="w-24 px-2 py-1 border border-gray-300 rounded"
                 maxLength={3}
                 pattern="[1-9][0-9]{0,2}"
-                placeholder="세로 입력"
+                placeholder="가로 입력"
                 required
               />
             </td>
@@ -291,7 +291,7 @@ const LockerForm: React.FC<LockerFormProps> = ({
                 className="w-24 px-2 py-1 border border-gray-300 rounded"
                 maxLength={3}
                 pattern="[1-9][0-9]{0,2}"
-                placeholder="가로 입력"
+                placeholder="세로 입력"
                 required
               />
             </td>

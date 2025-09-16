@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import BannerModal from "../../components/app/BannerModal";
+import { useUserStore } from "../../../store/store";
+import { useSearch } from "../../../hooks/useSearch";
+import { useCheckbox } from "../../../hooks/useCheckbox";
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../../components/Pagination";
 
 interface Banner {
   bannerAppId: number;
@@ -27,89 +30,38 @@ interface CommonCode {
   common_code_memo: string;
 }
 
-const BannerList: React.FC = () => {
+const BannerAppList: React.FC = () => {
   const navigate = useNavigate();
   const [bannersList, setBannersList] = useState<Banner[]>([]);
   const user = useUserStore((state) => state.user);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [selectedBanners, setSelectedBanners] = useState<number[]>([]);
-  const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
   const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
 
-  // 검색 데이터 상태
-  const [searchData, setSearchData] = useState({
-    bannerLocate: "",
-    bannerType: "",
-    startDate: "",
-    endDate: "",
-    useYn: ""
+  // 체크박스 공통 훅 사용
+  const { checkedItems, allChecked, handleAllCheck, handleIndividualCheck, resetCheckedItems } = useCheckbox(bannersList.length);
+
+  // 페이지네이션 훅 사용
+  const pagination = usePagination({
+    totalItems: bannersList.length,
+    itemsPerPage: 10,
   });
 
-  // 검색 조건 변경 핸들러
-  const handleSearchChange = (field: string, value: string) => {
-    setSearchData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  // 현재 페이지에 표시할 데이터
+  const currentBanners = pagination.getCurrentPageData(bannersList);
 
-  // 검색 처리
-  const handleSearch = async () => {
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/bannerApp/selectBannerAppList`,
-        searchData
-      );
-      
-      const bannersWithVisibility = response.data.map((banner: Banner) => ({
-        ...banner,
-      }));
-
-      setBannersList(bannersWithVisibility);
-      setSelectedBanners([]);
-    } catch (err) {
-      console.error("배너 목록 검색 오류:", err);
-    }
-  };
-
-  // 검색 초기화
-  const handleReset = () => {
-    setSearchData({
-      bannerLocate: "",
-      bannerType: "",
-      startDate: "",
-      endDate: "",
-      useYn: ""
-    });
-    fetchBanners();
-  };
 
   // 배너 목록 불러오기
   useEffect(() => {
     fetchBanners();
     fetchCommonCodeList();
   }, []);
-
-  // 배너 등록 모달 열기
-  const handleRegisterClick = () => {
-    setSelectedBanner(null);
-    setIsModalOpen(true);
-  };
-
-  // 배너 등록 성공 후 처리
-  const handleBannerRegistered = () => {
-    setIsModalOpen(false);
-    // 배너 목록 새로고침
-    fetchBanners();
-  };
   
   // 배너 목록 새로고침
-  const fetchBanners = async () => {
+  const fetchBanners = async (searchParams?: any) => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/bannerApp/selectBannerAppList`,
         {
-          ...searchData
+          ...searchParams
         }
       );
 
@@ -118,12 +70,25 @@ const BannerList: React.FC = () => {
       }));
 
       setBannersList(bannersWithVisibility);
-      setSelectedBanners([]);
+      resetCheckedItems();
+      pagination.resetPage();
     } catch (err) {
       console.error("배너 목록 로딩 오류:", err);
     } finally {
     }
   };
+
+  // 검색 공통 훅 사용
+  const { searchData, setSearchData, handleSearch, handleReset } = useSearch({
+    onSearch: fetchBanners,
+    initialSearchData: {
+      bannerLocate: "",
+      bannerType: "",
+      startDate: "",
+      endDate: "",
+      useYn: ""
+    }
+  });
 
   // 공통 코드 목록 조회회
   const fetchCommonCodeList = async () => {
@@ -144,7 +109,11 @@ const BannerList: React.FC = () => {
 
   // 일괄 삭제 처리
   const handleBatchDelete = async () => {
-    if (selectedBanners.length === 0) {
+    const selectedBannerIds = bannersList
+      .map((banner, index) => (checkedItems[index] ? banner.bannerAppId : null))
+      .filter((id): id is number => id !== null);
+
+    if (selectedBannerIds.length === 0) {
       alert("삭제할 배너를 선택해주세요.");
       return;
     }
@@ -154,7 +123,7 @@ const BannerList: React.FC = () => {
         await axios.post(
           `${process.env.REACT_APP_API_URL}/app/bannerApp/batchDeleteBannerApp`,
           {
-            bannerAppIds: selectedBanners,
+            bannerAppIds: selectedBannerIds,
             userId: user.index,
           }
         );
@@ -169,28 +138,6 @@ const BannerList: React.FC = () => {
     }
   };
 
-  // 체크박스 상태 변경 핸들러
-  const handleCheckboxChange = (bannerId: number) => {
-    setSelectedBanners((prev) => {
-      if (prev.includes(bannerId)) {
-        return prev.filter((id) => id !== bannerId);
-      } else {
-        return [...prev, bannerId];
-      }
-    });
-  };
-
-  // 전체 선택 체크박스 핸들러
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      // 모든 배너 ID 선택
-      const allBannerIds = bannersList.map((banner) => banner.bannerAppId);
-      setSelectedBanners(allBannerIds);
-    } else {
-      // 선택 초기화
-      setSelectedBanners([]);
-    }
-  };
 
   // 날짜 형식 변환 (YYYYMMDDHHMMSS -> YYYY-MM-DD HH:MM:SS)
   const formatDate = (dateStr: string) => {
@@ -216,13 +163,13 @@ const BannerList: React.FC = () => {
               onClick={handleBatchDelete}
               className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
             >
-              일괄 삭제
+              삭제
             </button>
             <button
-              onClick={handleRegisterClick}
+              onClick={() => navigate("/app/banner/bannerAppRegister")}
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             >
-              배너 등록
+              등록
             </button>
           </div>
         </div>
@@ -232,8 +179,8 @@ const BannerList: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">위치</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">위치</td>
+                <td className="border border-gray-300 p-2 w-2/6">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input
@@ -241,7 +188,7 @@ const BannerList: React.FC = () => {
                         name="bannerLocate"
                         value=""
                         checked={searchData.bannerLocate === ''}
-                        onChange={(e) => handleSearchChange('bannerLocate', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, bannerLocate: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -252,7 +199,7 @@ const BannerList: React.FC = () => {
                         name="bannerLocate"
                         value="HOME"
                         checked={searchData.bannerLocate === 'HOME'}
-                        onChange={(e) => handleSearchChange('bannerLocate', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, bannerLocate: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">홈</span>
@@ -263,18 +210,18 @@ const BannerList: React.FC = () => {
                         name="bannerLocate"
                         value="SHOP"
                         checked={searchData.bannerLocate === 'SHOP'}
-                        onChange={(e) => handleSearchChange('bannerLocate', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, bannerLocate: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">쇼핑</span>
                     </label>
                   </div>
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium">타입</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">타입</td>
                 <td className="border border-gray-300 p-2">
                   <select
                     value={searchData.bannerType}
-                    onChange={(e) => handleSearchChange('bannerType', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, bannerType: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                   >
                     <option value="">전체</option>
@@ -287,12 +234,12 @@ const BannerList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium w-1/6">전시 일시</td>
-                <td className="border border-gray-300 p-2 flex items-center justify-between">
+                <td className="border p-2 text-center bg-gray-200 font-medium w-1/6">전시 일시</td>
+                <td className="p-2 flex items-center justify-between">
                   <input
                     type="date"
                     value={searchData.startDate}
-                    onChange={(e) => handleSearchChange('startDate', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, startDate: e.target.value })}
                     className="w-1/2 px-2 py-1 border border-gray-300 rounded cursor-pointer"
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => e.currentTarget.showPicker?.()}
@@ -301,13 +248,13 @@ const BannerList: React.FC = () => {
                   <input
                     type="date"
                     value={searchData.endDate}
-                    onChange={(e) => handleSearchChange('endDate', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, endDate: e.target.value })}
                     className="w-1/2 px-2 py-1 border border-gray-300 rounded cursor-pointer"
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => e.currentTarget.showPicker?.()}
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-50 font-medium w-1/6">사용여부</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">사용여부</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -316,7 +263,7 @@ const BannerList: React.FC = () => {
                         name="useYn"
                         value=""
                         checked={searchData.useYn === ''}
-                        onChange={(e) => handleSearchChange('useYn', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, useYn: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -327,7 +274,7 @@ const BannerList: React.FC = () => {
                         name="useYn"
                         value="Y"
                         checked={searchData.useYn === 'Y'}
-                        onChange={(e) => handleSearchChange('useYn', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, useYn: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">사용</span>
@@ -338,7 +285,7 @@ const BannerList: React.FC = () => {
                         name="useYn"
                         value="N"
                         checked={searchData.useYn === 'N'}
-                        onChange={(e) => handleSearchChange('useYn', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, useYn: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">미사용</span>
@@ -371,97 +318,92 @@ const BannerList: React.FC = () => {
             <p>등록된 배너가 없습니다.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead>
-                <tr className="w-full h-16 border-b border-gray-200">
-                  <th className="text-center px-4 w-12">
-                    <input
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5"
-                      onChange={handleSelectAll}
-                      checked={
-                        selectedBanners.length === bannersList.length &&
-                        bannersList.length > 0
-                      }
-                    />
-                  </th>
-                  <th className="text-center pl-4 whitespace-nowrap">번호</th>
-                  <th className="text-center whitespace-nowrap">위치</th>
-                  <th className="text-center whitespace-nowrap">타입</th>
-                  <th className="text-center whitespace-nowrap">제목</th>
-                  <th className="text-center whitespace-nowrap">시작일</th>
-                  <th className="text-center whitespace-nowrap">종료일</th>
-                  <th className="text-center whitespace-nowrap hidden md:table-cell">
-                    사용여부
-                  </th>
-                  <th className="text-center whitespace-nowrap">등록일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bannersList.map((banner, index) => (
-                  <tr
-                    key={banner.bannerAppId}
-                    className="h-16 border-b border-gray-200 hover:bg-gray-50"
-                    onClick={() => setSelectedBanner(banner)}
-                    onDoubleClick={() => {
-                      setSelectedBanner(banner);
-                      setIsModalOpen(true);
-                    }}
-                  >
-                    <td
-                      className="px-4 text-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+          <>
+            <div className="mb-4">
+              <p className="text-sm font-semibold">총 {bannersList.length}건</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr className="w-full h-16 border-b border-gray-200 bg-gray-200">
+                    <th className="text-center px-4 w-12">
                       <input
                         type="checkbox"
                         className="form-checkbox h-5 w-5"
-                        checked={selectedBanners.includes(banner.bannerAppId)}
-                        onChange={() =>
-                          handleCheckboxChange(banner.bannerAppId)
-                        }
+                        onChange={(e) => handleAllCheck(e.target.checked)}
+                        checked={allChecked}
                       />
-                    </td>
-                    <td className="pl-4 text-center">{bannersList?.length - index}</td>
-                    <td className="text-center whitespace-nowrap">
-                      {banner.bannerLocate === "HOME" ? "홈" : "쇼핑"}
-                    </td>
-                    <td className="text-center whitespace-nowrap">
-                      {commonCodeList?.length > 0 && commonCodeList?.find(code => code.common_code === banner.bannerType)?.common_code_name}
-                    </td>
-                    <td className="text-center px-2 max-w-[100px] md:max-w-[200px] truncate">
-                      {banner.title}
-                    </td>
-                    <td className="text-center whitespace-nowrap">
-                      {banner.startDate}
-                    </td>
-                    <td className="text-center whitespace-nowrap">
-                      {banner.endDate}
-                    </td>
-                    <td className="text-center hidden md:table-cell">
-                      {banner.useYn === "Y" ? "사용" : "미사용"}
-                    </td>
-                    <td className="text-center whitespace-nowrap">
-                      {banner.regDate}
-                    </td>
+                    </th>
+                    <th className="text-center pl-4 whitespace-nowrap">번호</th>
+                    <th className="text-center whitespace-nowrap">위치</th>
+                    <th className="text-center whitespace-nowrap">타입</th>
+                    <th className="text-center whitespace-nowrap">제목</th>
+                    <th className="text-center whitespace-nowrap">시작일</th>
+                    <th className="text-center whitespace-nowrap">종료일</th>
+                    <th className="text-center whitespace-nowrap hidden md:table-cell">
+                      사용여부
+                    </th>
+                    <th className="text-center whitespace-nowrap">등록일</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {currentBanners.map((banner, index) => (
+                    <tr
+                      key={banner.bannerAppId}
+                      className="h-16 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => navigate(`/app/banner/bannerAppDetail?bannerAppId=${banner.bannerAppId}`)}
+                    >
+                      <td
+                        className="px-4 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          className="form-checkbox h-5 w-5"
+                          checked={checkedItems[pagination.startIndex + index] || false}
+                          onChange={(e) => handleIndividualCheck(pagination.startIndex + index, e.target.checked)}
+                        />
+                      </td>
+                      <td className="pl-4 text-center">{bannersList.length - (pagination.startIndex + index)}</td>
+                      <td className="text-center whitespace-nowrap">
+                        {banner.bannerLocate === "HOME" ? "홈" : "쇼핑"}
+                      </td>
+                      <td className="text-center whitespace-nowrap">
+                        {commonCodeList?.length > 0 && commonCodeList?.find(code => code.common_code === banner.bannerType)?.common_code_name}
+                      </td>
+                      <td className="text-center px-2 max-w-[100px] md:max-w-[200px] truncate">
+                        {banner.title}
+                      </td>
+                      <td className="text-center whitespace-nowrap">
+                        {banner.startDate}
+                      </td>
+                      <td className="text-center whitespace-nowrap">
+                        {banner.endDate}
+                      </td>
+                      <td className="text-center hidden md:table-cell">
+                        {banner.useYn === "Y" ? "사용" : "미사용"}
+                      </td>
+                      <td className="text-center whitespace-nowrap">
+                        {banner.regDate}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 페이지네이션 */}
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalItems={pagination.totalItems}
+              itemsPerPage={pagination.itemsPerPage}
+              onPageChange={pagination.handlePageChange}
+            />
+          </>
         )}
       </div>
-
-      {/* 배너 등록 모달 */}
-      <BannerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={handleBannerRegistered}
-        selectedBanner={selectedBanner}
-        commonCodeList={commonCodeList}
-      />
     </>
   );
 };
 
-export default BannerList;
+export default BannerAppList;

@@ -1,8 +1,22 @@
 const db = require("../../../db");
 const dayjs = require("dayjs");
 
-// 배너 목록 조회
+// 업데이트 로그 목록 조회
 exports.selectUpdateLogAppList = (req, res) => {
+  const { up_app_version, up_app_desc } = req.body;
+
+  let addCondition = '';
+  let params = [];
+  
+  if (up_app_version) {
+    addCondition += ` AND up_app_version LIKE CONCAT('%', ?, '%')`;
+    params.push(up_app_version);
+  }
+  if (up_app_desc) {
+    addCondition += ` AND up_app_desc LIKE CONCAT('%', ?, '%')`;
+    params.push(up_app_desc);
+  }
+
   const query = `
     SELECT
       up_app_id
@@ -15,10 +29,11 @@ exports.selectUpdateLogAppList = (req, res) => {
       , mod_id
     FROM        update_log_app
     WHERE       del_yn = 'N'
+    ${addCondition}
     ORDER BY    up_app_id DESC
   `;
 
-  db.query(query, (err, results) => {
+  db.query(query, params, (err, results) => {
     if (err) {
       console.error("업데이트 로그 목록 조회 오류:", err);
       return res.status(500).json({
@@ -26,16 +41,63 @@ exports.selectUpdateLogAppList = (req, res) => {
       });
     }
 
-    const updateLogApp = results.map((updateLog) => ({
-      upAppId: updateLog.up_app_id,
-      upAppVersion: updateLog.up_app_version,
-      upAppDesc: updateLog.up_app_desc,
-      delYn: updateLog.del_yn,
-      regDt: updateLog.reg_dt,
-      modDt: updateLog.mod_dt,
-    }));
+    res.status(200).json({ result: results });
+  });
+};
 
-    res.status(200).json(updateLogApp);
+// 업데이트 로그 상세 조회
+exports.selectUpdateLogAppDetail = (req, res) => {
+  const { up_app_id } = req.body;
+  
+  const query = `
+    SELECT
+      up_app_id
+      , up_app_version
+      , up_app_desc
+      , del_yn
+      , DATE_FORMAT(reg_dt, '%Y-%m-%d %H:%i:%s') as reg_dt
+      , reg_id
+      , DATE_FORMAT(mod_dt, '%Y-%m-%d %H:%i:%s') as mod_dt
+      , mod_id
+    FROM        update_log_app
+    WHERE       del_yn = 'N'
+    AND         up_app_id = ?
+  `;
+
+  db.query(query, [up_app_id], (err, results) => {
+    if (err) {
+      console.error("업데이트 로그 상세 조회 오류:", err);
+      return res.status(500).json({
+        error: "업데이트 로그 상세를 조회하는 도중 오류가 발생했습니다.",
+      });
+    }
+
+    res.status(200).json({ result: results });
+  });
+};
+
+// 버전 중복 체크크
+exports.selectUpdateLogAppVersionCheck = (req, res) => {
+  const { up_app_version } = req.body;
+  
+
+  const query = `
+    SELECT
+      COUNT(*) AS version_cnt
+    FROM        update_log_app
+    WHERE       del_yn = 'N'
+    AND         up_app_version = ?
+  `;
+
+  db.query(query, [up_app_version], (err, results) => {
+    if (err) {
+      console.error("업데이트 로그 버전 중복 체크 오류:", err);
+      return res.status(500).json({
+        error: "업데이트 로그 버전 중복 체크 오류가 발생했습니다.",
+      });
+    }
+
+    res.status(200).json({ result: results[0].version_cnt });
   });
 };
 
@@ -48,7 +110,6 @@ exports.insertUpdateLogApp = (req, res) => {
     const now = dayjs();
     const reg_dt = now.format("YYYYMMDDHHmmss");
 
-    // notices_app 테이블에 공지사항 정보 등록
     const updateLogAppInsertQuery = `
       INSERT INTO update_log_app (
         up_app_version
@@ -77,8 +138,8 @@ exports.insertUpdateLogApp = (req, res) => {
         "N",
         reg_dt,
         userId || null,
-        null, // mod_dt
-        null, // mod_id
+        null,
+        null,
       ],
       (updateLogAppErr, updateLogAppResult) => {
         if (updateLogAppErr) {
@@ -103,7 +164,7 @@ exports.insertUpdateLogApp = (req, res) => {
 // 업데이트 로그 수정
 exports.updateUpdateLogApp = (req, res) => {
   try {
-    const { upAppVersion, upAppDesc, delYn, userId, upAppId } = req.body;
+    const { upAppVersion, upAppDesc, userId, upAppId } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
@@ -114,7 +175,6 @@ exports.updateUpdateLogApp = (req, res) => {
       UPDATE update_log_app SET
         up_app_version = ?
         , up_app_desc = ?
-        , del_yn = ?
         , mod_dt = ?
         , mod_id = ?
       WHERE up_app_id = ?
@@ -122,7 +182,7 @@ exports.updateUpdateLogApp = (req, res) => {
 
     db.query(
       updateLogAppUpdateQuery,
-      [upAppVersion, upAppDesc, delYn, mod_dt, userId || null, upAppId],
+      [upAppVersion, upAppDesc, mod_dt, userId || null, upAppId],
       (err, result) => {
         if (err) {
           console.error("업데이트 로그 수정 오류:", err);
@@ -146,7 +206,7 @@ exports.updateUpdateLogApp = (req, res) => {
 exports.batchDeleteUpdateLogApp = (req, res) => {
   try {
     const { updateLogAppIds, userId } = req.body;
-
+    
     if (
       !updateLogAppIds ||
       !Array.isArray(updateLogAppIds) ||

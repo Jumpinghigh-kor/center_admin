@@ -70,8 +70,7 @@ exports.selectMemberPostAppList = (req, res) => {
       FROM		  	post_app p
       LEFT JOIN		member_post_app mpa	ON 	p.post_app_id = mpa.post_app_id
       LEFT JOIN		members m 			    ON	mpa.mem_id = m.mem_id
-      WHERE		  	mpa.del_yn = 'N'
-      AND		  	  p.post_app_id = ?
+      WHERE		  	  p.post_app_id = ?
   `;
 
   db.query(query, [post_app_id], (err, result) => {

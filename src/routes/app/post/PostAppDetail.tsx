@@ -42,6 +42,7 @@ const PostAppDetail: React.FC = () => {
       try {
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/selectMemberPostAppList`, { post_app_id: postAppId });
       const rows = res?.data?.result || [];
+      
       if (rows.length > 0) {
         const base = rows[0];
         setPostType(base.post_type || "ALL");

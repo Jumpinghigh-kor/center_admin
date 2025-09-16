@@ -10,7 +10,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const navigate = useNavigate();
   const user = useUserStore((state) => state.user);
-console.log(activeTab);
+  
   const handleNavigation = (path: string, tab: string) => {
     setActiveTab(tab);
     navigate(path);
@@ -41,7 +41,7 @@ console.log(activeTab);
 
       <div className="py-4 flex-1">
         <ul>
-          <li className="mb-1">
+          <li>
             <button
               onClick={() => handleNavigation("/app", "dashboard")}
               className={`flex items-center w-full py-2 px-4 text-left ${
@@ -69,7 +69,7 @@ console.log(activeTab);
             </button>
           </li>
 
-          <li className="mb-1">
+          <li>
             <button
               onClick={() =>
                 handleNavigation("/app/exerciseAppList", "exerciseAppList")
@@ -99,7 +99,7 @@ console.log(activeTab);
             </button>
           </li>
 
-          <li className="mb-1">
+          <li>
             <button
               onClick={() =>
                 handleNavigation("/app/centerOrderAppList", "centerOrderAppList")
@@ -129,7 +129,7 @@ console.log(activeTab);
             </button>
           </li>
 
-          <li className="mb-1">
+          <li>
             <button
               onClick={() =>
                 handleNavigation("/app/centerInquiryAppList", "centerInquiryAppList")
@@ -153,11 +153,11 @@ console.log(activeTab);
           {/* 공통 관리 */}
           {user.usr_role === 'admin' && (
             <>
-              <li className="mb-1 bg-gray-500 text-gray-300">
+              <li className="bg-gray-500 text-gray-300">
                 <p className="flex items-center w-full py-2 px-4 text-left">공통 관리</p>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() => handleNavigation("/app/banner", "banner")}
                   className={`flex items-center w-full py-2 px-4 text-left ${
@@ -185,7 +185,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() => handleNavigation("/app/noticesAppList", "noticesAppList")}
                   className={`flex items-center w-full py-2 px-4 text-left ${
@@ -213,7 +213,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() =>
                     handleNavigation("/app/postAppList", "postAppList")
@@ -243,7 +243,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() =>
                     handleNavigation("/app/updateLogApp", "updateLogApp")
@@ -273,7 +273,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() =>
                     handleNavigation("/app/MobileInquiryAppList", "mobileInquiryAppList")
@@ -295,17 +295,17 @@ console.log(activeTab);
               </li>
 
               {/* 쇼핑몰 관리 */}
-              <li className="mb-1 bg-gray-500 text-gray-300">
+              <li className="bg-gray-500 text-gray-300">
                 <p className="flex items-center w-full py-2 px-4 text-left">쇼핑몰 관리</p>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() =>
-                    handleNavigation("/app/memberOrderApp", "memberOrderApp")
+                    handleNavigation("/app/memberOrderAppList", "memberOrderAppList")
                   }
                   className={`flex items-center w-full py-2 px-4 text-left ${
-                    activeTab === "memberOrderApp"
+                    activeTab === "memberOrderAppList"
                       ? "bg-gray-200 text-gray-900"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -329,7 +329,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() => handleNavigation("/app/productApp", "productApp")}
                   className={`flex items-center w-full py-2 px-4 text-left ${
@@ -357,7 +357,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() =>
                     handleNavigation("/app/inquiryShoppingApp", "inquiryShoppingApp")
@@ -378,7 +378,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() => handleNavigation("/app/memberReviewApp", "memberReviewApp")}
                   className={`flex items-center w-full py-2 px-4 text-left ${
@@ -406,7 +406,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() => handleNavigation("/app/couponApp", "couponApp")}
                   className={`flex items-center w-full py-2 px-4 text-left ${
@@ -434,7 +434,7 @@ console.log(activeTab);
                 </button>
               </li>
 
-              <li className="mb-1">
+              <li>
                 <button
                   onClick={() => handleNavigation("/app/eventApp", "eventApp")}
                   className={`flex items-center w-full py-2 px-4 text-left ${

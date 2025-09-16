@@ -64,6 +64,7 @@ const fetchData = useCallback(async () => {
     const res = await axios.get(`${process.env.REACT_APP_API_URL}/member`, {
       params: { user: user, sortOption: sortOption },
     });
+    
     setMembers(res.data.result);
     
     const foundItem = res.data.result.find(
@@ -229,7 +230,7 @@ useEffect(() => {
           {(!selectedMember?.mem_app_status || selectedMember?.mem_app_status === 'EXIT') ?
             (<div className="flex justify-end">
               <div className="flex flex-col items-end">
-                <button
+                {/* <button
                   className={`rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
                     selectedMember
                     ? "bg-blue-600 hover:bg-green-700 cursor-pointer"
@@ -244,7 +245,7 @@ useEffect(() => {
                   disabled={!selectedMember}
                   >
                   어플 계정 생성
-                </button>
+                </button> */}
               </div>
             </div>
           ) : (

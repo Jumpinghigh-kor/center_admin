@@ -4,6 +4,7 @@ import axios from "axios";
 import { useUserStore } from "../../../store/store";
 import { usePagination } from "../../../hooks/usePagination";
 import { useCheckbox } from "../../../hooks/useCheckbox";
+import { useSearch } from "../../../hooks/useSearch";
 import Pagination from "../../../components/Pagination";
 import { openInputDatePicker } from "../../../utils/commonUtils";
 
@@ -23,7 +24,6 @@ interface NoticesApp {
 const NoticesAppList: React.FC = () => {
   const [noticesList, setNoticesList] = useState<NoticesApp[]>([]);
   const { checkedItems, allChecked, handleAllCheck, handleIndividualCheck, resetCheckedItems } = useCheckbox(noticesList.length);
-  const [isSearch, setIsSearch] = useState(false);
   const user = useUserStore((state) => state.user);
   const navigate = useNavigate();
 
@@ -36,41 +36,17 @@ const NoticesAppList: React.FC = () => {
   // 현재 페이지에 표시할 데이터
   const currentNoticesList = pagination.getCurrentPageData(noticesList);
 
-  // 검색 데이터 상태
-  const [searchData, setSearchData] = useState({
-    title: "",
-    notices_type: "",
-    start_dt: "",
-    end_dt: "",
-    view_yn: ""
-  });
-
-  // 검색 초기화
-  const handleReset = () => {
-    setSearchData({
-      title: "",
-      notices_type: "",
-      start_dt: "",
-      end_dt: "",
-      view_yn: ""
-    });
-    setIsSearch(true);
-  };
-
   // 공지사항 목록 불러오기
-  const getNoticesAppList = async () => {
+  const getNoticesAppList = async (searchParams?: any) => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/noticesApp/selectNoticesAppList`,
         {
-          ...searchData
+          ...searchParams
         }
       );
 
-      console.log(response.data.result);
-
       setNoticesList(response.data.result || response.data || []);
-      // 체크박스 선택 초기화
       resetCheckedItems();
       pagination.resetPage();
     } catch (err) {
@@ -78,6 +54,18 @@ const NoticesAppList: React.FC = () => {
     } finally {
     }
   };
+
+  // 검색 공통 훅 사용
+  const { searchData, setSearchData, handleSearch, handleReset } = useSearch({
+    onSearch: getNoticesAppList,
+    initialSearchData: {
+      title: "",
+      notices_type: "",
+      start_dt: "",
+      end_dt: "",
+      view_yn: ""
+    }
+  });
 
   // 일괄 삭제 처리
   const handleBatchDelete = async () => {
@@ -116,14 +104,6 @@ const NoticesAppList: React.FC = () => {
     getNoticesAppList();
   }, []);
 
-  // isSearch가 true일 때만 검색 실행
-  useEffect(() => {
-    if (isSearch) {
-      getNoticesAppList();
-      setIsSearch(false);
-    }
-  }, [isSearch]);
-
   return (
     <>
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -150,14 +130,14 @@ const NoticesAppList: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-3 text-center bg-gray-200 font-medium w-1/6">제목</td>
+                <td className="border border-gray-300 text-center bg-gray-200 font-medium w-1/6">제목</td>
                 <td className="border border-gray-300 p-3 w-2/6">
                   <input
                     type="text"
                     name="title"
                     value={searchData.title}
                     onChange={(e) => setSearchData({ ...searchData, title: e.target.value })}
-                    className="w-full px-2 border border-gray-300 rounded"
+                    className="w-full px-2 py-1 border border-gray-300 rounded"
                     placeholder="제목을 입력하세요"
                   />
                 </td>
@@ -292,7 +272,7 @@ const NoticesAppList: React.FC = () => {
               초기화
             </button>
             <button
-              onClick={() => setIsSearch(true)}
+              onClick={handleSearch}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded hover:bg-blue-700"
             >
               검색

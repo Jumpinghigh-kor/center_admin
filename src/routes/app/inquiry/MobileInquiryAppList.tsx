@@ -4,6 +4,7 @@ import axios from "axios";
 import { useUserStore } from "../../../store/store";
 import Pagination from "../../../components/Pagination";
 import { usePagination } from "../../../hooks/usePagination";
+import { useSearch } from "../../../hooks/useSearch";
 
 interface InquiryApp {
   inquiry_app_id: number;
@@ -21,13 +22,6 @@ const MobileInquiryAppList: React.FC = () => {
   const [inquiryList, setInquiryList] = useState<InquiryApp[]>([]);
   const user = useUserStore((state) => state.user);
 
-  // 검색 데이터 상태
-  const [searchData, setSearchData] = useState({
-    mem_name: "",
-    mem_app_status: "",
-    answer: ""
-  });
-
 
   // 페이지네이션 훅 사용
   const pagination = usePagination({
@@ -38,61 +32,35 @@ const MobileInquiryAppList: React.FC = () => {
   // 현재 페이지에 표시할 데이터
   const currentInquiries = pagination.getCurrentPageData(inquiryList);
 
-  // 검색 조건 변경 핸들러
-  const handleSearchChange = (field: string, value: string) => {
-    setSearchData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // 검색 처리
-  const handleSearch = async () => {
+  // 문의 목록 불러오기
+  const selectInquiryAppList = async (searchParams?: any) => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/inquiryApp/selectInquiryAppList`,
         {
           center_id: user.center_id,
           inquiry_type: 'APPLICATION',
-          ...searchData
+          ...searchParams
         }
       );
       
       setInquiryList(response.data.result);
       pagination.resetPage();
     } catch (err) {
-      console.error("문의 목록 검색 오류:", err);
-    }
-  };
-
-  // 검색 초기화
-  const handleReset = () => {
-    setSearchData({
-      mem_name: "",
-      mem_app_status: "",
-      answer: ""
-    });
-    selectInquiryAppList();
-  };
-
-  // 리뷰 목록 불러오기
-  const selectInquiryAppList = async () => {
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/inquiryApp/selectInquiryAppList`,
-        {
-          center_id: user.center_id,
-          inquiry_type: 'APPLICATION'
-        }
-      );
-      
-      setInquiryList(response.data.result);
-      pagination.resetPage(); // 데이터 새로고침 시 첫 페이지로 리셋
-    } catch (err) {
       console.error("문의 목록 로딩 오류:", err);
     } finally {
     }
   };
+
+  // 검색 공통 훅 사용
+  const { searchData, setSearchData, handleSearch, handleReset } = useSearch({
+    onSearch: selectInquiryAppList,
+    initialSearchData: {
+      mem_name: "",
+      mem_app_status: "",
+      answer: ""
+    }
+  });
 
   useEffect(() => {
     if (user && user.index) {
@@ -117,7 +85,7 @@ const MobileInquiryAppList: React.FC = () => {
                   <input
                     type="text"
                     value={searchData.mem_name}
-                    onChange={(e) => handleSearchChange('mem_name', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, mem_name: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                     placeholder="이름을 입력하세요"
                   />
@@ -131,7 +99,7 @@ const MobileInquiryAppList: React.FC = () => {
                         name="mem_app_status"
                         value=""
                         checked={searchData.mem_app_status === ''}
-                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -142,7 +110,7 @@ const MobileInquiryAppList: React.FC = () => {
                         name="mem_app_status"
                         value="ACTIVE"
                         checked={searchData.mem_app_status === 'ACTIVE'}
-                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">활동회원</span>
@@ -153,7 +121,7 @@ const MobileInquiryAppList: React.FC = () => {
                         name="mem_app_status"
                         value="EXIT"
                         checked={searchData.mem_app_status === 'EXIT'}
-                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">탈퇴회원</span>
@@ -164,7 +132,7 @@ const MobileInquiryAppList: React.FC = () => {
                         name="mem_app_status"
                         value="SLEEP"
                         checked={searchData.mem_app_status === 'SLEEP'}
-                        onChange={(e) => handleSearchChange('mem_app_status', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">휴면회원</span>
@@ -182,7 +150,7 @@ const MobileInquiryAppList: React.FC = () => {
                         name="answer"
                         value=""
                         checked={searchData.answer === ''}
-                        onChange={(e) => handleSearchChange('answer', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, answer: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -193,7 +161,7 @@ const MobileInquiryAppList: React.FC = () => {
                         name="answer"
                         value="Y"
                         checked={searchData.answer === 'Y'}
-                        onChange={(e) => handleSearchChange('answer', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, answer: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">대답완료</span>
@@ -204,7 +172,7 @@ const MobileInquiryAppList: React.FC = () => {
                         name="answer"
                         value="N"
                         checked={searchData.answer === 'N'}
-                        onChange={(e) => handleSearchChange('answer', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, answer: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">미대답</span>

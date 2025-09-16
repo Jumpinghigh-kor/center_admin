@@ -341,9 +341,10 @@ const Dashboard: React.FC = () => {
     try {
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/app/noticesApp/selectNoticesAppList`);
 
-      setNoticesAppList(response.data);
+      setNoticesAppList(response.data.result || response.data || []);
     } catch (err) {
       console.error("공지사항 조회 오류:", err);
+      setNoticesAppList([]);
     } finally {
     }
   };
@@ -353,9 +354,10 @@ const Dashboard: React.FC = () => {
     try {
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/app/updateLogApp/selectUpdateLogAppList`);
 
-      setUpdateLogList(response.data);
+      setUpdateLogList(response.data.result || response.data || []);
     } catch (err) {
       console.error("업데이트 로그 조회 오류:", err);
+      setUpdateLogList([]);
     } finally {
     }
   };

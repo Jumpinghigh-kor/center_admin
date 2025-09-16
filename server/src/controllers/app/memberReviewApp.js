@@ -12,9 +12,52 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // 리뷰 목록 조회
 exports.selectMemberReviewAppList = (req, res) => {
+  const { mem_name, brand_name, product_title, title, content, min_star_point, max_star_point } = req.body;
+
+  let addCondition = '';
+  let params = [];
+
+  if(mem_name) {
+    addCondition += ` AND m.mem_name LIKE CONCAT('%', ?, '%')`;
+    params.push(mem_name);
+  }
+
+  if(brand_name) {
+    addCondition += ` AND pa.brand_name LIKE CONCAT('%', ?, '%')`;
+    params.push(brand_name);
+  }
+
+  if(product_title) {
+    addCondition += ` AND pa.title LIKE CONCAT('%', ?, '%')`;
+    params.push(product_title);
+  }
+
+  if(title) {
+    addCondition += ` AND mra.title LIKE CONCAT('%', ?, '%')`;
+    params.push(title);
+  }
+
+  if(min_star_point && max_star_point) {
+    addCondition += ` AND mra.star_point BETWEEN ? AND ?`;
+    params.push(min_star_point, max_star_point);
+  } else if(min_star_point) {
+    addCondition += ` AND mra.star_point >= ?`;
+    params.push(min_star_point);
+  } else if(max_star_point) {
+    addCondition += ` AND mra.star_point <= ?`;
+    params.push(max_star_point);
+  }
+
+  if(content) {
+    addCondition += ` AND mra.content LIKE CONCAT('%', ?, '%')`;
+    params.push(content);
+  }
+
   const query = `
     SELECT
-      mra.review_app_id
+      m.mem_id
+      , m.mem_name
+      , mra.review_app_id
       , mra.title
       , mra.content
       , mra.star_point
@@ -23,14 +66,16 @@ exports.selectMemberReviewAppList = (req, res) => {
       , DATE_FORMAT(mra.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
       , pa.title AS product_title
       , pa.brand_name
-    FROM		  member_review_app mra
-    LEFT JOIN	product_app pa	ON mra.product_app_id = pa.product_app_id
-    WHERE		  mra.del_yn = 'N'
-    AND			  mra.admin_del_yn = 'N'
-    ORDER BY  mra.review_app_id DESC
+    FROM		    members m
+    INNER JOIN	member_review_app mra ON m.mem_id = mra.mem_id
+    LEFT JOIN	  product_app pa	ON mra.product_app_id = pa.product_app_id
+    WHERE		    mra.del_yn = 'N'
+    AND			    mra.admin_del_yn = 'N'
+    ${addCondition}
+    ORDER BY    mra.review_app_id DESC
   `;
 
-  db.query(query, (err, result) => {
+  db.query(query, params, (err, result) => {
     if (err) {
       res.status(500).json(err);
     }

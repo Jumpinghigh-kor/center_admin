@@ -4,6 +4,7 @@ import axios from "axios";
 import { useUserStore } from "../../../store/store";
 import Pagination from "../../../components/Pagination";
 import { usePagination } from "../../../hooks/usePagination";
+import { useSearch } from "../../../hooks/useSearch";
 import { formatExerciseTime } from "../../../utils/formatUtils";
 
 interface ExerciseApp {
@@ -30,18 +31,6 @@ interface CommonCode {
 const ExerciseAppList: React.FC = () => {
   const [exerciseAppList, setExerciseAppList] = useState<ExerciseApp[]>([]);
   const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
-     const [searchData, setSearchData] = useState({
-     mem_name: '',
-     mem_gender: '',
-     exercise_start_dt: '',
-     exercise_end_dt: '',
-     jumping_intensity_level: '',
-     jumping_exercise_time: '',
-     other_exercise_time: '',
-     other_exercise_type: '',
-     other_exercise_calory_min: '',
-     other_exercise_calory_max: ''
-   });
   const user = useUserStore((state) => state.user);
 
   // 페이지네이션 훅 사용
@@ -52,47 +41,6 @@ const ExerciseAppList: React.FC = () => {
 
   // 현재 페이지에 표시할 데이터
   const currentInquiries = pagination.getCurrentPageData(exerciseAppList);
-
-  // 검색 조건 변경 핸들러
-  const handleSearchChange = (field: string, value: string) => {
-    setSearchData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // 검색 실행
-  const handleSearch = () => {
-    // 날짜 유효성 검사
-    if (searchData.exercise_start_dt && searchData.exercise_end_dt) {
-      const startDate = searchData.exercise_start_dt.replace(/-/g, '');
-      const endDate = searchData.exercise_end_dt.replace(/-/g, '');
-      
-      if (startDate > endDate) {
-        alert('시작일은 종료일보다 이전이어야 합니다.');
-        return;
-      }
-    }
-    
-    selectExerciseAppList();
-  };
-
-     // 검색 초기화
-   const handleReset = () => {
-     setSearchData({
-       mem_name: '',
-       mem_gender: '',
-       exercise_start_dt: '',
-       exercise_end_dt: '',
-       jumping_intensity_level: '',
-       jumping_exercise_time: '',
-       other_exercise_time: '',
-       other_exercise_type: '',
-       other_exercise_calory_min: '',
-       other_exercise_calory_max: ''
-     });
-     selectExerciseAppList();
-   };
 
   // 공통 코드 목록 불러오기
   const selectCommonCodeList = async () => {
@@ -111,24 +59,54 @@ const ExerciseAppList: React.FC = () => {
     }
   };
 
-  // 운동동 목록 불러오기
-  const selectExerciseAppList = async () => {
+  // 운동 목록 불러오기
+  const selectExerciseAppList = async (searchParams?: any) => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/exerciseApp/selectExerciseAppList`,
         {
           center_id: user.center_id,
-          ...searchData
+          ...searchParams
         }
       );
       
       setExerciseAppList(response.data.result);
-      pagination.resetPage(); // 데이터 새로고침 시 첫 페이지로 리셋
+      pagination.resetPage();
     } catch (err) {
-      console.error("문의 목록 로딩 오류:", err);
+      console.error("운동 목록 로딩 오류:", err);
     } finally {
     }
   };
+
+  // 검색 공통 훅 사용
+  const { searchData, setSearchData, handleSearch, handleReset } = useSearch({
+    onSearch: (searchParams) => {
+      // 날짜 유효성 검사
+      if (searchParams.exercise_start_dt && searchParams.exercise_end_dt) {
+        const startDate = searchParams.exercise_start_dt.replace(/-/g, '');
+        const endDate = searchParams.exercise_end_dt.replace(/-/g, '');
+        
+        if (startDate > endDate) {
+          alert('시작일은 종료일보다 이전이어야 합니다.');
+          return;
+        }
+      }
+      
+      selectExerciseAppList(searchParams);
+    },
+    initialSearchData: {
+      mem_name: '',
+      mem_gender: '',
+      exercise_start_dt: '',
+      exercise_end_dt: '',
+      jumping_intensity_level: '',
+      jumping_exercise_time: '',
+      other_exercise_time: '',
+      other_exercise_type: '',
+      other_exercise_calory_min: '',
+      other_exercise_calory_max: ''
+    }
+  });
 
   useEffect(() => {
     if (user && user.index) {
@@ -154,7 +132,7 @@ const ExerciseAppList: React.FC = () => {
                   <input
                     type="text"
                     value={searchData.mem_name}
-                    onChange={(e) => handleSearchChange('mem_name', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, mem_name: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                     placeholder="이름을 입력하세요"
                   />
@@ -168,7 +146,7 @@ const ExerciseAppList: React.FC = () => {
                         name="mem_gender"
                         value=""
                         checked={searchData.mem_gender === ''}
-                        onChange={(e) => handleSearchChange('mem_gender', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, mem_gender: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -179,7 +157,7 @@ const ExerciseAppList: React.FC = () => {
                         name="mem_gender"
                         value="1"
                         checked={searchData.mem_gender === '1'}
-                        onChange={(e) => handleSearchChange('mem_gender', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, mem_gender: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">남성</span>
@@ -190,7 +168,7 @@ const ExerciseAppList: React.FC = () => {
                         name="mem_gender"
                         value="0"
                         checked={searchData.mem_gender === '0'}
-                        onChange={(e) => handleSearchChange('mem_gender', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, mem_gender: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">여성</span>
@@ -204,14 +182,14 @@ const ExerciseAppList: React.FC = () => {
                   <input
                     type="date"
                     value={searchData.exercise_start_dt}
-                    onChange={(e) => handleSearchChange('exercise_start_dt', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, exercise_start_dt: e.target.value })}
                     className="w-1/2 px-2 py-1 border border-gray-300 rounded"
                   />
                   ~
                   <input
                     type="date"
                     value={searchData.exercise_end_dt}
-                    onChange={(e) => handleSearchChange('exercise_end_dt', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, exercise_end_dt: e.target.value })}
                     className="w-1/2 px-2 py-1 border border-gray-300 rounded"
                   />
                 </td>
@@ -224,7 +202,7 @@ const ExerciseAppList: React.FC = () => {
                         name="jumping_intensity_level"
                         value=""
                         checked={searchData.jumping_intensity_level === ''}
-                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -235,7 +213,7 @@ const ExerciseAppList: React.FC = () => {
                         name="jumping_intensity_level"
                         value="LOW"
                         checked={searchData.jumping_intensity_level === 'LOW'}
-                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">저강도</span>
@@ -246,7 +224,7 @@ const ExerciseAppList: React.FC = () => {
                         name="jumping_intensity_level"
                         value="MODERATE"
                         checked={searchData.jumping_intensity_level === 'MODERATE'}
-                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">중강도</span>
@@ -257,7 +235,7 @@ const ExerciseAppList: React.FC = () => {
                         name="jumping_intensity_level"
                         value="HIGH"
                         checked={searchData.jumping_intensity_level === 'HIGH'}
-                        onChange={(e) => handleSearchChange('jumping_intensity_level', e.target.value)}
+                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">고강도</span>
@@ -270,7 +248,7 @@ const ExerciseAppList: React.FC = () => {
                 <td className="border border-gray-300 p-2">
                   <select
                     value={searchData.other_exercise_type}
-                    onChange={(e) => handleSearchChange('other_exercise_type', e.target.value)}
+                    onChange={(e) => setSearchData({ ...searchData, other_exercise_type: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                   >
                     <option value="">전체</option>
@@ -287,7 +265,7 @@ const ExerciseAppList: React.FC = () => {
                     <input
                       type="text"
                       value={searchData.other_exercise_calory_min}
-                      onChange={(e) => handleSearchChange('other_exercise_calory_min', e.target.value)}
+                      onChange={(e) => setSearchData({ ...searchData, other_exercise_calory_min: e.target.value })}
                       className="w-20 px-2 py-1 border border-gray-300 rounded"
                       placeholder="최소"
                     />
@@ -295,7 +273,7 @@ const ExerciseAppList: React.FC = () => {
                     <input
                       type="text"
                       value={searchData.other_exercise_calory_max}
-                      onChange={(e) => handleSearchChange('other_exercise_calory_max', e.target.value)}
+                      onChange={(e) => setSearchData({ ...searchData, other_exercise_calory_max: e.target.value })}
                       className="w-20 px-2 py-1 border border-gray-300 rounded"
                       placeholder="최대"
                     />

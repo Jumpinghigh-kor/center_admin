@@ -6,6 +6,7 @@ const {
   insertBannerApp,
   updateBannerApp,
   batchDeleteBannerApp,
+  selectBannerAppDetail,
 } = require("../../controllers/app/banner");
 
 // 메모리 스토리지 설정 (임시 저장)
@@ -30,11 +31,14 @@ const upload = multer({
 // 배너 목록 조회
 router.post("/selectBannerAppList", selectBannerAppList);
 
+// 배너 상세 조회
+router.post("/selectBannerAppDetail", selectBannerAppDetail);
+
 // 배너 등록 (파일 업로드 미들웨어 적용)
 router.post("/insertBannerApp", upload.any(), insertBannerApp);
 
 // 배너 수정 (파일 업로드 미들웨어 적용)
-router.put("/updateBannerApp", upload.any(), updateBannerApp);
+router.post("/updateBannerApp", upload.any(), updateBannerApp);
 
 // 배너 일괄 삭제
 router.post("/batchDeleteBannerApp", batchDeleteBannerApp);

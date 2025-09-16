@@ -115,8 +115,8 @@ exports.selectBannerAppList = (req, res) => {
 
 // 배너 상세 조회
 exports.selectBannerAppDetail = (req, res) => {
-  const { bannerAppId } = req.params;
-
+  const { banner_app_id } = req.body;
+  
   const query = `
     SELECT
       cf.file_id
@@ -124,19 +124,25 @@ exports.selectBannerAppDetail = (req, res) => {
       , cf.file_path
       , cf.file_division
       , ba.banner_app_id
-      , ba.banner_type
       , ba.banner_locate
+      , ba.banner_type
+      , ba.navigation_path
+      , DATE_FORMAT(ba.start_dt, '%Y-%m-%d %H:%i:%s') as start_dt
+      , DATE_FORMAT(ba.end_dt, '%Y-%m-%d %H:%i:%s') as end_dt
+      , ba.event_app_id
+      , ba.use_yn
+      , ba.del_yn
+      , ba.order_seq
       , ba.title
       , ba.content
-      , ba.order_seq
-      , ba.reg_dt
+      , DATE_FORMAT(ba.reg_dt, '%Y-%m-%d %H:%i:%s') as reg_dt
       , ba.reg_id
     FROM        banner_app ba
     LEFT JOIN   common_file cf ON ba.file_id = cf.file_id
     WHERE       ba.banner_app_id = ?
   `;
 
-  db.query(query, [bannerAppId], (err, results) => {
+  db.query(query, [banner_app_id], (err, results) => {
     if (err) {
       console.error("배너 상세 조회 오류:", err);
       return res
@@ -157,20 +163,13 @@ exports.selectBannerAppDetail = (req, res) => {
         .getPublicUrl(`banner/${banner.file_name}`).data.publicUrl;
     }
 
-    res.status(200).json({
-      id: banner.banner_app_id,
-      bannerLocate: banner.banner_locate,
-      bannerType: banner.banner_type,
-      title: banner.title,
-      content: banner.content,
-      orderSeq: banner.order_seq,
-      fileId: banner.file_id,
-      fileName: banner.file_name,
-      filePath: banner.file_path,
-      imageUrl: imageUrl,
-      regDate: banner.reg_dt,
-      regId: banner.reg_id,
-    });
+    // 결과에 imageUrl 추가
+    const bannerWithImageUrl = {
+      ...banner,
+      image_url: imageUrl
+    };
+
+    res.status(200).json({ result: [bannerWithImageUrl] });
   });
 };
 
@@ -327,7 +326,7 @@ exports.insertBannerApp = async (req, res) => {
             startDate,
             endDate,
             useYn || "Y",
-            delYn || "N",
+            "N",
             orderSeq || null,
             reg_dt,
             userId || null,
@@ -379,9 +378,11 @@ exports.updateBannerApp = async (req, res) => {
       endDate,
       orderSeq,
       useYn,
-      delYn,
       userId,
     } = req.body;
+
+    console.log("req.body:", req.body);
+    console.log("req.files:", req.files);
 
     if (!bannerAppId) {
       return res.status(400).json({ error: "배너 ID는 필수입니다." });
@@ -492,7 +493,6 @@ exports.updateBannerApp = async (req, res) => {
                   , start_dt = ?
                   , end_dt = ?
                   , use_yn = ?
-                  , del_yn = ?
                   , order_seq = ?
                   , mod_dt = ?
                   , mod_id = ?
@@ -512,7 +512,6 @@ exports.updateBannerApp = async (req, res) => {
                   startDate,
                   endDate,
                   useYn || "Y",
-                  delYn || "N",
                   orderSeq || null,
                   mod_dt,
                   userId || null,
@@ -548,69 +547,57 @@ exports.updateBannerApp = async (req, res) => {
         }
       }
 
-      // 배너 정보 업데이트 (이미지 유무와 관계없이)
-      const bannerUpdateQuery = `
-        UPDATE banner_app SET 
-          event_app_id = ?
-          , banner_locate = ?
-          , banner_type = ?
-          , navigation_path = ?
-          , title = ?
-          , content = ?
-          , start_dt = ?
-          , end_dt = ?
-          , use_yn = ?
-          , del_yn = ?
-          , order_seq = ?
-          , mod_dt = ?
-          , mod_id = ?
-        WHERE banner_app_id = ?
-      `;
+      // 이미지가 없는 경우에만 배너 정보 업데이트
+      if (!req.files || req.files.length === 0) {
+        const bannerUpdateQuery = `
+          UPDATE banner_app SET 
+            event_app_id = ?
+            , banner_locate = ?
+            , banner_type = ?
+            , navigation_path = ?
+            , title = ?
+            , content = ?
+            , start_dt = ?
+            , end_dt = ?
+            , use_yn = ?
+            , order_seq = ?
+            , mod_dt = ?
+            , mod_id = ?
+          WHERE banner_app_id = ?
+        `;
 
-      db.query(
-        bannerUpdateQuery,
-        [
-          eventAppId,
-          bannerLocate,
-          bannerType,
-          navigationPath,
-          title,
-          content,
-          startDate,
-          endDate,
-          useYn || "Y",
-          delYn || "N",
-          orderSeq || null,
-          mod_dt,
-          userId || null,
-          bannerAppId,
-        ],
-        (bannerErr) => {
-          if (bannerErr) {
-            console.error("배너 업데이트 오류:", bannerErr);
-            return res
-              .status(500)
-              .json({ error: "배너 업데이트 중 오류가 발생했습니다." });
+        db.query(
+          bannerUpdateQuery,
+          [
+            eventAppId,
+            bannerLocate,
+            bannerType,
+            navigationPath,
+            title,
+            content,
+            startDate,
+            endDate,
+            useYn || "Y",
+            orderSeq || null,
+            mod_dt,
+            userId || null,
+            bannerAppId,
+          ],
+          (bannerErr) => {
+            if (bannerErr) {
+              console.error("배너 업데이트 오류:", bannerErr);
+              return res
+                .status(500)
+                .json({ error: "배너 업데이트 중 오류가 발생했습니다." });
+            }
+
+            res.status(200).json({
+              bannerAppId: bannerAppId,
+              message: "배너가 성공적으로 업데이트되었습니다.",
+            });
           }
-
-          // 응답 데이터 구성
-          let responseData = {
-            bannerAppId: bannerAppId,
-            message: "배너가 성공적으로 업데이트되었습니다.",
-          };
-
-          // 새 이미지가 있는 경우 응답에 추가
-          if (newFilename) {
-            const imageUrl = supabase.storage
-              .from("banner")
-              .getPublicUrl(`banner/${newFilename}`).data.publicUrl;
-            responseData.file_name = newFilename;
-            responseData.imageUrl = imageUrl;
-          }
-
-          res.status(200).json(responseData);
-        }
-      );
+        );
+      }
     });
   } catch (error) {
     console.error("배너 수정 중 오류 발생:", error);
