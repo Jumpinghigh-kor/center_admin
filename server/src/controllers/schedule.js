@@ -164,7 +164,7 @@ exports.deleteSchedule = (req, res) => {
   });
 };
 
-//회원 스케줄 앱 리스트 보기
+//회원 스케줄 고정/예약 수 조회
 exports.getMemberScheduleAppList = (req, res) => {
   const { start_date, end_date, center_id } = req.body;
   
@@ -332,6 +332,29 @@ exports.getReservationMemberList = (req, res) => {
   });
 };
 
+// 예약 회원 리스트 (날짜만)
+exports.getReservationMemberListByDate = (req, res) => {
+  const { sch_dt } = req.body;
+  const query = `
+    SELECT
+      m.mem_name,
+      m.mem_id
+    FROM members m
+    INNER JOIN member_schedule_app msa ON m.mem_id = msa.mem_id
+    WHERE m.mem_status = 1
+      AND msa.del_yn = 'N'
+      AND (msa.agree_yn IS NULL OR msa.agree_yn = 'Y')
+      AND msa.sch_dt = ?
+  `;
+
+  db.query(query, [sch_dt], (err, result) => {
+    if (err) {
+      return res.status(500).json(err);
+    }
+    return res.status(200).json({ result: result });
+  });
+};
+
 //고정 회원 리스트 보기
 exports.getRegisteredMemberList = (req, res) => {
   const { sch_id, sch_dt } = req.body;
@@ -380,6 +403,79 @@ exports.getRegisteredMemberList = (req, res) => {
     }
     return res.status(200).json({ result: result });
   });
+};
+
+// 회원 예약 등록
+exports.insertMemberScheduleApp = (req, res) => {
+  try {
+    const { mem_id, original_sch_id, reservation_sch_id, sch_dt, userId } = req.body;
+
+    // 현재 날짜 형식화
+    const now = dayjs();
+    const reg_dt = now.format("YYYYMMDDHHmmss");
+
+    // notices_app 테이블에 공지사항 정보 등록
+    const memberScheduleAppInsertQuery = `
+      INSERT INTO member_schedule_app (
+        mem_id
+        , original_sch_id
+        , reservation_sch_id
+        , sch_dt
+        , agree_yn
+        , del_yn
+        , admin_memo
+        , reg_dt
+        , reg_id
+        , mod_dt
+        , mod_id
+      ) VALUES (
+        ?
+        , ?
+        , ?
+        , ?
+        , ?
+        , ?
+        , ?
+        , ?
+        , ?
+        , ?
+        , ?
+      )
+    `;
+
+    db.query(
+      memberScheduleAppInsertQuery,
+      [
+        mem_id,
+        original_sch_id,
+        reservation_sch_id,
+        sch_dt,
+        'Y',
+        'N',
+        null,
+        reg_dt,
+        userId || null,
+        null,
+        null,
+      ],
+      (memberScheduleAppErr, memberScheduleAppResult) => {
+        if (memberScheduleAppErr) {
+          console.error("회원 예약 등록 오류:", memberScheduleAppErr);
+          return res
+            .status(500)
+            .json({ error: "회원 예약 등록 중 오류가 발생했습니다." });
+        }
+
+        res.status(201).json({
+          memberScheduleAppId: memberScheduleAppResult.insertId,
+          message: "회원 예약이 성공적으로 등록되었습니다.",
+        });
+      }
+    );
+  } catch (error) {
+    console.error("회원 예약 등록 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
 };
 
 //회원 스케줄 앱 승인/거절 업데이트

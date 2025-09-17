@@ -13,7 +13,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // 이벤트 목록 조회
 exports.selectEventAppList = (req, res) => {
   const { title, navigation_path, start_reg_dt, end_reg_dt } = req.body;
-console.log(req.body);
+
   let addCondition = '';
   let params = [];
 

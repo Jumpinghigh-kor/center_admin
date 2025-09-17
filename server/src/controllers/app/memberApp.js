@@ -4,7 +4,7 @@ const dayjs = require("dayjs");
 // 어플 회원 목록 조회
 exports.selectMemberAppList = (req, res) => {
     const { mem_name, center_id } = req.body;
-
+    
     let addCondition = '';
     let params = [];
   
@@ -30,6 +30,13 @@ exports.selectMemberAppList = (req, res) => {
             ELSE '남자'
         END AS mem_gender
         , m.mem_app_status
+        , (
+            SELECT
+              sch_time
+            FROM	schedule s
+            WHERE	s.sch_id = m.mem_sch_id
+        ) AS sch_time
+        , m.mem_sch_id
       FROM		  centers c
       LEFT JOIN	members m ON c.center_id = m.center_id
       WHERE		  m.mem_app_status = 'ACTIVE'

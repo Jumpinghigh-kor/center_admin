@@ -104,7 +104,7 @@ const MemberApp: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <div className="bg-white shadow-lg">
+      <div className="bg-white shadow-lg -mt-16">
         <AppSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
 
@@ -142,7 +142,7 @@ const MemberApp: React.FC = () => {
             <Route path="/postAppList" element={<PostAppList />} />
             <Route path="/postApp/postAppDetail" element={<PostAppDetail />} />
             <Route path="/postApp/postAppRegister" element={<PostAppRegister />} />
-          <Route path="/reservation" element={<ReservationManagement />} />
+            <Route path="/reservation" element={<ReservationManagement />} />
             <Route path="/settings" element={<div>설정 페이지</div>} />
           </Routes>
         </div>

@@ -12,6 +12,7 @@ interface MemberAppItem {
   mem_phone: string;
   mem_gender: string;
   mem_app_status: string;
+  mem_sch_id: number;
 }
 
 interface CenterItem {

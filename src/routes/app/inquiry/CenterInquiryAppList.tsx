@@ -79,8 +79,8 @@ const CenterInquiryAppList: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">이름</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">이름</td>
+                <td className="border border-gray-300 p-2 w-2/6">
                   <input
                     type="text"
                     value={searchData.mem_name}
@@ -89,8 +89,8 @@ const CenterInquiryAppList: React.FC = () => {
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">앱 회원상태</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">앱 회원상태</td>
+                <td className="border border-gray-300 p-2 w-2/6">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input
@@ -140,8 +140,8 @@ const CenterInquiryAppList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">답변여부</td>
-                <td className="border border-gray-300 p-2" colSpan={3}>
+                <td className="border border-gray-300 p-2 py-3 text-center bg-gray-200 font-medium w-1/6">답변여부</td>
+                <td className="border border-gray-300 p-2 w-2/6" colSpan={3}>
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input

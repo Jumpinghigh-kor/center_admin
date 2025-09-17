@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useUserStore } from "../store/store";
 import axios from "axios";
 import ReservationPopup from "../components/ReservationPopup";
+import ReservationRegisterPopup from "../components/ReservationRegisterPopup";
 
 
 interface Schedule {
@@ -21,6 +22,7 @@ const ReservationManagement: React.FC = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<{ schedule: Schedule } | null>(null);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   const fetchMemberScheduleApp = async () => {
     try {
@@ -119,6 +121,13 @@ const ReservationManagement: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <span className="font-bold text-xl">예약 관리</span>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded"
+              onClick={() => setIsRegisterOpen(true)}
+            >
+              예약 등록
+            </button>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigateMonth(-1)}
@@ -300,6 +309,15 @@ const ReservationManagement: React.FC = () => {
         onClose={() => setIsPopupOpen(false)}
         selectedReservation={selectedReservation}
         onUpdated={fetchMemberScheduleApp}
+      />
+      <ReservationRegisterPopup
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onSubmit={(date, members) => {
+          console.log('예약 등록:', date, members);
+          setIsRegisterOpen(false);
+          fetchMemberScheduleApp();
+        }}
       />
     </div>
   );

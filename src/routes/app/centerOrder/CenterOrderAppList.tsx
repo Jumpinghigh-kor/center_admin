@@ -179,8 +179,8 @@ const CenterOrderAppList: React.FC = () => {
           <table className="w-full border border-gray-300">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">이름</td>
-                <td className="border border-gray-300 p-2">
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">이름</td>
+                <td className="border border-gray-300 p-2 w-2/6">
                   <input
                     type="text"
                     value={searchData.mem_name}
@@ -189,7 +189,7 @@ const CenterOrderAppList: React.FC = () => {
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">주문일시</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">주문일시</td>
                 <td className="p-2 flex items-center justify-between" onClick={(e) => {
                   const target = e.target as HTMLElement;
                   if (target && target.tagName.toLowerCase() === 'input') return;
@@ -216,7 +216,7 @@ const CenterOrderAppList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">주문상태</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">주문상태</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">

@@ -9,7 +9,9 @@ const {
   getScheduleDetailByDate,
   getMemberScheduleAppList,
   getReservationMemberList,
+  getReservationMemberListByDate,
   getRegisteredMemberList,
+  insertMemberScheduleApp,
   updateMemberScheduleApp,
   updateMemberScheduleAppMemo,
 } = require("../controllers/schedule");
@@ -20,7 +22,9 @@ router.get("/:id", getScheduleDetail);
 router.get("/date/:id", getScheduleDetailByDate);
 router.post("/memberScheduleApp", getMemberScheduleAppList);
 router.post("/getReservationMemberList", getReservationMemberList);
+router.post("/getReservationMemberListByDate", getReservationMemberListByDate);
 router.post("/getRegisteredMemberList", getRegisteredMemberList);
+router.post("/insertMemberScheduleApp", insertMemberScheduleApp);
 router.patch("/updateMemberScheduleApp", updateMemberScheduleApp);
 router.patch("/updateMemberScheduleAppMemo", updateMemberScheduleAppMemo);
 router.post("/", createSchedule);

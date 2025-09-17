@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUserStore } from "../../store/store";
+import profileImage from "../../images/profile2.png";
 
 interface SidebarProps {
   activeTab: string;
@@ -18,28 +19,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
 
   return (
     <div className="bg-white w-16 md:w-64 shadow-lg h-full flex flex-col">
-      <div className="p-4 hidden md:block border-b">
-        <h2 className="text-xl font-bold text-gray-800">점핑하이 매니저</h2>
+      <div className="p-10 flex-col items-center bg-custom-727272 hidden sm:flex">
+        <img
+          alt="profileImage"
+          src={profileImage}
+          style={{ width: "8rem", height: "8rem" }}
+          className="rounded-full"
+        />
+        <span className="text-white mt-3 text-2xl">관리자</span>
       </div>
 
-      <div className="p-4 flex justify-center md:hidden">
-        <svg
-          className="w-6 h-6 text-gray-800"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-          />
-        </svg>
-      </div>
-
-      <div className="py-4 flex-1">
+      <div className="flex-1">
         <ul>
           <li>
             <button
@@ -491,62 +481,43 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                   <span className="hidden md:inline">이벤트 관리</span>
                 </button>
               </li>
+
+              <li className="border-t border-gray-500">
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    window.location.href = "/login";
+                  }}
+                  className={`flex items-center w-full py-2 px-4 text-left ${
+                    activeTab === "logout"
+                      ? "bg-gray-200 text-gray-900"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  title="로그아웃"
+                >
+                  <svg
+                    className="w-6 h-6 md:mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                    />
+                  </svg>
+                  <span className="hidden md:inline">로그아웃</span>
+                </button>
+              </li>
             </>
           )}
-        </ul>
-
-        
+        </ul>        
       </div>
 
-      <div className="border-t p-4">
-        <Link
-          to="/"
-          className="flex items-center mb-6 justify-center md:justify-start text-gray-600 hover:text-gray-800"
-          title="메인으로 돌아가기"
-        >
-          <svg
-            className="w-6 h-6 md:mr-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-            />
-          </svg>
-          <span className="hidden md:inline">점핑하이 관리 페이지</span>
-        </Link>
-
-        <button
-          onClick={() => {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            window.location.href = "/login";
-          }}
-          className="flex items-center justify-center md:justify-start text-gray-600 hover:text-gray-800 mt-4"
-          title="로그아웃"
-        >
-          <svg
-            className="w-6 h-6 md:mr-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-            />
-          </svg>
-          <span className="hidden md:inline">로그아웃</span>
-        </button>
-      </div>
     </div>
   );
 };

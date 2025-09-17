@@ -141,6 +141,46 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
         }
       );
 
+      // 우편/푸시 발송: 선택 회원에게만 발송
+      try {
+        const selectedMemIds = reservationMember
+          .filter((_, index) => checkedItems[index])
+          .map((m) => m.mem_id);
+
+        const dateStr = selectedReservation.schedule.sch_dt || '';
+        const [yyyy, mm, dd] = dateStr.split('-');
+        const krDate = yyyy && mm && dd ? `${yyyy}년 ${mm}월 ${dd}일` : dateStr;
+        const actionText = agreeStatus === 'Y' ? '수락' : '취소';
+
+        const postRes = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+          {
+            post_type: 'JUMPING',
+            title: `${krDate}의 수업 예약은 ${actionText} 되었습니다.`,
+            content: `회원님께서 예약하신 ${krDate}의 수업은 ${actionText} 되었습니다. 자세한 내용이 궁금하시다면 가맹점에 문의하시기 바랍니다.`,
+            all_send_yn: 'N',
+            push_send_yn: 'Y',
+            userId: user?.index,
+            mem_id: selectedMemIds.join(','),
+          }
+        );
+
+        const postAppId = postRes.data?.postAppId;
+        if (postAppId && Array.isArray(selectedMemIds) && selectedMemIds.length > 0) {
+          await Promise.all(
+            selectedMemIds.map((mid) =>
+              axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                post_app_id: postAppId,
+                mem_id: mid,
+                userId: user?.index,
+              })
+            )
+          );
+        }
+      } catch (postErr) {
+        console.error('우편/푸시 발송 오류:', postErr);
+      }
+
       selectReservationMember();
       selectRegisteredMember();
 

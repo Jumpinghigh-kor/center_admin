@@ -127,7 +127,7 @@ const ExerciseAppList: React.FC = () => {
           <table className="w-full">
             <tbody>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">이름</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">이름</td>
                 <td className="border border-gray-300 p-2">
                   <input
                     type="text"
@@ -137,7 +137,7 @@ const ExerciseAppList: React.FC = () => {
                     placeholder="이름을 입력하세요"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">성별</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">성별</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -177,7 +177,7 @@ const ExerciseAppList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">운동일시</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">운동일시</td>
                 <td className="border p-2 flex items-center justify-between">
                   <input
                     type="date"
@@ -193,7 +193,7 @@ const ExerciseAppList: React.FC = () => {
                     className="w-1/2 px-2 py-1 border border-gray-300 rounded"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">점프 운동 강도</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">점프 운동 강도</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -244,7 +244,7 @@ const ExerciseAppList: React.FC = () => {
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">기타 운동 종류</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">기타 운동 종류</td>
                 <td className="border border-gray-300 p-2">
                   <select
                     value={searchData.other_exercise_type}
@@ -259,7 +259,7 @@ const ExerciseAppList: React.FC = () => {
                     ))}
                   </select>
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium">운동 칼로리</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">운동 칼로리</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-2">
                     <input
