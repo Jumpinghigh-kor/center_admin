@@ -22,7 +22,9 @@ import CouponApp from "./CouponApp";
 import CenterInquiryAppList from "./inquiry/CenterInquiryAppList";
 import CommonInquiryAppDetail from "./inquiry/CommonInquiryAppDetail";
 import MobileInquiryAppList from "./inquiry/MobileInquiryAppList";
-import EventApp from "./EventApp"
+import EventAppList from "./event/EventAppList"
+import EventAppDetail from "./event/EventAppDetail"
+import EventAppRegister from "./event/EventAppRegister"
 import ExerciseAppList from "./exercise/ExerciseAppList";
 import InquiryShoppingAppList from "./inquiryShopping/InquiryShoppingAppList";
 import MemberOrderAppReturn from "./order/MemberOrderAppReturn";
@@ -31,6 +33,7 @@ import PostAppList from "./post/PostAppList";
 import PostAppDetail from "./post/PostAppDetail";
 import PostAppRegister from "./post/PostAppRegister";
 import InquiryShoppingAppDetail from "./inquiryShopping/InquiryShoppingAppDetail";
+import ReservationManagement from "../ReservationManagement";
 
 const MemberApp: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -130,13 +133,16 @@ const MemberApp: React.FC = () => {
             <Route path="/mobileInquiryAppList" element={<MobileInquiryAppList />} />
             <Route path="/inquiryShoppingApp" element={<InquiryShoppingAppList />} />
             <Route path="/inquiryShoppingAppDetail" element={<InquiryShoppingAppDetail />} />
-            <Route path="/eventApp" element={<EventApp />} />
+            <Route path="/eventApp" element={<EventAppList />} />
+            <Route path="/eventApp/eventAppDetail" element={<EventAppDetail />} />
+            <Route path="/eventApp/eventAppRegister" element={<EventAppRegister />} />
             <Route path="/exerciseAppList" element={<ExerciseAppList />} />
             <Route path="/memberOrderAppReturn" element={<MemberOrderAppReturn />} />
             <Route path="/centerOrderAppList" element={<CenterOrderAppList />} />
             <Route path="/postAppList" element={<PostAppList />} />
             <Route path="/postApp/postAppDetail" element={<PostAppDetail />} />
             <Route path="/postApp/postAppRegister" element={<PostAppRegister />} />
+          <Route path="/reservation" element={<ReservationManagement />} />
             <Route path="/settings" element={<div>설정 페이지</div>} />
           </Routes>
         </div>

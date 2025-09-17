@@ -12,7 +12,9 @@ if (!admin.apps.length) {
 }
 
 async function sendPush(tokens, { title, body, data }) {
-  if (!tokens?.length) return { successCount: 0, failureCount: 0 };
+  if (!(tokens && tokens.length)) {
+    return { successCount: 0, failureCount: 0 };
+  }
   const chunks = [];
   for (let i = 0; i < tokens.length; i += 500) chunks.push(tokens.slice(i, i + 500));
   let successCount = 0, failureCount = 0;

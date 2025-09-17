@@ -34,7 +34,7 @@ const graphqlProxy = async (req, res) => {
     if (error.response) {
       return res.status(error.response.status).json({
         error: true,
-        message: error.response.data?.errors?.[0]?.message || error.response.data?.message || '서버 오류가 발생했습니다.',
+        message: error.response.data.errors[0].message || error.response.data.message || '서버 오류가 발생했습니다.',
         details: error.response.data
       });
     }

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   selectEventAppList,
+  selectEventAppDetail,
   selectEventAppImgList,
   insertEventApp,
   updateEventApp,
@@ -10,6 +11,9 @@ const {
 
 // 이벤트 목록 조회
 router.post("/selectEventAppList", selectEventAppList);
+
+// 이벤트 상세 조회
+router.post("/selectEventAppDetail", selectEventAppDetail);
 
 // 이벤트 이미지 조회
 router.post("/selectEventAppImgList", selectEventAppImgList);

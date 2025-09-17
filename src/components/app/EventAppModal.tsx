@@ -5,7 +5,6 @@ import { useUserStore } from "../../store/store";
 interface EventApp {
   event_app_id: number;
   title: string;
-  use_yn: string;
   del_yn: string;
   reg_dt: string;
   navigation_path: string;
@@ -80,7 +79,6 @@ const EventAppModal: React.FC<EventAppModalProps> = ({
       // 선택된 이벤트가 있으면 기존 값을 설정
       if (selectedEvent) {
         setTitle(selectedEvent.title || "");
-        setUseYn(selectedEvent.use_yn || "Y");
         // 기존 이미지 조회
         fetchExistingImages(selectedEvent.event_app_id);
       } else {

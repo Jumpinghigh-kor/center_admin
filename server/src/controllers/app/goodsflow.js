@@ -16,13 +16,16 @@ const shippingPrint = async (req, res) => {
     
     res.status(200).json(response.data);
   } catch (error) {
-    console.error('굿스플로 API 오류:', error.response?.data || error.message);
+    const errMsg = (error && error.response && error.response.data)
+      ? error.response.data
+      : error.message;
+    console.error('굿스플로 API 오류:', errMsg);
     
     if (error.response) {
       // 서버에서 오류 응답을 받은 경우
       res.status(error.response.status).json({
         error: true,
-        message: error.response.data?.error?.message || error.response.data?.message || '서버 오류가 발생했습니다.',
+        message: error.response.data.error.message || error.response.data.message || '서버 오류가 발생했습니다.',
         details: error.response.data
       });
     } else if (error.request) {
@@ -56,11 +59,11 @@ const shippingReturnDeliveryItems = async (req, res) => {
     );
     res.status(200).json(response.data);
   } catch (error) {
-    console.error('굿스플로 반품접수 API 오류:', error.response?.data || error.message);
+    console.error('굿스플로 반품접수 API 오류:', error.response.data || error.message);
     if (error.response) {
       res.status(error.response.status).json({
         error: true,
-        message: error.response.data?.error?.message || error.response.data?.message || '서버 오류가 발생했습니다.',
+        message: error.response.data.error.message || error.response.data.message || '서버 오류가 발생했습니다.',
         details: error.response.data
       });
     } else if (error.request) {
@@ -93,13 +96,16 @@ const shippingPrintDeliveryItems = async (req, res) => {
     
     res.status(200).json(response.data);
   } catch (error) {
-    console.error('굿스플로 API 오류:', error.response?.data || error.message);
+    const errMsg = (error && error.response && error.response.data)
+      ? error.response.data
+      : error.message;
+    console.error('굿스플로 API 오류:', errMsg);
     
     if (error.response) {
       // 서버에서 오류 응답을 받은 경우
       res.status(error.response.status).json({
         error: true,
-        message: error.response.data?.error?.message || error.response.data?.message || '서버 오류가 발생했습니다.',
+        message: error.response.data.error.message || error.response.data.message || '서버 오류가 발생했습니다.',
         details: error.response.data
       });
     } else if (error.request) {
@@ -133,11 +139,11 @@ const shippingPrintUri = async (req, res) => {
     );
     res.status(200).json(response.data);
   } catch (error) {
-    console.error('굿스플로 송장출력 URI 생성 오류:', error.response?.data || error.message);
+    console.error('굿스플로 송장출력 URI 생성 오류:', error.response.data || error.message);
     if (error.response) {
       res.status(error.response.status).json({
         error: true,
-        message: error.response.data?.error?.message || error.response.data?.message || '서버 오류가 발생했습니다.',
+        message: error.response.data.error.message || error.response.data.message || '서버 오류가 발생했습니다.',
         details: error.response.data
       });
     } else if (error.request) {
@@ -170,7 +176,7 @@ const shippingDeliveriesResult = async (req, res) => {
     if (error.response) {
       res.status(error.response.status).json({
         error: true,
-        message: error.response.data?.error?.message || error.response.data?.message || '서버 오류가 발생했습니다.',
+        message: error.response.data.error.message || error.response.data.message || '서버 오류가 발생했습니다.',
         details: error.response.data
       });
     } else if (error.request) {
@@ -199,7 +205,7 @@ const cancelDeliveries = async (req, res) => {
     if (error.response) {
       res.status(error.response.status).json({
         error: true,
-        message: error.response.data?.error?.message || error.response.data?.message || '서버 오류가 발생했습니다.',
+        message: error.response.data.error.message || error.response.data.message || '서버 오류가 발생했습니다.',
         details: error.response.data
       });
     } else if (error.request) {

@@ -27,8 +27,11 @@ router.post('/trackingService', async (req, res) => {
 
     const result = await getTrackingInfo(companyName, trackingNumber);
     // 컨트롤러에서 표준 포맷으로 반환됨: { success, data | error }
-    if (!result?.success) {
-      return res.status(200).json({ success: false, error: result?.error || '조회 실패' });
+    if (!(result && result.success)) {
+      return res.status(200).json({
+        success: false,
+        error: (result && result.error) ? result.error : '조회 실패'
+      });
     }
     return res.status(200).json(result);
   } catch (error) {

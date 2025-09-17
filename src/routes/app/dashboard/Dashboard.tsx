@@ -754,7 +754,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-medium text-gray-700">📢 공지사항</h3>
                 <button className="text-sm text-blue-500 hover:text-blue-700" onClick={() => {
-                  navigate('/app/noticesApp');
+                  navigate('/app/noticesAppList');
                 }}>더보기</button>
             </div>
             <div className="space-y-2">

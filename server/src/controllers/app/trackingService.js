@@ -160,15 +160,15 @@ const getTrackingInfo = async (companyName, trackingNumber) => {
     const result = {
       company: companyName,
       trackingNumber: trackingNumber,
-      status: trackInfo.lastEvent?.status?.name || 'Unknown',
-      statusCode: trackInfo.lastEvent?.status?.code || 'UNKNOWN',
+      status: trackInfo.lastEvent.status.name || 'Unknown',
+      statusCode: trackInfo.lastEvent.status.code || 'UNKNOWN',
       receiver: '', 
       sender: '', 
-      trackingDetails: trackInfo.events?.edges?.map(edge => ({
+      trackingDetails: trackInfo.events.edges.map(edge => ({
         date: edge.node.time,
-        location: edge.node.location?.name || '',
-        status: edge.node.status?.name || '',
-        statusCode: edge.node.status?.code || '',
+        location: edge.node.location.name || '',
+        status: edge.node.status.name || '',
+        statusCode: edge.node.status.code || '',
         description: edge.node.description || ''
       })) || [],
       rawData: trackInfo
@@ -302,7 +302,7 @@ const getRecommendedCarriers = async (trackingNumber) => {
     };
 
     const data = await graphqlRequest(query, variables);
-    const carriers = data.recommendCarriers?.map(carrier => ({
+    const carriers = data.recommendCarriers.map(carrier => ({
       id: carrier.id,
       name: carrier.displayName || carrier.name,
       code: carrier.id

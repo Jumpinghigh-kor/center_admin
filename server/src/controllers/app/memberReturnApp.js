@@ -111,7 +111,9 @@ exports.updateMemberReturnApp = (req, res) => {
     }
 
     setClause.push("approval_yn = ?", "cancel_yn = ?", "mod_dt = ?", "mod_id = ?");
-    params.push(approval_yn ?? null, cancel_yn ?? 'N', mod_dt, userId);
+    const _approvalYn = (approval_yn !== undefined && approval_yn !== null) ? approval_yn : null;
+    const _cancelYn   = (cancel_yn !== undefined && cancel_yn !== null) ? cancel_yn : 'N';
+    params.push(_approvalYn, _cancelYn, mod_dt, userId);
     params.push(order_detail_app_id);
 
     const updateMemberReturnAppQuery = `

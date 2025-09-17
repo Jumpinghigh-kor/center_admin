@@ -22,7 +22,7 @@ const issuePortOneToken = async () => {
     imp_secret: apiSecret,
   });
 
-  const token = data?.response?.access_token;
+  const token = data.response.access_token;
   if (!token) {
     throw new Error('Failed to issue PortOne access token');
   }
@@ -56,7 +56,7 @@ const requestPortOneRefundCore = async (imp_uid, merchant_uid, refundAmount, rea
     return result.data;
   } catch (e) {
     // 에러 응답을 그대로 전달해 디버깅에 도움
-    const rsp = e?.response?.data || { message: e.message };
+    const rsp = e.response.data || { message: e.message };
     console.error('[PortOne] Refund error:', rsp);
     return rsp;
   }
@@ -69,7 +69,7 @@ const getPortOneToken = async (req, res) => {
     console.log('[PortOne] /getPortOneToken success');
     res.status(200).json({ token });
   } catch (e) {
-    const message = e?.response?.data || { message: e.message };
+    const message = e.response.data || { message: e.message };
     console.error('[PortOne] /getPortOneToken error:', message);
     res.status(500).json(message);
   }
@@ -131,7 +131,7 @@ const requestPortOneRefund = async (req, res) => {
     }
     res.status(200).json(result);
   } catch (e) {
-    const message = e?.response?.data || { message: e.message };
+    const message = e.response.data || { message: e.message };
     console.error('[PortOne] /requestPortOneRefund error:', message);
     res.status(500).json(message);
   }

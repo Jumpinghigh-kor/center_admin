@@ -39,7 +39,7 @@ const Sidebar: React.FC = () => {
       </div>
       <div className="px-3 py-4 overflow-y-auto">
         <ul className="space-y-2 font-medium">
-          {/* <li>
+          <li>
             <NavLink to="/app">
               <div className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group">
                 <svg
@@ -62,7 +62,7 @@ const Sidebar: React.FC = () => {
                 </span>
               </div>
             </NavLink>
-          </li> */}
+          </li>
           <li>
             <NavLink to="/">
               <div className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group">
@@ -251,7 +251,7 @@ const Sidebar: React.FC = () => {
             </NavLink>
           </li>
 
-          {/* <li>
+          <li>
             <NavLink to="/members/reservation">
               <span className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group">
                 <svg
@@ -278,7 +278,7 @@ const Sidebar: React.FC = () => {
                 </span>
               </span>
             </NavLink>
-          </li> */}
+          </li>
 
           <li>
             <NavLink to="/client_call_log">

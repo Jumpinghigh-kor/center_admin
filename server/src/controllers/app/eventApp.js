@@ -12,11 +12,79 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // 이벤트 목록 조회
 exports.selectEventAppList = (req, res) => {
+  const { title, navigation_path, start_reg_dt, end_reg_dt } = req.body;
+console.log(req.body);
+  let addCondition = '';
+  let params = [];
+
+  if(title) {
+    addCondition += ` AND title LIKE CONCAT('%', ?, '%')`;
+    params.push(title);
+  }
+  
+  if(navigation_path) {
+    if (navigation_path === 'NONE') {
+      addCondition += ` AND navigation_path IS NULL`;
+    } else {
+      addCondition += ` AND navigation_path = ?`;
+      params.push(navigation_path);
+    }
+  } 
+  
+  if(start_reg_dt) {
+    addCondition += ` AND reg_dt >= ?`;
+    params.push(start_reg_dt);
+  }
+  
+  
+  if(end_reg_dt) {
+    addCondition += ` AND reg_dt <= ?`;
+    params.push(end_reg_dt);
+  }
+  
+  const query = `
+    SELECT *
+      FROM (
+      SELECT
+        event_app_id
+        , title
+        , del_yn
+        , DATE_FORMAT(reg_dt, '%Y-%m-%d %H:%i:%s') as reg_dt
+        , reg_id
+        , mod_dt
+        , mod_id
+        , (
+            SELECT
+              seai.navigation_path
+            FROM  event_app_img seai
+            WHERE seai.event_app_id = ea.event_app_id
+            AND   seai.del_yn = 'N'
+            AND   seai.event_img_type = 'BUTTON'
+        ) AS navigation_path
+      FROM      event_app ea
+      WHERE		  del_yn = 'N'
+      ORDER BY	event_app_id DESC
+    ) AS ea
+    WHERE 1=1
+    ${addCondition}
+  `;
+
+  db.query(query, params, (err, result) => {
+    if (err) {
+      res.status(500).json(err);
+    }
+    res.status(200).json({ result: result });
+  });
+};
+
+// 이벤트 목록 조회
+exports.selectEventAppDetail = (req, res) => {
+  const { event_app_id } = req.body;
+
   const query = `
     SELECT
       event_app_id
       , title
-      , use_yn
       , del_yn
       , DATE_FORMAT(reg_dt, '%Y-%m-%d %H:%i:%s') as reg_dt
       , reg_id
@@ -30,12 +98,11 @@ exports.selectEventAppList = (req, res) => {
           AND   seai.del_yn = 'N'
           AND   seai.event_img_type = 'BUTTON'
       ) AS navigation_path
-    FROM      event_app ea
-    WHERE		  del_yn = 'N'
-    ORDER BY	event_app_id DESC
+    FROM    event_app ea
+    WHERE   event_app_id = ?
   `;
 
-  db.query(query, (err, result) => {
+  db.query(query, [event_app_id], (err, result) => {
     if (err) {
       res.status(500).json(err);
     }
@@ -109,7 +176,7 @@ exports.selectEventAppImgList = async (req, res) => {
 // 이벤트 등록
 exports.insertEventApp = async (req, res) => {
   try {
-    const { title, use_yn,reg_id, images, navigation_path } = req.body;
+    const { title, reg_id, images, navigation_path } = req.body;
 
     const now = dayjs();
     const reg_dt = now.format("YYYYMMDDHHmmss");
@@ -132,7 +199,6 @@ exports.insertEventApp = async (req, res) => {
         const insertEventAppQuery = `
           INSERT INTO event_app (
             title
-            , use_yn
             , del_yn
             , reg_dt
             , reg_id
@@ -145,13 +211,12 @@ exports.insertEventApp = async (req, res) => {
             , ?
             , ?
             , ?
-            , ?
           )
         `;
 
         connection.query(
           insertEventAppQuery,
-          [title, 'Y', 'N', reg_dt, reg_id, null, null],
+          [title, 'N', reg_dt, reg_id, null, null],
           async (err, result) => {
             if (err) {
               console.error("이벤트 등록 오류:", err);
@@ -375,7 +440,7 @@ exports.deleteEventApp = (req, res) => {
       del_yn = 'Y'
       , mod_dt = ?
       , mod_id = ?
-    WHERE event_app_id = ?
+    WHERE event_app_id IN (?)
   `;
 
   db.query(query, [mod_dt, mod_id, event_app_id], (err, result) => {
@@ -389,7 +454,7 @@ exports.deleteEventApp = (req, res) => {
 // 이벤트 수정
 exports.updateEventApp = async (req, res) => {
   try {
-    const { event_app_id, title, use_yn, mod_id, images, navigation_path } = req.body;
+    const { event_app_id, title, mod_id, images, navigation_path } = req.body;
 
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
@@ -412,13 +477,12 @@ exports.updateEventApp = async (req, res) => {
         const updateEventAppQuery = `
           UPDATE event_app SET
             title = ?
-            , use_yn = ?
             , mod_dt = ?
             , mod_id = ?
           WHERE event_app_id = ?
         `;
 
-        connection.query(updateEventAppQuery, [title, use_yn, mod_dt, mod_id, event_app_id], async (err, result) => {
+        connection.query(updateEventAppQuery, [title, mod_dt, mod_id, event_app_id], async (err, result) => {
           if (err) {
             console.error("이벤트 수정 오류:", err);
             return connection.rollback(() => {
@@ -595,21 +659,48 @@ exports.updateEventApp = async (req, res) => {
 
                           // 모든 이미지 처리가 완료되면 트랜잭션 커밋
                           if (completedInserts === totalInserts) {
-                            connection.commit((err) => {
-                              if (err) {
-                                console.error("트랜잭션 커밋 오류:", err);
-                                return connection.rollback(() => {
-                                  connection.release();
-                                  res.status(500).json({ error: "트랜잭션 커밋 중 오류가 발생했습니다." });
-                                });
-                              }
+                            const doCommit = () => {
+                              connection.commit((err) => {
+                                if (err) {
+                                  console.error("트랜잭션 커밋 오류:", err);
+                                  return connection.rollback(() => {
+                                    connection.release();
+                                    res.status(500).json({ error: "트랜잭션 커밋 중 오류가 발생했습니다." });
+                                  });
+                                }
 
-                              connection.release();
-                              res.status(200).json({
-                                message: "이벤트가 성공적으로 수정되었습니다.",
-                                event_app_id: event_app_id
+                                connection.release();
+                                res.status(200).json({
+                                  message: "이벤트가 성공적으로 수정되었습니다.",
+                                  event_app_id: event_app_id
+                                });
                               });
-                            });
+                            };
+
+                            // 이동 경로 미사용이면 버튼 이미지 비활성 처리(soft delete)
+                            if (navigation_path === null) {
+                              const deleteButtonQuery = `
+                                UPDATE event_app_img SET
+                                  del_yn = 'Y'
+                                  , mod_dt = ?
+                                  , mod_id = ?
+                                WHERE event_app_id = ?
+                                AND event_img_type = 'BUTTON'
+                                AND del_yn = 'N'
+                              `;
+                              connection.query(deleteButtonQuery, [mod_dt, mod_id, event_app_id], (err) => {
+                                if (err) {
+                                  console.error("버튼 이미지 비활성화 오류:", err);
+                                  return connection.rollback(() => {
+                                    connection.release();
+                                    res.status(500).json({ error: "버튼 이미지 비활성화 중 오류가 발생했습니다." });
+                                  });
+                                }
+                                doCommit();
+                              });
+                            } else {
+                              doCommit();
+                            }
                           }
                         }
                       );
@@ -625,8 +716,45 @@ exports.updateEventApp = async (req, res) => {
               }
             });
           } else {
-            // 새로운 이미지가 없는 경우, navigation_path만 업데이트
-            if (navigation_path !== undefined && navigation_path !== null) {
+            // 새로운 이미지가 없는 경우, navigation_path에 따라 처리
+            if (navigation_path === null) {
+              // 이동 경로 미사용: 버튼 이미지 비활성 처리(soft delete)
+              const deleteButtonQuery = `
+                UPDATE event_app_img SET
+                  del_yn = 'Y'
+                  , mod_dt = ?
+                  , mod_id = ?
+                WHERE event_app_id = ?
+                AND event_img_type = 'BUTTON'
+                AND del_yn = 'N'
+              `;
+
+              connection.query(deleteButtonQuery, [mod_dt, mod_id, event_app_id], (err) => {
+                if (err) {
+                  console.error("버튼 이미지 비활성화 오류:", err);
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json({ error: "버튼 이미지 비활성화 중 오류가 발생했습니다." });
+                  });
+                }
+
+                connection.commit((err) => {
+                  if (err) {
+                    console.error("트랜잭션 커밋 오류:", err);
+                    return connection.rollback(() => {
+                      connection.release();
+                      res.status(500).json({ error: "트랜잭션 커밋 중 오류가 발생했습니다." });
+                    });
+                  }
+
+                  connection.release();
+                  res.status(200).json({
+                    message: "이벤트가 성공적으로 수정되었습니다.",
+                    event_app_id: event_app_id
+                  });
+                });
+              });
+            } else if (navigation_path !== undefined && navigation_path !== null) {
               const updateNavigationQuery = `
                 UPDATE event_app_img SET
                   navigation_path = ?
@@ -663,7 +791,7 @@ exports.updateEventApp = async (req, res) => {
                 });
               });
             } else {
-              // navigation_path가 없는 경우 바로 커밋
+              // navigation_path가 명시되지 않은 경우 바로 커밋
               connection.commit((err) => {
                 if (err) {
                   console.error("트랜잭션 커밋 오류:", err);
