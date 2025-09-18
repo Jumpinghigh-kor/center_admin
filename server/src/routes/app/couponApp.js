@@ -1,15 +1,19 @@
 const express = require("express");
 const router = express.Router();
 const {
-  selectMemberCouponAppList,
   selectCouponAppList,
+  selectCouponAppDetail,
+  selectMemberCouponAppList,
   insertCouponApp,
   updateCouponApp,
   deleteCouponApp,
 } = require("../../controllers/app/couponApp");
 
 // 쿠폰 목록 조회
-router.get("/selectCouponAppList", selectCouponAppList);
+router.post("/selectCouponAppList", selectCouponAppList);
+
+// 쿠폰 상세 조회
+router.post("/selectCouponAppDetail", selectCouponAppDetail);
 
 // 쿠폰 회원 목록 조회
 router.post("/selectMemberCouponAppList", selectMemberCouponAppList);

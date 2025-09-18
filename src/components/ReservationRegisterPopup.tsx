@@ -40,6 +40,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
   const [schedules, setSchedules] = useState<{ sch_id: number; sch_time: string; sch_info: string }[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | "">("");
   const { checkedItems, allChecked, handleAllCheck, handleIndividualCheck, resetCheckedItems } = useCheckbox(members.length);
+  const [duplicateWarning, setDuplicateWarning] = useState<string>("");
   const todayStr = useMemo(() => {
     const now = new Date();
     const yyyy = String(now.getFullYear());
@@ -118,6 +119,46 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
     fetchSchedules();
   }, [isOpen, user?.center_id]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!date || selectedMembers.length === 0) {
+      setDuplicateWarning("");
+      return;
+    }
+    const schDt = date.replace(/-/g, '');
+    let active = true;
+    (async () => {
+      try {
+        const dupRes = await axios.post(`${process.env.REACT_APP_API_URL}/schedule/getReservationMemberListByDate`, {
+          sch_dt: schDt,
+        });
+        const alreadyReserved: Array<{ mem_id: number; mem_name: string }> = dupRes.data?.result || [];
+        const reservedIdSet = new Set(alreadyReserved.map((r) => r.mem_id));
+        const duplicatedNames = selectedMembers.filter((m) => reservedIdSet.has(m.mem_id)).map((m) => m.mem_name);
+        if (!active) return;
+        setDuplicateWarning(
+          duplicatedNames.length > 0
+            ? `이미 해당 일자에 예약된 회원이 있습니다: [${duplicatedNames.join(', ')}]님을 체크 해제 후 이용해주세요.`
+            : ""
+        );
+      } catch {
+        if (!active) return;
+        setDuplicateWarning("");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isOpen, date, selectedMembers]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setDate(todayStr);
+    setSelectedScheduleId("");
+    resetCheckedItems();
+    setDuplicateWarning("");
+  }, [isOpen, todayStr]);
+
   // 선택은 공통 useCheckbox 훅으로 관리
 
   const formatPhone344 = (phone?: string) => {
@@ -131,6 +172,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
     if (!date || !selectedScheduleId || selectedMembers.length === 0 || hasConflict) return;
     const schDt = date.replace(/-/g, '');
     try {
+      setDuplicateWarning("");
       // 0) 중복 예약 사전 검사: 해당 날짜/시간표에 이미 예약된 회원 제외
       const dupRes = await axios.post(`${process.env.REACT_APP_API_URL}/schedule/getReservationMemberListByDate`, {
         sch_dt: schDt,
@@ -140,7 +182,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
         const reservedIdSet = new Set(alreadyReserved.map((r) => r.mem_id));
         const duplicatedNames = selectedMembers.filter((m) => reservedIdSet.has(m.mem_id)).map((m) => m.mem_name);
         if (duplicatedNames.length > 0) {
-          alert(`이미 해당 일자에 예약된 회원이 있습니다: ${duplicatedNames.join(', ')}님`);
+          setDuplicateWarning(`이미 해당 일자에 예약된 회원이 있습니다: ${duplicatedNames.join(', ')}님`);
           return;
         }
       }
@@ -263,7 +305,28 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
                   {hasConflict && (
                     <p className="text-sm text-red-600 mt-2">
                       선택한 회원 중 현재 시간표와 동일한 회원이 있어 등록할 수 없습니다.
-                      {conflictMemberNames.length > 0 && ` (${conflictMemberNames.join(", ")})님`}
+                      {conflictMemberNames.length > 0 && (
+                        <>
+                          <span className="text-black">[{conflictMemberNames.join(", ")}]</span>
+                          님을 체크 해제 후 이용해주세요.
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {duplicateWarning && (
+                    <p className="text-sm text-red-600 mt-2">
+                      {(() => {
+                        const m = duplicateWarning.match(/^(.*)\[(.*)\](.*)$/);
+                        if (!m) return duplicateWarning;
+                        const [, pre, names, post] = m;
+                        return (
+                          <>
+                            {pre}
+                            <span className="text-black">[{names}]</span>
+                            {post}
+                          </>
+                        );
+                      })()}
                     </p>
                   )}
                 </td>
@@ -344,7 +407,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
             type="button"
             onClick={handleRegister}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            disabled={!date || !selectedScheduleId || selectedMembers.length === 0 || hasConflict}
+            disabled={!date || !selectedScheduleId || selectedMembers.length === 0 || hasConflict || !!duplicateWarning}
           >
             등록
           </button>

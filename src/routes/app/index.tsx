@@ -17,8 +17,10 @@ import UpdateLogAppRegister from "./updateLogApp/UpdateLogAppRegister";
 import UpdateLogAppDetail from "./updateLogApp/UpdateLogAppDetail";
 import MemberOrderAppList from "./order/MemberOrderAppList";
 import MemberOrderAppDetail from "./order/MemberOrderAppDetail";
-import MemberReviewApp from "./review/MemberReviewAppList";
-import CouponApp from "./CouponApp";
+import MemberReviewAppList from "./review/MemberReviewAppList";
+import CouponAppList from "./coupon/CouponAppList";
+import CouponAppRegister from "./coupon/CouponAppRegister";
+import CouponAppDetail from "./coupon/CouponAppDetail";
 import CenterInquiryAppList from "./inquiry/CenterInquiryAppList";
 import CommonInquiryAppDetail from "./inquiry/CommonInquiryAppDetail";
 import MobileInquiryAppList from "./inquiry/MobileInquiryAppList";
@@ -126,8 +128,10 @@ const MemberApp: React.FC = () => {
             <Route path="/updateLogApp/updateLogAppDetail" element={<UpdateLogAppDetail />} />
             <Route path="/memberOrderAppList" element={<MemberOrderAppList />} />
             <Route path="/memberOrderApp/detail/:orderId" element={<MemberOrderAppDetail />} />
-            <Route path="/memberReviewApp" element={<MemberReviewApp />} />
-            <Route path="/couponApp" element={<CouponApp />} />
+            <Route path="/memberReviewApp" element={<MemberReviewAppList />} />
+            <Route path="/couponApp" element={<CouponAppList />} />
+            <Route path="/couponApp/couponAppRegister" element={<CouponAppRegister />} />
+            <Route path="/couponApp/couponAppDetail" element={<CouponAppDetail />} />
             <Route path="/centerInquiryAppList" element={<CenterInquiryAppList />} />
             <Route path="/commonInquiryAppDetail" element={<CommonInquiryAppDetail />} />
             <Route path="/mobileInquiryAppList" element={<MobileInquiryAppList />} />

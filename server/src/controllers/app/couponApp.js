@@ -5,6 +5,67 @@ const path = require("path");
 
 // 쿠폰 목록 조회
 exports.selectCouponAppList = (req, res) => {
+  const { brand_name, product_name, min_discount_amount, max_discount_amount, discount_type, min_order_amount, max_order_amount, start_dt, end_dt } = req.body;
+
+  let addCondition = '';
+  let params = [];
+  
+  const formatDate = (date) => {
+    return date.replace(/-/g, '');
+  }
+
+  if(brand_name) {
+    addCondition += ` AND pa.brand_name LIKE CONCAT('%', ?, '%')`;
+    params.push(brand_name);
+  }
+
+  if(product_name) {
+    addCondition += ` AND pa.title LIKE CONCAT('%', ?, '%')`;
+    params.push(product_name);
+  }
+  
+  // 할인 금액/단위는 항상 함께 온다고 가정하고 하나의 블록으로 처리
+  if (min_discount_amount || max_discount_amount || discount_type) {
+    if (discount_type) {
+      addCondition += ` AND ca.discount_type = ?`;
+      params.push(discount_type);
+    }
+
+    if (min_discount_amount && max_discount_amount) {
+      addCondition += ` AND ca.discount_amount BETWEEN ? AND ?`;
+      params.push(min_discount_amount, max_discount_amount);
+    } else if (min_discount_amount) {
+      addCondition += ` AND ca.discount_amount >= ?`;
+      params.push(min_discount_amount);
+    } else if (max_discount_amount) {
+      addCondition += ` AND ca.discount_amount <= ?`;
+      params.push(max_discount_amount);
+    }
+  }
+  
+
+  if(min_order_amount && max_order_amount) {
+    addCondition += ` AND ca.min_order_amount BETWEEN ? AND ?`;
+    params.push(min_order_amount, max_order_amount);
+  } else if(min_order_amount) {
+    addCondition += ` AND ca.min_order_amount >= ?`;
+    params.push(min_order_amount);
+  } else if(max_order_amount) {
+    addCondition += ` AND ca.min_order_amount <= ?`;
+    params.push(max_order_amount);
+  }
+
+  if(start_dt && end_dt) {
+    addCondition += ` AND DATE_FORMAT(ca.start_dt, '%Y%m%d') <= ? AND DATE_FORMAT(ca.end_dt, '%Y%m%d') >= ?`;
+    params.push(formatDate(start_dt), formatDate(end_dt));
+  } else if(start_dt) {
+    addCondition += ` AND DATE_FORMAT(ca.start_dt, '%Y%m%d') >= ?`;
+    params.push(formatDate(start_dt));
+  } else if(end_dt) {
+    addCondition += ` AND DATE_FORMAT(ca.end_dt, '%Y%m%d') <= ?`;
+    params.push(formatDate(end_dt));
+  }
+
   const query = `
     SELECT
       ca.coupon_app_id
@@ -14,8 +75,8 @@ exports.selectCouponAppList = (req, res) => {
       , ca.min_order_amount
       , ca.description
       , ca.badge_text
-      , DATE_FORMAT(ca.start_dt, '%Y-%m-%d %H:%i:%s') AS start_dt
-      , DATE_FORMAT(ca.end_dt, '%Y-%m-%d %H:%i:%s') AS end_dt
+      , DATE_FORMAT(ca.start_dt, '%Y-%m-%d %H:%i') AS start_dt
+      , DATE_FORMAT(ca.end_dt, '%Y-%m-%d %H:%i') AS end_dt
       , ca.coupon_notice
       , ca.del_yn
       , DATE_FORMAT(ca.reg_dt, '%Y-%m-%d') AS reg_date
@@ -36,10 +97,56 @@ exports.selectCouponAppList = (req, res) => {
     FROM		  coupon_app ca
     LEFT JOIN	product_app pa ON ca.product_app_id = pa.product_app_id
     WHERE		  ca.del_yn = 'N'
+    ${addCondition}
     ORDER BY  ca.coupon_app_id DESC
   `;
 
-  db.query(query, (err, result) => {
+  db.query(query, params, (err, result) => {
+    if (err) {
+      res.status(500).json(err);
+    }
+    res.status(200).json({ result: result });
+  });
+};
+
+// 쿠폰 상세 조회
+exports.selectCouponAppDetail = (req, res) => {
+  const { coupon_app_id} = req.body;
+
+  const query = `
+    SELECT
+      ca.coupon_app_id
+      , ca.product_app_id
+      , ca.discount_type
+      , ca.discount_amount
+      , ca.min_order_amount
+      , ca.description
+      , ca.badge_text
+      , DATE_FORMAT(ca.start_dt, '%Y-%m-%d %H:%i') AS start_dt
+      , DATE_FORMAT(ca.end_dt, '%Y-%m-%d %H:%i') AS end_dt
+      , ca.coupon_notice
+      , ca.del_yn
+      , DATE_FORMAT(ca.reg_dt, '%Y-%m-%d') AS reg_date
+      , DATE_FORMAT(ca.reg_dt, '%H:%i:%s') AS reg_time
+      , ca.reg_id
+      , pa.title
+      , pa.brand_name
+      , pa.del_yn AS product_del_yn
+      , (
+          SELECT
+            COUNT(*) AS have_cnt
+          FROM  member_coupon_app mca
+          WHERE mca.coupon_app_id = ca.coupon_app_id
+          AND   mca.use_yn = 'N'
+          AND   (ca.start_dt <= DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
+                AND DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= ca.end_dt)
+        ) AS have_cnt
+    FROM		  coupon_app ca
+    LEFT JOIN	product_app pa ON ca.product_app_id = pa.product_app_id
+    WHERE		  ca.coupon_app_id = ?
+  `;
+
+  db.query(query, [coupon_app_id], (err, result) => {
     if (err) {
       res.status(500).json(err);
     }

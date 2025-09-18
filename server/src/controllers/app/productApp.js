@@ -11,6 +11,22 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // 상품 목록 조회
 exports.selectProductAppList = (req, res) => {
+  const { brand_name, product_name, big_category, small_category, title, price, original_price, discount, give_point, sell_start_dt, sell_end_dt, courier_code, delivery_fee, remote_delivery_fee, free_shipping_amount, inquiry_phone_number, today_send_yn, today_send_time, not_today_send_day, view_yn } = req.body;
+
+  let addCondition = '';
+  let params = [];
+
+  if(brand_name) {
+    addCondition += ` AND brand_name LIKE CONCAT('%', ?, '%')`;
+    params.push(brand_name);
+  }
+
+  if(product_name) {
+    addCondition += ` AND product_name LIKE CONCAT('%', ?, '%')`;
+    params.push(product_name);
+  }
+  
+
   const query = `
     SELECT
       product_app_id
@@ -38,10 +54,11 @@ exports.selectProductAppList = (req, res) => {
       , reg_id
     FROM      product_app
     WHERE     del_yn = 'N'
+    ${addCondition}
     ORDER BY  product_app_id DESC
   `;
 
-  db.query(query, (err, result) => {
+  db.query(query, params, (err, result) => {
     if (err) {
       res.status(500).json(err);
     }
