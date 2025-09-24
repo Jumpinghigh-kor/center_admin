@@ -153,7 +153,7 @@ const MemberOrderAppDetail: React.FC = () => {
   const sendShippingNotification = async (memId: string | number, memName: string, productName: string) => {
     try {
       if (!memId || !memName || !productName) return;
-      const title = `${memName}님께서 주문하신 ${productName}상품이 현재 배송중 상태입니다.`;
+      const title = `${memName}님께서 주문하신 ${productName} 상품이 현재 배송중 상태입니다.`;
       const content = '고객님의 소중한 상품을 안전하게 배송 중입니다. 곧 빠르고 안전하게 받아보실 수 있도록 정성을 다하겠습니다.';
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
@@ -184,7 +184,7 @@ const MemberOrderAppDetail: React.FC = () => {
   const sendShippingCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
     try {
       if (!memId || !memName || !productName) return;
-      const title = `${memName}님께서 주문하신 ${productName}상품이 배송 완료 되었습니다.`;
+      const title = `${memName}님께서 주문하신 ${productName} 상품이 배송 완료 되었습니다.`;
       const content = '고객님의 소중한 상품이 배송 완료되었습니다. 저희 서비스를 이용해 주셔서 감사드리며, 앞으로도 더 나은 서비스를 위해 노력하겠습니다.';
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
@@ -1236,7 +1236,7 @@ const MemberOrderAppDetail: React.FC = () => {
                 const list: any[] = Array.isArray(orderDetail?.products) ? orderDetail!.products : [];
                 const isReturnable = (status: any) => {
                   const statusCode = String(status ?? '').trim().toUpperCase();
-                  return statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM';
+                  return statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM' || statusCode === 'EXCHANGE_SHIPPING_COMPLETE';
                 };
                 if (list.length > 0) {
                   return !list.some(p => isReturnable(p?.order_status));

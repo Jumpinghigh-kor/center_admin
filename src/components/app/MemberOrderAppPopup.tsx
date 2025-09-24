@@ -92,8 +92,9 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
       // EXCHANGE_PAYMENT_COMPLETE(교환 배송비 결제완료) 상태에서는 회사 송장/택배사 정보를 교환 테이블에 저장
       const courier_code = deliveryCompanyList.find(company => company.common_code_name === deliveryCompany)?.common_code || '';
       let response;
-      const isExchange = String(orderStatus || '').toUpperCase().startsWith('EXCHANGE');
-      if (isExchange) {
+      const upperStatus = String(orderStatus || '').trim().toUpperCase();
+      const isExchangePaymentComplete = upperStatus === 'EXCHANGE_PAYMENT_COMPLETE';
+      if (isExchangePaymentComplete) {
         response = await axios.post(
           `${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateExchangeCompanyTrackingInfo`,
           {
@@ -120,7 +121,7 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
       if (response.data.success || response.status === 200) {
         try {
           if (actionType === 'shipping_process') {
-            const nextStatus = isExchange ? 'EXCHANGE_SHIPPINGING' : 'SHIPPINGING';
+            const nextStatus = isExchangePaymentComplete ? 'EXCHANGE_SHIPPINGING' : 'SHIPPINGING';
             await axios.post(
               `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`,
               {
@@ -163,6 +164,27 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
       }
     } catch (error) {
       console.error("송장번호 삭제 오류:", error);
+    }
+  };
+
+  // 현재 선택된 상세의 실제 상태를 서버에서 조회하여 반환 (그룹 기준으로 첫 상태 사용)
+  const resolveCurrentStatus = async (): Promise<string> => {
+    try {
+      if (!userId || !orderDetailAppId || orderDetailAppId.length === 0) return '';
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectMemberOrderAppList`,
+        { center_id: userId }
+      );
+      const rows: any[] = res.data?.orders || res.data || [];
+      const idSet = new Set(orderDetailAppId);
+      const statuses: string[] = Array.from(new Set((rows || [])
+        .filter((r: any) => idSet.has(Number(r?.order_detail_app_id)))
+        .map((r: any) => String(r?.order_status || '').trim().toUpperCase())
+      ));
+      return statuses[0] || '';
+    } catch (e) {
+      console.error('resolveCurrentStatus error:', e);
+      return '';
     }
   };
 
@@ -272,7 +294,10 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
                 <div>
                   {isShippingMode ? (
                     <button
-                      onClick={() => updateTrackingNumber(invoiceNumber, 'SHIPPINGING', 'input_only')}
+                      onClick={async () => {
+                        const currentStatus = await resolveCurrentStatus();
+                        updateTrackingNumber(invoiceNumber, currentStatus, 'input_only');
+                      }}
                       disabled={!invoiceNumber.trim()}
                       className={`py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
                         invoiceNumber.trim() 
@@ -285,7 +310,10 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
                   ) : (
                     <>
                       <button
-                        onClick={() => updateTrackingNumber(invoiceNumber, 'PAYMENT_COMPLETE', 'input_only')}
+                        onClick={async () => {
+                          const currentStatus = await resolveCurrentStatus();
+                          updateTrackingNumber(invoiceNumber, currentStatus, 'input_only');
+                        }}
                         disabled={!invoiceNumber.trim()}
                         className={`py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
                           invoiceNumber.trim() 
@@ -296,7 +324,10 @@ const MemberOrderAppPopup: React.FC<MemberOrderAppPopupProps> = ({
                         송장번호만 입력
                       </button>
                       <button
-                        onClick={() => updateTrackingNumber(invoiceNumber, 'SHIPPINGING', 'shipping_process')}
+                        onClick={async () => {
+                          const currentStatus = await resolveCurrentStatus();
+                          updateTrackingNumber(invoiceNumber, currentStatus, 'shipping_process');
+                        }}
                         disabled={!invoiceNumber.trim()}
                         className={`py-3 px-4 rounded-lg font-medium text-sm ml-2 transition-colors ${
                           invoiceNumber.trim() 

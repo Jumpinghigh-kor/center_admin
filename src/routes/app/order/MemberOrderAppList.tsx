@@ -681,7 +681,7 @@ const MemberOrderAppList: React.FC = () => {
         const isExchangeApply = s === 'EXCHANGE_APPLY';
         return hasReturnGfId && needCustomerTracking && (isReturn || isExchangeApply);
       });
-      console.log('candidates::', candidates);
+      
       const serviceIds: string[] = Array.from(new Set(candidates.map((r: any) => String(r?.return_goodsflow_id || '').trim()).filter((v: string) => v !== '')));
       if (serviceIds.length === 0) return;
       const gfRes = await axios.get(
@@ -837,7 +837,7 @@ const MemberOrderAppList: React.FC = () => {
   const sendShippingNotification = async (memId: string | number, memName: string, productName: string) => {
     try {
       if (!memId || !memName || !productName) return;
-      const title = `${memName}님께서 주문하신 ${productName}상품이 현재 배송중 상태입니다.`;
+      const title = `${memName}님께서 주문하신 ${productName} 상품이 현재 배송중 상태입니다.`;
       const content = '고객님의 소중한 상품을 안전하게 배송 중입니다. 곧 빠르고 안전하게 받아보실 수 있도록 정성을 다하겠습니다.';
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
@@ -868,7 +868,7 @@ const MemberOrderAppList: React.FC = () => {
   const sendShippingCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
     try {
       if (!memId || !memName || !productName) return;
-      const title = `${memName}님께서 주문하신 ${productName}상품이 배송 완료 되었습니다.`;
+      const title = `${memName}님께서 주문하신 ${productName} 상품이 배송 완료 되었습니다.`;
       const content = '고객님의 소중한 상품이 배송 완료되었습니다. 저희 서비스를 이용해 주셔서 감사드리며, 앞으로도 더 나은 서비스를 위해 노력하겠습니다.';
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
@@ -1246,7 +1246,6 @@ const MemberOrderAppList: React.FC = () => {
                                             const vals = Array.from(new Set(groupItems.map((p: any) => String(p?.company_courier_code || '').trim()).filter((v: string) => v !== '')));
                                             return vals[0] || '';
                                           })();
-                                          const hasReturnGfId = groupItems.some((p: any) => String(p?.return_goodsflow_id || '').trim() !== '');
                                           if (exCompanyTracking && exCompanyCourier) {
                                             return (
                                               <div className="flex items-center gap-2">
@@ -1262,23 +1261,7 @@ const MemberOrderAppList: React.FC = () => {
                                               </div>
                                             );
                                           }
-                                          if (hasReturnGfId) {
-                                            return (
-                                              <div className="flex items-center gap-2">
-                                                <div className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
-                                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-7 text-blue-400">
-                                                    <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h.375a3 3 0 1 1 6 0h3a.75.75 0 0 0 .75-.75V15Z" />
-                                                    <path d="M8.25 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM15.75 6.75a.75.75 0 0 0-.75.75v11.25c0 .087.015.17.042.248a3 3 0 0 1 5.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 0 0-3.732-10.104 1.837 1.837 0 0 0-1.47-.725H15.75Z" />
-                                                    <path d="M19.5 19.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
-                                                  </svg>
-                                                </div>
-                                                <span className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
-                                                  굿스플로에서 송장번호를 받아오고 있습니다<br/>
-                                                  (송장 출력을 하지 않았다면 송장삭제를 해주세요)
-                                                </span>
-                                              </div>
-                                            );
-                                          }
+                                          // 회사 송장/택배사 중 하나라도 없으면 수동 입력 노출
                                           return (
                                             <p className="text-sm font-semibold" style={{ color: '#0090D4' }}>
                                               <span

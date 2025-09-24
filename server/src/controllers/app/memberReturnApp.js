@@ -26,12 +26,14 @@ exports.insertMemberReturnApp = (req, res) => {
         , quantity
         , approval_yn
         , cancel_yn
+        , del_yn
         , reg_dt
         , reg_id
         , mod_dt
         , mod_id
       ) VALUES (
         ?
+        , ?
         , ?
         , ?
         , ?
@@ -66,6 +68,7 @@ exports.insertMemberReturnApp = (req, res) => {
         null,
         quantity,
         null,
+        'N',
         'N',
         reg_dt,
         mem_id,
@@ -298,6 +301,44 @@ exports.updateExchangeCompanyTrackingInfo = (req, res) => {
     );
   } catch (error) {
     console.error("교환 회사 송장 정보 입력 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};
+
+// 반품/교환/취소 삭제
+exports.deleteMemberReturnAppApproval = (req, res) => {
+  try {
+    const { order_detail_app_id, userId } = req.body;
+
+    const now = dayjs();
+    const mod_dt = now.format("YYYYMMDDHHmmss");
+
+    const updateMemberReturnAppApprovalQuery = `
+      UPDATE member_return_app SET
+        del_yn = 'Y'
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE order_detail_app_id IN (?)
+    `;
+
+    db.query(
+      updateMemberReturnAppApprovalQuery,
+      [mod_dt, userId, order_detail_app_id],
+      (err, result) => {
+        if (err) {
+          console.error("반품/교환/취소 삭제 오류:", err);
+          return res
+            .status(500)
+            .json({ error: "반품/교환/취소 삭제 중 오류가 발생했습니다." });
+        }
+
+        res.status(200).json({
+          message: "반품/교환/취소 삭제가 성공적으로 완료되었습니다.",
+        });
+      }
+    );
+  } catch (error) {
+    console.error("반품/교환/취소 삭제 중 오류 발생:", error);
     res.status(500).json({ error: "서버 오류가 발생했습니다." });
   }
 };

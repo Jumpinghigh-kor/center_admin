@@ -300,7 +300,7 @@ const MemberOrderAppReturn: React.FC = () => {
           .filter(({ item, idx }: { item: any; idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
           .filter(({ item }: { item: any }) => {
             const statusCode = String(item?.order_status || '').trim().toUpperCase();
-            return statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM';
+            return statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM' || statusCode === 'EXCHANGE_SHIPPING_COMPLETE';
           });
 
         if (selectedItems.length > 0) {
@@ -738,7 +738,7 @@ const MemberOrderAppReturn: React.FC = () => {
                 .filter(({ item }: { item: any }) => {
                   const s = String(item?.order_status || '').trim().toUpperCase();
                   if (actionType === 'return') {
-                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE';
+                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE';
                   }
                   if (s.indexOf('CANCEL') >= 0) return false;
                   return s === 'PAYMENT_COMPLETE' || s === 'HOLD';
@@ -777,7 +777,7 @@ const MemberOrderAppReturn: React.FC = () => {
                               list.forEach(({ item, idx }: { item: any; idx: number }) => {
                                 const status = String(item?.order_status || '').trim().toUpperCase();
                                 if (actionType === 'return') {
-                                  if (status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE') {
+                                  if (status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE') {
                                     updates[idx] = Number(item.order_quantity) || 0;
                                   }
                                 } else {
