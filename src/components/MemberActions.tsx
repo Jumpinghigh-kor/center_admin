@@ -19,7 +19,7 @@ const MemberActions: React.FC<{
       className="block rounded-2xl mr-3 bg-blue-600 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm hover:text-white hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
       onClick={() => navigate("/members/membersOrderBulkRegister")}
     >
-      일괄등록
+      회원권 일괄등록
     </button>
     <button
       type="button"

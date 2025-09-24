@@ -77,7 +77,7 @@ const Dashboard: React.FC = () => {
   const [salesData, setSalesData] = useState<any[]>([]);
   const [salesLoading, setSalesLoading] = useState(false);
   
-  // 결제 수단 비율 관련 상태
+  // 결제 수단 건수 관련 상태
   const [paymentMethodData, setPaymentMethodData] = useState<any[]>([]);
   const [paymentMethodLoading, setPaymentMethodLoading] = useState(false);
   
@@ -144,7 +144,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // 결제 수단 비율 조회 API
+  // 결제 수단 건수 조회 API
   const selectPaymentMethodList = async () => {
     if (!user?.center_id) return;
     
@@ -169,7 +169,7 @@ const Dashboard: React.FC = () => {
       
       setPaymentMethodData(mappedData);
     } catch (err) {
-      console.error("결제 수단 비율 조회 오류:", err);
+      console.error("결제 수단 건수 조회 오류:", err);
       setPaymentMethodData([]);
     } finally {
       setPaymentMethodLoading(false);
@@ -400,7 +400,12 @@ const Dashboard: React.FC = () => {
                     cy="50%"
                     outerRadius={80}
                     dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}명`}
+                    labelLine={false}
+                    label={(props) => {
+                      const v = typeof props.value === 'number' ? props.value : Number(props.value ?? 0);
+                      const n = String(props.name ?? "");
+                      return v > 0 ? `${n}: ${v}명` : "";
+                    }}
                     onClick={(data) => {
                       if (data) {
                         setSelectedMemberType(data.type);
@@ -417,7 +422,7 @@ const Dashboard: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => `${value}명`} />
-                  {/* <Legend /> */}
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -515,22 +520,22 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-red-50 p-4 rounded-lg border border-red-200">
             <h4 className="text-sm font-medium text-red-700">금일 매출</h4>
-            <p className="text-xl font-bold">{parseInt(paymentAnalysisList[0]?.today_order_amount).toLocaleString()}원</p>
+            <p className="text-xl font-bold">{paymentAnalysisList[0]?.today_order_amount ? parseInt(paymentAnalysisList[0]?.today_order_amount).toLocaleString() : 0}원</p>
           </div>
           
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <h4 className="text-sm font-medium text-blue-700">금일 주문 수</h4>
-            <p className="text-xl font-bold">{parseInt(paymentAnalysisList[0]?.today_order_count).toLocaleString()}건</p>
+            <p className="text-xl font-bold">{paymentAnalysisList[0]?.today_order_count ? parseInt(paymentAnalysisList[0]?.today_order_count).toLocaleString() : 0}건</p>
           </div>
           
           <div className="bg-green-50 p-4 rounded-lg border border-green-200">
             <h4 className="text-sm font-medium text-green-700">평균 주문금액</h4>
-            <p className="text-xl font-bold">{parseInt(paymentAnalysisList[0]?.avg_order_amount).toLocaleString()}원</p>
+            <p className="text-xl font-bold">{paymentAnalysisList[0]?.avg_order_amount ? parseInt(paymentAnalysisList[0]?.avg_order_amount).toLocaleString() : 0}원</p>
           </div>
           
           <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
             <h4 className="text-sm font-medium text-yellow-700">환불률</h4>
-            <p className="text-xl font-bold">{paymentAnalysisList[0]?.refund_rate_percent}%</p>
+            <p className="text-xl font-bold">{paymentAnalysisList[0]?.refund_rate_percent ? paymentAnalysisList[0]?.refund_rate_percent : 0}%</p>
           </div>
         </div>
 
@@ -651,7 +656,7 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* 결제 방법별 비율 */}
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium mb-3 text-gray-700">💳 결제 수단 비율</h3>
+            <h3 className="text-lg font-medium mb-3 text-gray-700">💳 결제 수단 건수</h3>
             <div className="h-64">
               {paymentMethodLoading ? (
                 <div className="flex justify-center items-center h-full">

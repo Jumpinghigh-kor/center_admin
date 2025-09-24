@@ -323,8 +323,8 @@ exports.insertBannerApp = async (req, res) => {
             navigationPath,
             title,
             content,
-            startDate,
-            endDate,
+            startDate+'00',
+            endDate+'00',
             useYn || "Y",
             "N",
             orderSeq || null,
@@ -380,9 +380,6 @@ exports.updateBannerApp = async (req, res) => {
       useYn,
       userId,
     } = req.body;
-
-    console.log("req.body:", req.body);
-    console.log("req.files:", req.files);
 
     if (!bannerAppId) {
       return res.status(400).json({ error: "배너 ID는 필수입니다." });

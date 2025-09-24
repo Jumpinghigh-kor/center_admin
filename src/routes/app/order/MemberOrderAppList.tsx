@@ -88,6 +88,8 @@ interface Order {
   return_goodsflow_id: string;
   delivery_fee_portone_imp_uid: string;
   delivery_fee_portone_merchant_uid: string;
+  coupon_discount_amount: number;
+  coupon_discount_type: string;
 }
 
 interface CommonCode {
@@ -412,36 +414,36 @@ const MemberOrderAppList: React.FC = () => {
               { params: { idType: 'serviceId' } }
             );
             
-            // serviceId -> order_app_id 매핑 생성
-            const serviceIdToOrderIds = new Map<string, number[]>();
+            // serviceId -> order_detail_app_id 매핑 생성 (상세 기준으로 송장 업데이트)
+            const serviceIdToDetailIds = new Map<string, number[]>();
             (rawOrders || []).forEach((o: any) => {
               const sid = o?.goodsflow_id;
-              if (typeof sid === 'string' && sid.trim() !== '' && typeof o?.order_app_id === 'number') {
-                if (!serviceIdToOrderIds.has(sid)) serviceIdToOrderIds.set(sid, []);
-                serviceIdToOrderIds.get(sid)!.push(o.order_app_id);
+              if (typeof sid === 'string' && sid.trim() !== '' && typeof o?.order_detail_app_id === 'number') {
+                if (!serviceIdToDetailIds.has(sid)) serviceIdToDetailIds.set(sid, []);
+                serviceIdToDetailIds.get(sid)!.push(o.order_detail_app_id);
               }
             });
 
             const deliveries = gfRes?.data?.data || [];
-            // 각 주문의 현재 상태 맵 구성 (상태 변경 방지 위해 기존 상태 그대로 사용)
-            const orderIdToStatus = new Map<number, string>();
+            // 각 상세의 현재 상태 맵 구성 (상태 변경 방지 위해 기존 상태 그대로 사용)
+            const detailIdToStatus = new Map<number, string>();
             (rawOrders || []).forEach((o: any) => {
-              if (typeof o?.order_app_id === 'number' && typeof o?.order_status === 'string') {
-                orderIdToStatus.set(o.order_app_id, o.order_status);
+              if (typeof o?.order_detail_app_id === 'number' && typeof o?.order_status === 'string') {
+                detailIdToStatus.set(o.order_detail_app_id, o.order_status);
               }
             });
 
             const updateCalls = deliveries
-              .filter((d: any) => d?.invoiceNo && serviceIdToOrderIds.has(d?.id))
+              .filter((d: any) => d?.invoiceNo && serviceIdToDetailIds.has(d?.id))
               .flatMap((d: any) => {
-                const targetOrderIds = serviceIdToOrderIds.get(d.id)!;
+                const targetDetailIds = serviceIdToDetailIds.get(d.id)!;
                 const courierCode = d?.transporter === 'KOREX' ? 'CJ' : d?.transporter || '';
-                return targetOrderIds.map((orderId) => {
-                  const currentStatus = orderIdToStatus.get(orderId) || '';
+                return targetDetailIds.map((detailId) => {
+                  const currentStatus = detailIdToStatus.get(detailId) || '';
                   return axios.post(
                     `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateTrackingNumber`,
                     {
-                      order_detail_app_id: [orderId],
+                      order_detail_app_id: [detailId],
                       tracking_number: d.invoiceNo,
                       order_status: currentStatus,
                       userId: user.index,
@@ -524,6 +526,7 @@ const MemberOrderAppList: React.FC = () => {
 
           for (const o of targetOrders) {
             await fn_updateOrderStatus(o.order_app_id, 'SHIPPINGING');
+            try { await sendShippingNotification(o.mem_id, o.mem_name, o.product_name); } catch {}
           }
         }
       } catch (error) {
@@ -581,6 +584,7 @@ const MemberOrderAppList: React.FC = () => {
             });
             for (const o of targets) {
               await fn_updateOrderStatus(o.order_detail_app_id, 'SHIPPING_COMPLETE');
+              try { await sendShippingCompleteNotification(o.mem_id, o.mem_name, o.product_name); } catch {}
             }
           }
         }
@@ -663,6 +667,88 @@ const MemberOrderAppList: React.FC = () => {
     } finally {
     }
   };
+
+  // 굿스플로 반품/교환(수거) 조회: return_goodsflow_id → 고객 송장/택배사 동기화 (렌더링 후 별도 수행)
+  const syncReturnExchangeFromGoodsflow = async () => {
+    try {
+      if (!user || !user.index) return;
+      const rows: any[] = (orderList || []).flatMap((o: any) => Array.isArray(o?.products) && o.products.length > 0 ? o.products : [o]);
+      const candidates = rows.filter((r: any) => {
+        const s = String(r?.order_status || '').toUpperCase();
+        const hasReturnGfId = String(r?.return_goodsflow_id || '').trim() !== '';
+        const needCustomerTracking = !String(r?.customer_tracking_number || '').trim() || !String(r?.customer_courier_code || '').trim();
+        const isReturn = s.startsWith('RETURN_');
+        const isExchangeApply = s === 'EXCHANGE_APPLY';
+        return hasReturnGfId && needCustomerTracking && (isReturn || isExchangeApply);
+      });
+      console.log('candidates::', candidates);
+      const serviceIds: string[] = Array.from(new Set(candidates.map((r: any) => String(r?.return_goodsflow_id || '').trim()).filter((v: string) => v !== '')));
+      if (serviceIds.length === 0) return;
+      const gfRes = await axios.get(
+        `${process.env.REACT_APP_API_URL}/app/goodsflow/shipping/deliveries/${serviceIds.join(',')}`,
+        { params: { idType: 'serviceId' } }
+      );
+      const deliveries = gfRes?.data?.data || [];
+      const sidToDetailIds = new Map<string, number[]>();
+      (candidates || []).forEach((r: any) => {
+        const sid = String(r?.return_goodsflow_id || '').trim();
+        const did = Number(r?.order_detail_app_id);
+        if (sid && !isNaN(did)) {
+          if (!sidToDetailIds.has(sid)) sidToDetailIds.set(sid, []);
+          sidToDetailIds.get(sid)!.push(did);
+        }
+      });
+      const mapTransporterToCourier = (t: string): string => {
+        const u = String(t || '').toUpperCase();
+        if (u === 'KOREX') return 'CJ';
+        return u;
+      };
+      const updates: Array<{ detailId: number; invoiceNo: string; courier: string }> = [];
+      const updateCalls = (deliveries || [])
+        .filter((d: any) => d?.invoiceNo && d?.id && sidToDetailIds.has(d.id))
+        .flatMap((d: any) => {
+          const targetIds = sidToDetailIds.get(d.id)!;
+          const invoiceNo = String(d.invoiceNo);
+          const courier = mapTransporterToCourier(d?.transporter || d?.transporterCode || '');
+          targetIds.forEach((id) => updates.push({ detailId: id, invoiceNo, courier }));
+          return targetIds.map((detailId) => axios.post(
+            `${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnCustomerTrackingNumber`,
+            {
+              order_detail_app_id: [detailId],
+              customer_tracking_number: invoiceNo,
+              userId: user.index,
+            }
+          ));
+        });
+      if (updateCalls.length === 0) return;
+      await Promise.allSettled(updateCalls);
+      const byDetailId = new Map<number, { invoiceNo: string; courier: string }>();
+      updates.forEach(u => byDetailId.set(u.detailId, { invoiceNo: u.invoiceNo, courier: u.courier }));
+      setOrderList((prev) => {
+        const apply = (row: any): any => {
+          const did = Number(row?.order_detail_app_id);
+          if (!isNaN(did) && byDetailId.has(did)) {
+            const u = byDetailId.get(did)!;
+            return {
+              ...row,
+              customer_tracking_number: u.invoiceNo,
+              customer_courier_code: u.courier || row.customer_courier_code,
+            };
+          }
+          return row;
+        };
+        return (prev || []).map((o: any) => Array.isArray(o?.products) && o.products.length > 0 ? { ...o, products: o.products.map(apply) } : apply(o));
+      });
+    } catch (err) {
+      console.error('syncReturnExchangeFromGoodsflow error:', err);
+    }
+  };
+
+  // 렌더링 후(데이터 로드 후) 별도 동기화 수행
+  useEffect(() => {
+    if (!user || !user.index) return;
+    syncReturnExchangeFromGoodsflow();
+  }, [user?.index, orderList]);
   
   // 메모 편집 팝업 열기
   const handleEditMemo = (orderId: number, currentMemo: string) => {
@@ -744,6 +830,68 @@ const MemberOrderAppList: React.FC = () => {
     }
     catch (error) {
       console.error("주문상태 변경 오류:", error);
+    }
+  };
+  
+  // 배송중 알림 발송
+  const sendShippingNotification = async (memId: string | number, memName: string, productName: string) => {
+    try {
+      if (!memId || !memName || !productName) return;
+      const title = `${memName}님께서 주문하신 ${productName}상품이 현재 배송중 상태입니다.`;
+      const content = '고객님의 소중한 상품을 안전하게 배송 중입니다. 곧 빠르고 안전하게 받아보실 수 있도록 정성을 다하겠습니다.';
+      const postRes = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+        {
+          post_type: 'JUMPING',
+          title,
+          content,
+          all_send_yn: 'N',
+          push_send_yn: 'Y',
+          userId: user?.index,
+          mem_id: String(memId),
+        }
+      );
+      const postAppId = postRes.data?.postAppId;
+      if (postAppId) {
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+          post_app_id: postAppId,
+          mem_id: memId,
+          userId: user?.index,
+        });
+      }
+    } catch (err) {
+      console.error('배송중 알림 발송 오류:', err);
+    }
+  };
+
+  // 배송완료 알림 발송
+  const sendShippingCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
+    try {
+      if (!memId || !memName || !productName) return;
+      const title = `${memName}님께서 주문하신 ${productName}상품이 배송 완료 되었습니다.`;
+      const content = '고객님의 소중한 상품이 배송 완료되었습니다. 저희 서비스를 이용해 주셔서 감사드리며, 앞으로도 더 나은 서비스를 위해 노력하겠습니다.';
+      const postRes = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+        {
+          post_type: 'JUMPING',
+          title,
+          content,
+          all_send_yn: 'N',
+          push_send_yn: 'Y',
+          userId: user?.index,
+          mem_id: String(memId),
+        }
+      );
+      const postAppId = postRes.data?.postAppId;
+      if (postAppId) {
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+          post_app_id: postAppId,
+          mem_id: memId,
+          userId: user?.index,
+        });
+      }
+    } catch (err) {
+      console.error('배송완료 알림 발송 오류:', err);
     }
   };
   
@@ -1081,8 +1229,7 @@ const MemberOrderAppList: React.FC = () => {
                                                   </svg>
                                                 </div>
                                                 <span className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
-                                                  굿스플로에서 송장번호를 받아오고 있습니다<br/>
-                                                  (송장 출력을 하지 않았다면 송장삭제를 해주세요)
+                                                  반품 송장 정보를 받아오는중입니다
                                                 </span>
                                               </div>
                                             );
@@ -1266,10 +1413,19 @@ const MemberOrderAppList: React.FC = () => {
                             <p className="text-sm text-gray-500">할인</p>
                             <p className="text-sm text-gray-500">-{((order?.original_price * order?.add_order_quantity) * (order?.discount / 100)).toLocaleString()} 원</p>
                           </div>
-                          {order?.point_use_amount &&
+                          {Number(order?.point_use_amount) !== 0 &&
                             <div className="flex items-center justify-between">
                               <p className="text-sm text-gray-500">적립금</p>
-                              <p className="text-sm text-gray-500">-{order?.point_use_amount?.toLocaleString()} 원</p>
+                              <p className="text-sm text-gray-500">{Number(order?.point_use_amount) > 0 ? '-' : ''}{Number(order?.point_use_amount)?.toLocaleString()} 원</p>
+                            </div>
+                          }
+                          {Number(order?.coupon_discount_amount) !== 0 &&
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-gray-500">쿠폰</p>
+                              <p className="text-sm text-gray-500">
+                                {Number(order?.coupon_discount_amount) > 0 ? '-' : ''}
+                                {order?.coupon_discount_type === 'PERCENT' ? Number((Number(order?.coupon_discount_amount) * 1/100) * ( (order?.original_price * order?.add_order_quantity) * (order?.discount / 100))).toLocaleString() : Number(order?.coupon_discount_amount).toLocaleString()} 원
+                              </p>
                             </div>
                           }
                           <div className="flex items-center justify-between">
@@ -1574,6 +1730,19 @@ const MemberOrderAppList: React.FC = () => {
                               await fn_updateOrderStatus(orderId, 'SHIPPINGING');
                             }
 
+                            // 배송중 알림 발송 (선택 항목 기준)
+                            try {
+                              for (const order of selectedOrders) {
+                                if (order?.products && Array.isArray(order.products)) {
+                                  for (const p of order.products) {
+                                    await sendShippingNotification(order.mem_id, order.mem_name, p.product_name);
+                                  }
+                                } else {
+                                  await sendShippingNotification(order.mem_id, order.mem_name, (order as any).product_name);
+                                }
+                              }
+                            } catch {}
+
                             fn_memberOrderAppListInternal(false);
                             setIsOrderProcessOpen(false);
                           }}>배송중 처리</p>
@@ -1591,6 +1760,19 @@ const MemberOrderAppList: React.FC = () => {
                             for (const orderId of selectedOrderIds) {
                               await fn_updateOrderStatus(orderId, 'SHIPPING_COMPLETE');
                             }
+
+                            // 배송완료 알림 발송 (선택 항목 기준)
+                            try {
+                              for (const order of selectedOrders) {
+                                if (order?.products && Array.isArray(order.products)) {
+                                  for (const p of order.products) {
+                                    await sendShippingCompleteNotification(order.mem_id, order.mem_name, p.product_name);
+                                  }
+                                } else {
+                                  await sendShippingCompleteNotification(order.mem_id, order.mem_name, (order as any).product_name);
+                                }
+                              }
+                            } catch {}
 
                             fn_memberOrderAppListInternal(false);
                             setIsOrderProcessOpen(false);
@@ -1724,7 +1906,28 @@ const MemberOrderAppList: React.FC = () => {
         }}
         orderDetailAppId={selectedOrderDetailAppId}
         userId={user?.index || null}
-        onSuccess={() => fn_memberOrderAppListInternal(false)}
+        onSuccess={async (_trackingNumber, _courierCode, actionType) => {
+          try {
+            if (actionType === 'shipping_process' && Array.isArray(selectedOrderDetailAppId) && selectedOrderDetailAppId.length > 0) {
+              const idSet = new Set<number>(selectedOrderDetailAppId);
+              for (const order of orderList) {
+                if (Array.isArray(order?.products) && order.products.length > 0) {
+                  for (const p of order.products as any[]) {
+                    if (idSet.has(p?.order_detail_app_id)) {
+                      await sendShippingNotification(order.mem_id, order.mem_name, p?.product_name);
+                    }
+                  }
+                } else {
+                  const odid = (order as any)?.order_detail_app_id;
+                  if (idSet.has(odid)) {
+                    await sendShippingNotification(order.mem_id, order.mem_name, (order as any)?.product_name);
+                  }
+                }
+              }
+            }
+          } catch {}
+          fn_memberOrderAppListInternal(false);
+        }}
         mode={popupMode}
       />
 

@@ -164,6 +164,30 @@ exports.selectMemberOrderAppList = (req, res) => {
             ORDER BY smpa.payment_app_id ASC
             LIMIT 1
           ) AS card_name
+        , (
+            SELECT
+              mca.member_coupon_app_id
+            FROM      coupon_app ca
+            LEFT JOIN	member_coupon_app	mca ON ca.coupon_app_id = mca.coupon_app_id
+            WHERE	    mca.order_app_id = moa.order_app_id
+            AND       mca.use_yn = 'Y'
+        ) AS member_coupon_app_id
+        , (
+            SELECT
+              discount_amount
+            FROM      coupon_app ca
+            LEFT JOIN	member_coupon_app	mca ON ca.coupon_app_id = mca.coupon_app_id
+            WHERE	    mca.order_app_id = moa.order_app_id
+            AND       mca.use_yn = 'Y'
+        ) AS coupon_discount_amount
+        , (
+            SELECT
+              discount_type
+            FROM      coupon_app ca
+            LEFT JOIN	member_coupon_app	mca ON ca.coupon_app_id = mca.coupon_app_id
+            WHERE	    mca.order_app_id = moa.order_app_id
+            AND       mca.use_yn = 'Y'
+        ) AS coupon_discount_type
       FROM		    members m
       INNER JOIN	member_order_app moa			    ON m.mem_id = moa.mem_id
       LEFT JOIN	  member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id

@@ -41,6 +41,68 @@ const MemberOrderAppReturn: React.FC = () => {
   const [pointDeductionAmount, setPointDeductionAmount] = useState<number>(0);
   const isRefundCalcMode = startStep === 3 && step === 3;
   const [latestPointAmount, setLatestPointAmount] = useState<number | null>(null);
+  // 취소완료 알림 발송
+  const sendCancelCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
+    try {
+      if (!memId || !memName || !productName) return;
+      const title = `${memName}고객님께서 주문하신 ${productName}상품이 취소 완료되었습니다.`;
+      const content = '고객님의 주문이 취소 처리되었습니다. 환불 및 상세 정보는 취소•반품•교환 내역에서 확인하실 수 있습니다.';
+      const postRes = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+        {
+          post_type: 'JUMPING',
+          title,
+          content,
+          all_send_yn: 'N',
+          push_send_yn: 'Y',
+          userId: user?.index,
+          mem_id: String(memId),
+        }
+      );
+      const postAppId = postRes.data?.postAppId;
+      if (postAppId) {
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+          post_app_id: postAppId,
+          mem_id: memId,
+          userId: user?.index,
+        });
+      }
+    } catch (err) {
+      console.error('취소완료 알림 발송 오류:', err);
+    }
+  };
+
+  // 반품완료 알림 발송
+  const sendReturnCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
+    try {
+      if (!memId || !memName || !productName) return;
+      const title = `${memName}고객님께서 주문하신 ${productName}상품이 반품 완료되었습니다.`;
+      const content = '고객님의 반품이 처리되었습니다. 환불 및 상세 정보는 취소•반품•교환 내역에서 확인하실 수 있습니다.';
+      const postRes = await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+        {
+          post_type: 'JUMPING',
+          title,
+          content,
+          all_send_yn: 'N',
+          push_send_yn: 'Y',
+          userId: user?.index,
+          mem_id: String(memId),
+        }
+      );
+      const postAppId = postRes.data?.postAppId;
+      if (postAppId) {
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+          post_app_id: postAppId,
+          mem_id: memId,
+          userId: user?.index,
+        });
+      }
+    } catch (err) {
+      console.error('반품완료 알림 발송 오류:', err);
+    }
+  };
+
 
   useEffect(() => {
     const scriptId = 'daum-postcode-script';
@@ -480,6 +542,12 @@ const MemberOrderAppReturn: React.FC = () => {
         ).filter((v: any) => v != null)
       ));
 
+      const expectedBase = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+        const paymentAmount = Number(item?.payment_amount || 0);
+        return sum + (paymentAmount);
+      }, 0);
+      const amountToSave = Math.max(expectedBase - Number(refundDeductionAmount || 0), 0);
+
       // 1) 결제 환불(결제 금액이 있을 때만)
       const paymentBalance = Number(orderDetail?.payment_amount || 0);
       if (paymentBalance > 0) {
@@ -488,7 +556,7 @@ const MemberOrderAppReturn: React.FC = () => {
           const found = (returnReasonList || []).find((r: any) => String(r?.common_code) === code);
           return found?.common_code_name || '취소승인';
         })();
-        const refundAmountForPayment = Math.max(0, Number(finalRefundAmountNumber || 0) - usedPointForRefund);
+        const refundAmountForPayment = Math.max(0, Number(amountToSave || 0));
         await axios.post(`${process.env.REACT_APP_API_URL}/app/portone/requestPortOneRefund`, {
           imp_uid: orderDetail?.portone_imp_uid || null,
           merchant_uid: orderDetail?.portone_merchant_uid || null,
@@ -498,12 +566,6 @@ const MemberOrderAppReturn: React.FC = () => {
       }
 
       // 1-1) 결제 정보 수정
-      const expectedBase = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-        const qty = quantityByIndex[idx] ?? 0;
-        const price = Number(item?.price || 0);
-        return sum + (price * qty);
-      }, 0);
-      const amountToSave = Math.max(expectedBase - Number(refundDeductionAmount || 0), 0);
       await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPaymentApp/updateMemberPaymentApp`, {
         order_app_id: orderDetail?.order_app_id,
         payment_status: 'PAYMENT_REFUND',
@@ -526,6 +588,43 @@ const MemberOrderAppReturn: React.FC = () => {
         userId: user?.index,
       });
 
+      // 취소완료 알림 발송 (취소 플로우에 한해)
+      try {
+        if (actionType !== 'return') {
+          const memId = (orderDetail as any)?.mem_id;
+          const memName = (orderDetail as any)?.mem_name;
+          (orderDetail?.products || [])
+            .filter((p: any) => orderDetailAppIds.includes(p?.order_detail_app_id))
+            .forEach((p: any) => {
+              sendCancelCompleteNotification(memId, memName, p?.product_name);
+            });
+        } else {
+          // 반품완료 알림 발송 (반품 플로우)
+          const memId = (orderDetail as any)?.mem_id;
+          const memName = (orderDetail as any)?.mem_name;
+          (orderDetail?.products || [])
+            .filter((p: any) => orderDetailAppIds.includes(p?.order_detail_app_id))
+            .forEach((p: any) => {
+              sendReturnCompleteNotification(memId, memName, p?.product_name);
+            });
+        }
+      } catch {}
+
+      // 4) 쿠폰 사용 복구: 주문에 쿠폰이 적용되어 있으면 쿠폰 사용여부를 N으로 되돌림
+      try {
+        const memberCouponAppId = (orderDetail as any)?.member_coupon_app_id;
+        const hasCouponApplied = Number((orderDetail as any)?.coupon_discount_amount || 0) > 0 || !!memberCouponAppId;
+        if (memberCouponAppId && hasCouponApplied) {
+          await axios.post(`${process.env.REACT_APP_API_URL}/app/couponApp/updateCouponAppUseYn`, {
+            member_coupon_app_id: memberCouponAppId,
+            user_id: user?.index,
+            use_yn: 'N',
+          });
+        }
+      } catch (e) {
+        // no-op: 쿠폰 복구 실패는 프로세스를 막지 않음
+      }
+
       setIsToastVisible(true);
     } catch (e) {
       console.error('취소 승인 처리 오류:', e);
@@ -541,9 +640,18 @@ const MemberOrderAppReturn: React.FC = () => {
       if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
       return sum + (price * qty);
     }, 0);
-    const refundAmount = selectedTotal;
+    // 쿠폰 차감액 (주문 전체 기준)
+    const productTotalAll = (orderDetail.products || []).reduce((sum: number, it: any) => sum + ((it?.original_price || 0) * (it?.order_quantity || 0)), 0);
+    const productDiscountedAll = (orderDetail.products || []).reduce((sum: number, it: any) => sum + ((it?.price || 0) * (it?.order_quantity || 0)), 0);
+    const couponAmt = Number(orderDetail?.coupon_discount_amount || 0);
+    const couponType = String(orderDetail?.coupon_discount_type || '').toUpperCase();
+    const couponDeduction = couponAmt
+      ? (couponType === 'PERCENT'
+          ? Number((couponAmt * 1/100) * (productTotalAll - productDiscountedAll))
+          : couponAmt)
+      : 0;
+    const refundAmount = Math.max(selectedTotal - couponDeduction, 0);
     const safeDeduction = Math.min(Number(refundDeductionAmount || 0), refundAmount);
-    const usedPoint = Number(orderDetail?.point_use_amount || 0);
     const autoFinal = Math.max(refundAmount - safeDeduction, 0);
     return isManualFinalRefundAmount ? Number(manualFinalRefundAmount || 0) : autoFinal;
   }, [orderDetail?.products, quantityByIndex, actionType, refundDeductionAmount, isManualFinalRefundAmount, manualFinalRefundAmount]);
@@ -930,14 +1038,12 @@ const MemberOrderAppReturn: React.FC = () => {
               <div className="bg-white p-10 rounded-lg shadow-md mb-4">
                 {(() => {
                   const baseAmount = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                    const qty = quantityByIndex[idx] ?? 0;
-                    const price = Number(item?.price || 0);
-                    return sum + (price * qty);
+                    const price = Number(item?.payment_amount || 0);
+                    return sum + (price);
                   }, 0);
                   const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmount);
-                  const expectedAmount = isManualFinalRefundAmount
-                    ? Number(manualFinalRefundAmount || 0)
-                    : Math.max(baseAmount - safeDeduction, 0);
+
+                  const expectedAmount = Math.max(baseAmount - safeDeduction, 0);
                   return (
                     <div className="flex items-center justify-between">
                       <p className="text-m font-medium">예상 환불 금액</p>
@@ -954,9 +1060,18 @@ const MemberOrderAppReturn: React.FC = () => {
               <div className="mt-10 space-y-3">
                 {(() => {
                   const productTotalAll = (orderDetail.products || []).reduce((sum: number, item: any) => sum + ((item?.original_price || 0) * (item?.order_quantity || 0)), 0);
+                  const productDiscountedAll = (orderDetail.products || []).reduce((sum: number, item: any) => sum + ((item?.price || 0) * (item?.order_quantity || 0)), 0);
                   const orderAmount = Number(orderDetail?.payment_amount || 0);
-                  const usedPoint = Number(orderDetail?.point_use_amount || 0);
+                  const usedPoint = Number((latestPointAmount ?? orderDetail?.point_use_amount) || 0);
                   const paymentBalance = Number(orderDetail?.payment_amount || 0);
+                  const couponAmt = Number(orderDetail?.coupon_discount_amount || 0);
+                  const couponType = String(orderDetail?.coupon_discount_type || '').toUpperCase();
+                  const couponDeduction = couponAmt
+                    ? (couponType === 'PERCENT'
+                        ? Number((couponAmt * 1/100) * (productTotalAll - productDiscountedAll))
+                        : couponAmt)
+                    : 0;
+                  const saleDiscount = Math.max(productTotalAll - productDiscountedAll, 0);
                   return (
                     <>
                       <div className="flex items-center justify-between">
@@ -969,8 +1084,14 @@ const MemberOrderAppReturn: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <p className="text-m font-medium">할인</p>
-                        <p className="text-m font-medium">-<span className="text-xl font-bold">{(productTotalAll - orderAmount - usedPoint).toLocaleString()}</span>원</p>
+                        <p className="text-m font-medium">-<span className="text-xl font-bold">{saleDiscount.toLocaleString()}</span>원</p>
                       </div>
+                      {!!couponAmt && (
+                        <div className="flex items-center justify-between">
+                          <p className="text-m font-medium">쿠폰</p>
+                          <p className="text-m font-medium">-<span className="text-xl font-bold">{couponDeduction.toLocaleString()}</span>원</p>
+                        </div>
+                      )}
                       {/* <div className="flex items-center justify-between">
                         <p className="text-m font-medium">기본 배송비</p>
                         <p className="text-m font-medium"><span className="text-xl font-bold">{baseDeliveryFee.toLocaleString()}</span>원</p>
@@ -981,7 +1102,7 @@ const MemberOrderAppReturn: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <p className="text-m font-medium">결제 잔액</p>
-                        <p className="text-m font-medium"><span className="text-xl font-bold">{(paymentBalance - usedPoint).toLocaleString()}</span>원</p>
+                        <p className="text-m font-medium"><span className="text-xl font-bold">{paymentBalance.toLocaleString()}</span>원</p>
                       </div>
                       {orderDetail?.refund_amount && (
                         <div className="flex items-center justify-between border-t border-gray-200 pt-2">
@@ -1000,14 +1121,13 @@ const MemberOrderAppReturn: React.FC = () => {
                 <p className="text-m font-medium">환불 정보</p>
               </div>
               {(() => {
-                // 예상 환불 금액과 동일한 기준: baseAmount(선택합) - min(차감, baseAmount)
                 const baseAmountForExpected = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                  const qty = quantityByIndex[idx] ?? 0;
-                  const price = Number(item?.price || 0);
-                  return sum + (qty * price);
+                  const price = Number(item?.payment_amount || 0);
+                  return sum + (price);
                 }, 0);
-                const expectedAmountForDisplay = baseAmountForExpected;  
-                const autoFinalForInput = Math.max(baseAmountForExpected - Math.min(Number(refundDeductionAmount || 0), baseAmountForExpected), 0);
+
+                const expectedAmountForDisplay = Math.max(baseAmountForExpected, 0);
+                const autoFinalForInput = Math.max(expectedAmountForDisplay - Math.min(Number(refundDeductionAmount || 0), expectedAmountForDisplay), 0);
                 return (
                   <div className="mt-6 space-y-4">
                     <div>
@@ -1080,7 +1200,7 @@ const MemberOrderAppReturn: React.FC = () => {
                 })()}
               </div>
             )}
-            <button
+              <button
               className="w-full bg-black text-white px-4 py-3 rounded-md mt-5"
               onClick={async () => {
                 await fn_approveCancel();
@@ -1092,14 +1212,14 @@ const MemberOrderAppReturn: React.FC = () => {
             >
               {(() => {
                 const base = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                  const qty = quantityByIndex[idx] ?? 0;
-                  const price = Number(item?.price || 0);
-                  return sum + (qty * price);
+                  const price = Number(item?.payment_amount || 0);
+                  return sum + (price);
                 }, 0);
-                const expected = isManualFinalRefundAmount
-                  ? Number(manualFinalRefundAmount || 0)
-                  : Math.max(base - Math.min(Number(refundDeductionAmount || 0), base), 0);
-                return `${formatNumber(expected)}원 환불 처리`;
+
+                const expectedAmountForDisplay = Math.max(base, 0);
+                const autoFinalForInput = Math.max(expectedAmountForDisplay - Math.min(Number(refundDeductionAmount || 0), expectedAmountForDisplay), 0);
+
+                return `${formatNumber(autoFinalForInput)}원 환불 처리`;
               })()}
             </button>
           </div>
@@ -1367,11 +1487,7 @@ const MemberOrderAppReturn: React.FC = () => {
                       return selectedTotal?.toLocaleString();
                     } else if (actionType === 'cancel') {
                       const cancelSelectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                        const status = String(item?.order_status || '').trim().toUpperCase();
-                        if (['SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM'].includes(status)) return sum;
-                        const qty = quantityByIndex[idx] ?? 0;
-                        const price = item.price ?? 0;
-                        return sum + qty * price;
+                        return Number(item?.payment_amount);
                       }, 0);
                       return cancelSelectedTotal?.toLocaleString();
                     }

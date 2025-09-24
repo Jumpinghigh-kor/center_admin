@@ -204,7 +204,18 @@ const NoticesAppList: React.FC = () => {
                       type="datetime-local"
                       name="start_dt"
                       value={searchData.start_dt}
-                      onChange={(e) => setSearchData({ ...searchData, start_dt: e.target.value })}
+                      onChange={(e) => {
+                        setSearchData({ ...searchData, start_dt: e.target.value });
+                        requestAnimationFrame(() => {
+                          try { e.currentTarget.blur(); } catch {}
+                        });
+                      }}
+                      onInput={(e) => {
+                        const input = e.currentTarget;
+                        requestAnimationFrame(() => {
+                          try { input.blur(); } catch {}
+                        });
+                      }}
                       onClick={(e) => openInputDatePicker(e.currentTarget)}
                       onFocus={(e) => openInputDatePicker(e.currentTarget)}
                       className="px-2 py-1 border cursor-pointer border-gray-300 rounded w-1/2"
@@ -214,7 +225,18 @@ const NoticesAppList: React.FC = () => {
                       type="datetime-local"
                       name="end_dt"
                       value={searchData.end_dt}
-                      onChange={(e) => setSearchData({ ...searchData, end_dt: e.target.value })}
+                      onChange={(e) => {
+                        setSearchData({ ...searchData, end_dt: e.target.value });
+                        requestAnimationFrame(() => {
+                          try { e.currentTarget.blur(); } catch {}
+                        });
+                      }}
+                      onInput={(e) => {
+                        const input = e.currentTarget;
+                        requestAnimationFrame(() => {
+                          try { input.blur(); } catch {}
+                        });
+                      }}
                       onClick={(e) => openInputDatePicker(e.currentTarget)}
                       onFocus={(e) => openInputDatePicker(e.currentTarget)}
                       className="px-2 py-1 border cursor-pointer border-gray-300 rounded w-1/2"
@@ -286,8 +308,9 @@ const NoticesAppList: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <div className="flex justify-start items-center mb-2">
+            <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-semibold">총 {noticesList.length}건</p>
+              <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
             </div>
             <table className="min-w-full bg-white">
               <thead>

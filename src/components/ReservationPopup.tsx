@@ -156,8 +156,8 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
           `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
           {
             post_type: 'JUMPING',
-            title: `${krDate}의 수업 예약은 ${actionText} 되었습니다.`,
-            content: `회원님께서 예약하신 ${krDate}의 수업은 ${actionText} 되었습니다. 자세한 내용이 궁금하시다면 가맹점에 문의하시기 바랍니다.`,
+            title: `${krDate}에 수업 예약이 ${actionText} 되었습니다.`,
+            content: `회원님께서 ${krDate}에 수업이 ${actionText} 되었습니다. 자세한 내용이 궁금하시다면 가맹점에 문의하시기 바랍니다.`,
             all_send_yn: 'N',
             push_send_yn: 'Y',
             userId: user?.index,
@@ -270,7 +270,7 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
                 <p className="text-white font-medium">{selectedReservation?.schedule.registered_count}명</p>
               </div>
               <div className="mb-4">
-                <p className="text-white text-sm mb-2" style={{color: '#9D9D9D'}}>예약 인원</p>
+                <p className="text-white text-sm mb-2" style={{color: '#9D9D9D'}}>총 인원</p>
                 <p className="text-white font-medium">{selectedReservation?.schedule.reserved_count}명</p>
               </div>
             </div>

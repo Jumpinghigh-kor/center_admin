@@ -7,7 +7,11 @@ const {
   deleteProductApp,
   selectProductAppImgList,
   selectProductAppDetail,
+  selectProductOptionAppDetail,
   returnExchangePolicy,
+  deleteProductImgApp,
+  deleteProductDetailApp,
+  deleteReturnExchangePolicy,
 } = require("../../controllers/app/productApp");
 const multer = require("multer");
 
@@ -33,8 +37,11 @@ const upload = multer({
 // 상품 목록 조회
 router.post("/selectProductAppList", selectProductAppList);
 
-// 상품 상세 목록 조회
+// 상품 상세 조회
 router.post("/selectProductAppDetail", selectProductAppDetail);
+
+// 상품 옵션 상세 조회
+router.post("/selectProductOptionAppDetail", selectProductOptionAppDetail);
 
 // 상품 반품/교환 정책 조회
 router.post("/returnExchangePolicy", returnExchangePolicy);
@@ -43,12 +50,21 @@ router.post("/returnExchangePolicy", returnExchangePolicy);
 router.post("/insertProductApp", upload.any(), insertProductApp);
 
 // 상품 수정
-// router.post("/updateProductApp", upload.any(), updateProductApp);
+router.post("/updateProductApp", upload.any(), updateProductApp);
 
 // 상품 일괄 삭제
 router.post("/deleteProductApp", deleteProductApp);
 
 // 상품 이미지 목록 조히
 router.post("/selectProductAppImgList", selectProductAppImgList);
+
+// 상품 이미지 삭제
+router.post("/deleteProductImgApp", deleteProductImgApp);
+
+// 상품 옵션 삭제
+router.post("/deleteProductDetailApp", deleteProductDetailApp);
+
+// 상품 반품/교환 정책 삭제
+router.post("/deleteReturnExchangePolicy", deleteReturnExchangePolicy);
 
 module.exports = router;

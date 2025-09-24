@@ -9,7 +9,6 @@ exports.deleteMemberPointApp = (req, res) => {
     // 현재 날짜 형식화
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
-    console.log('mod_dt::', mod_dt);
 
     // notices_app 테이블에 공지사항 정보 수정
     const updateMemberPointAppQuery = `

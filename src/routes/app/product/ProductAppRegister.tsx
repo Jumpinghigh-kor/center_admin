@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useUserStore } from "../../store/store";
-import productGuideImg1 from "../../images/product_guide_001.png";
-import productGuideImg2 from "../../images/product_guide_002.png";
-import productGuideImg3 from "../../images/product_guide_003.png";
-
+import { useUserStore } from "../../../store/store";
+import productGuideImg1 from "../../../images/product_guide_001.png";
+import productGuideImg2 from "../../../images/product_guide_002.png";
+import productGuideImg3 from "../../../images/product_guide_003.png";
+import ProductImageUploader from "../../../components/app/ProductImageUploader";
+import { openInputDatePicker } from "../../../utils/commonUtils";
 
 
 interface CommonCode {
@@ -15,79 +16,49 @@ interface CommonCode {
   common_code_memo: string;
 }
 
-const ProductAppDetail: React.FC = () => {
+const ProductAppRegister: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const user = useUserStore((state) => state.user);
-  const [commonCodeCache, setCommonCodeCache] = useState<Record<string, CommonCode[]>>({});
+  
   const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
   const [smallCategoryList, setSmallCategoryList] = useState<CommonCode[]>([]);
   const [deliveryCompanyList, setDeliveryCompanyList] = useState<CommonCode[]>([]);
   const [productOptionList, setProductOptionList] = useState<CommonCode[]>([]);
   const [productUnitLists, setProductUnitLists] = useState<Record<number, CommonCode[]>>({});
-  const [productAppImgList, setProductAppImgList] = useState<any[]>([]);
-  const searchParams = new URLSearchParams(location.search);
-  const productAppId = searchParams.get('product_app_id');
-  const isEditMode = !!productAppId;
+  const [isDiscountFocused, setIsDiscountFocused] = useState(false);
 
-  // location.state에서 전달받은 상품 데이터 확인
-  const productDataFromList = location.state?.productData;
-
-  // 날짜 형식 변환 함수 (YYYYMMDDHHMMSS -> YYYY-MM-DDTHH:MM)
-  const formatDateTimeForInput = (dateTimeStr: string): string => {
-    if (!dateTimeStr || dateTimeStr.length !== 14) return "";
-    
-    const year = dateTimeStr.substring(0, 4);
-    const month = dateTimeStr.substring(4, 6);
-    const day = dateTimeStr.substring(6, 8);
-    const hour = dateTimeStr.substring(8, 10);
-    const minute = dateTimeStr.substring(10, 12);
-    
-    return `${year}-${month}-${day}T${hour}:${minute}`;
-  };
-
-  // 시간 형식 변환 함수 (HHMM -> HH:MM)
-  const formatTimeForInput = (timeStr: string): string => {
-    if (!timeStr || timeStr.length !== 4) return "";
-    
-    const hour = timeStr.substring(0, 2);
-    const minute = timeStr.substring(2, 4);
-    
-    return `${hour}:${minute}`;
-  };
-
+  // 상품 기본 정보 상태
   const [formData, setFormData] = useState({
-    brand_name: productDataFromList?.brand_name || "",
-    product_name: productDataFromList?.product_name || "",
-    big_category: productDataFromList?.big_category || "",
-    small_category: productDataFromList?.small_category || "",
-    title: productDataFromList?.title || "",
-    price: productDataFromList?.price?.toString() || "",
-    original_price: productDataFromList?.original_price?.toString() || "",
-    discount: productDataFromList?.discount?.toString() || "0",
-    give_point: productDataFromList?.give_point?.toString() || "",
-    sell_start_dt: formatDateTimeForInput(productDataFromList?.sell_start_dt || ""),
-    sell_end_dt: formatDateTimeForInput(productDataFromList?.sell_end_dt || ""),
-    view_yn: productDataFromList?.view_yn || "Y",
-    courier_code: productDataFromList?.courier_code || "",
-    delivery_fee: productDataFromList?.delivery_fee?.toString() || "",
-    free_shipping_amount: productDataFromList?.free_shipping_amount?.toString() || "",
-    remote_delivery_fee: productDataFromList?.remote_delivery_fee?.toString() || "",
-    inquiry_phone_number: productDataFromList?.inquiry_phone_number || "",
-    today_send_yn: productDataFromList?.today_send_yn || "Y",
-    today_send_time: formatTimeForInput(productDataFromList?.today_send_time || ""),
-    not_today_send_day: productDataFromList?.not_today_send_day?.toString() || "",
+    brand_name: "",
+    product_name: "",
+    big_category: "",
+    small_category: "", 
+    title: "",
+    price: "",
+    original_price: "",
+    discount: "0",
+    give_point: "",
+    sell_start_dt: "",
+    sell_end_dt: "",
+    view_yn: "Y",
+    courier_code: "",
+    delivery_fee: "",
+    free_shipping_amount: "",
+    remote_delivery_fee: "",
+    inquiry_phone_number: "",
+    today_send_yn: "Y",
+    today_send_time: "",
+    not_today_send_day: "",
+    consignment_yn: "Y",
   });
 
-  // 이미지 관련 상태
+  // 이미지 상태
   const [representImages, setRepresentImages] = useState<File[]>([]);
   const [representImagePreviews, setRepresentImagePreviews] = useState<string[]>([]);
   const [representImageOrders, setRepresentImageOrders] = useState<number[]>([]);
-  const [representImageIds, setRepresentImageIds] = useState<(number | null)[]>([]); // 기존 이미지 ID
   const [detailImages, setDetailImages] = useState<File[]>([]);
   const [detailImagePreviews, setDetailImagePreviews] = useState<string[]>([]);
   const [detailImageOrders, setDetailImageOrders] = useState<number[]>([]);
-  const [detailImageIds, setDetailImageIds] = useState<(number | null)[]>([]); // 기존 이미지 ID
 
   // 상품 상세 정보 상태
   const [productDetails, setProductDetails] = useState<Array<{
@@ -98,7 +69,7 @@ const ProductAppDetail: React.FC = () => {
     quantity: string;
     option_gender: string;
     use_yn: string;
-    product_detail_app_id?: number; // 수정 시 기존 ID
+    product_detail_app_id?: number;
   }>>([]);
 
   // 상품 반품/교환 정책 상태
@@ -108,159 +79,71 @@ const ProductAppDetail: React.FC = () => {
     content: string;
     direction: string;
     order_seq: string;
-    return_exchange_id?: number; // 수정 시 기존 ID
+    return_exchange_id?: number;
   }>>([]);
 
-  // 공통 코드 조회 (캐싱 적용)
-  const fetchCommonCode = async (groupCode: string): Promise<CommonCode[]> => {
-    // 캐시에서 먼저 확인
-    if (commonCodeCache[groupCode]) {
-      return commonCodeCache[groupCode];
-    }
+  useEffect(() => {
+    loadInitialCommonCodes();
+  }, []);
 
+  // 공통 코드 초기 로딩
+  const loadInitialCommonCodes = async () => {
+    try {
+      const [categories, deliveryCompanies, options] = await Promise.all([
+        fetchCommonCode("PRODUCT_CATEGORY"),
+        fetchCommonCode("DELIVERY_COMPANY"),
+        fetchCommonCode("PRODUCT_OPTION_TYPE"),
+      ]);
+      setCommonCodeList(categories);
+      setDeliveryCompanyList(deliveryCompanies);
+      setProductOptionList(options);
+    } catch (e) {
+      console.error("공통 코드 초기 로딩 오류:", e);
+    }
+  };
+
+  // 공통 코드 조회
+  const fetchCommonCode = async (
+    groupCode: string,
+    opts?: { common_code_memo?: string }
+  ): Promise<CommonCode[]> => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/common/selectCommonCodeList`,
         {
-          group_code: groupCode
+          group_code: groupCode,
+          ...(opts?.common_code_memo ? { common_code_memo: opts.common_code_memo } : {}),
         }
       );
-
-      const result = response.data.result;
-      
-      // 캐시에 저장
-      setCommonCodeCache(prev => ({
-        ...prev,
-        [groupCode]: result
-      }));
-
-      return result;
+      return response.data.result || [];
     } catch (err) {
       console.error(`공통 코드 목록 로딩 오류:`, err);
       return [];
     }
   };
 
-  // 대분류 목록 조회
-  const loadProductCategories = async () => {
-    const result = await fetchCommonCode("PRODUCT_CATEGORY");
-    setCommonCodeList(result);
-  };
-
-  // 소분류 목록 조회
-  const loadSmallCategories = async (bigCategory: string) => {
-    if (!bigCategory) {
-      setSmallCategoryList([]);
-      return;
-    }
-
-    const groupCode = `${bigCategory}_CATEGORY`;
-    const result = await fetchCommonCode(groupCode);
-    setSmallCategoryList(result);
-  };
-
-  // 택배사 목록 조회
-  const loadDeliveryCompanies = async () => {
-    const result = await fetchCommonCode("DELIVERY_COMPANY");
-    setDeliveryCompanyList(result);
-  };
-
-  // 상품 옵션 목록 조회
-  const loadProductOptions = async () => {
-    const result = await fetchCommonCode("PRODUCT_OPTION_TYPE");
-    setProductOptionList(result);
-  };
-
-  // 상품 단위 목록 조회 (상품 속성에 따라)
-  const loadProductUnits = async (optionType: string, detailId: number) => {
-    if (!optionType) {
-      setProductUnitLists(prev => ({ ...prev, [detailId]: [] }));
-      return;
-    }
-
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/common/selectCommonCodeList`,
-        {
-          group_code: "PRODUCT_OPTION_UNIT",
-          common_code_memo: optionType
-        }
-      );
-
-      const result = response.data.result || [];
-      setProductUnitLists(prev => ({ ...prev, [detailId]: result }));
-    } catch (err) {
-      console.error("상품 단위 목록 로딩 오류:", err);
-      setProductUnitLists(prev => ({ ...prev, [detailId]: [] }));
-    }
-  };
-
-  // 수정 모드일 때 기존 데이터 불러오기
-  useEffect(() => {
-    loadProductCategories();
-    loadDeliveryCompanies();
-    loadProductOptions();
-    if (isEditMode && productAppId) {
-      fetchProductDetail();
-      fetchReturnExchangePolicy();
-      fetchProductAppImgList();
-    }
-  }, [productAppId, isEditMode]);
-
-  const fetchProductDetail = async () => {
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/productApp/selectProductAppDetail`,
-        {
-          product_app_id: productAppId
-        }
-      );
-
-      setProductDetails(response.data.result);  
-      
-    } catch (err) {
-      console.error("상품 상세 정보 로딩 오류:", err);
-    }
-  };
-
-  const fetchReturnExchangePolicy = async () => {
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/productApp/returnExchangePolicy`,
-        {
-          product_app_id: productAppId
-        }
-      );
-
-      setPolicyDetails(response.data.result);
-    } catch (err) {
-      console.error("상품 반품/교환 정책 로딩 오류:", err);
-    }
-  };
-
-  const fetchProductAppImgList = async () => {
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/productApp/selectProductAppImgList`,
-        {
-          product_app_id: productAppId
-        }
-      );
-
-      setProductAppImgList(response.data);
-    } catch (err) {
-      console.error("상품 이미지 목록 로딩 오류:", err);
-    }
-  };
-
+  // 상품 기본 정보 입력 핸들러
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    let nextValue: string = value as string;
+
+    // 1. 할인율: 숫자만 허용 + 0~100 클램프
+    if (name === "discount") {
+      const numericOnly = (value as string).replace(/[^0-9]/g, "");
+      if (numericOnly === "") {
+        nextValue = "";
+      } else {
+        const n = Math.max(0, Math.min(100, parseInt(numericOnly, 10)));
+        nextValue = String(n);
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: nextValue
     }));
 
-    // 오늘 발송 여부가 변경되면 관련 필드 초기화
+    // 2. 오늘 발송 여부가 변경되면 관련 필드 초기화
     if (name === "today_send_yn") {
       setFormData(prev => ({
         ...prev,
@@ -269,19 +152,23 @@ const ProductAppDetail: React.FC = () => {
       }));
     }
 
-    // 대분류가 변경되면 소분류 목록을 새로 가져오고 소분류 선택을 초기화
+    // 3. 대분류가 변경되면 소분류 목록을 새로 가져오고 소분류 선택 초기화
     if (name === "big_category") {
-      loadSmallCategories(value);
+      if (!value) {
+        setSmallCategoryList([]);
+      } else {
+        fetchCommonCode(`${value}_CATEGORY`).then((result) => setSmallCategoryList(result));
+      }
       setFormData(prev => ({
         ...prev,
         small_category: ""
       }));
     }
 
-    // 원가와 할인율이 변경되면 가격 자동 계산
+    // 4. 원가와 할인율이 변경되면 가격 자동 계산
     if (name === "original_price" || name === "discount") {
-      const originalPrice = name === "original_price" ? parseFloat(value) : parseFloat(formData.original_price);
-      const discount = name === "discount" ? parseFloat(value) : parseFloat(formData.discount);
+      const originalPrice = name === "original_price" ? parseFloat(nextValue) : parseFloat(formData.original_price);
+      const discount = name === "discount" ? parseFloat(nextValue) : parseFloat(formData.discount);
       
       if (!isNaN(originalPrice) && !isNaN(discount)) {
         const calculatedPrice = originalPrice * (1 - discount / 100);
@@ -291,151 +178,6 @@ const ProductAppDetail: React.FC = () => {
         }));
       }
     }
-  };
-
-  // 대표 이미지 처리 함수
-  const handleRepresentImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-
-      // 이미지 추가 개수 제한 (최대 3개)
-      if (representImagePreviews.length + files.length > 3) {
-        alert("대표 이미지는 최대 3개까지 업로드 가능합니다.");
-        return;
-      }
-
-      // 파일 타입과 크기 검증
-      const invalidFiles = files.filter((file) => {
-        const fileType = file.type;
-        if (fileType !== "image/png" && fileType !== "image/jpeg") {
-          return true;
-        }
-        if (file.size > 1 * 1024 * 1024) {
-          return true;
-        }
-        return false;
-      });
-
-      if (invalidFiles.length > 0) {
-        alert("PNG 또는 JPG 파일만 업로드 가능하며, 각 파일은 1MB 이하여야 합니다.");
-        return;
-      }
-
-      // 유효한 파일 저장
-      const newImages = [...representImages, ...files];
-      setRepresentImages(newImages);
-
-      // 이미지 미리보기 URL 생성
-      const newPreviews = [...representImagePreviews];
-      const newOrders = [...representImageOrders];
-      files.forEach((file) => {
-        const imageUrl = URL.createObjectURL(file);
-        newPreviews.push(imageUrl);
-        newOrders.push(newOrders.length + 1);
-      });
-      setRepresentImagePreviews(newPreviews);
-      setRepresentImageOrders(newOrders);
-    }
-  };
-
-  const removeRepresentImage = (index: number) => {
-    const newImages = [...representImages];
-    const newPreviews = [...representImagePreviews];
-    const newOrders = [...representImageOrders];
-
-    newImages.splice(index, 1);
-    const removedPreview = newPreviews.splice(index, 1)[0];
-    newOrders.splice(index, 1);
-
-    URL.revokeObjectURL(removedPreview);
-
-    setRepresentImages(newImages);
-    setRepresentImagePreviews(newPreviews);
-    setRepresentImageOrders(newOrders);
-  };
-
-  const handleRepresentImageOrderChange = (index: number, newOrder: number) => {
-    if (newOrder < 1 || newOrder > representImagePreviews.length) {
-      return;
-    }
-
-    const newOrders = [...representImageOrders];
-    const oldOrder = newOrders[index];
-
-    newOrders[index] = newOrder;
-
-    newOrders.forEach((order, i) => {
-      if (i !== index) {
-        if (oldOrder < newOrder && order > oldOrder && order <= newOrder) {
-          newOrders[i] = order - 1;
-        } else if (oldOrder > newOrder && order < oldOrder && order >= newOrder) {
-          newOrders[i] = order + 1;
-        }
-      }
-    });
-
-    setRepresentImageOrders(newOrders);
-  };
-
-  // 상세 이미지 처리 함수
-  const handleDetailImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-
-      // 상세 이미지는 정확히 1개 필요
-      if (detailImages.length + files.length !== 1 && detailImages.length + files.length > 1) {
-        alert("상세 이미지는 반드시 1개가 필요합니다.");
-        return;
-      }
-
-      // 파일 타입과 크기 검증
-      const invalidFiles = files.filter((file) => {
-        const fileType = file.type;
-        if (fileType !== "image/png" && fileType !== "image/jpeg") {
-          return true;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-          return true;
-        }
-        return false;
-      });
-
-      if (invalidFiles.length > 0) {
-        alert("PNG 또는 JPG 파일만 업로드 가능하며, 각 파일은 5MB 이하여야 합니다.");
-        return;
-      }
-
-      // 유효한 파일 저장
-      const newImages = [...detailImages, ...files];
-      setDetailImages(newImages);
-
-      // 이미지 미리보기 URL 생성
-      const newPreviews = [...detailImagePreviews];
-      const newOrders = [...detailImageOrders];
-      files.forEach((file) => {
-        const imageUrl = URL.createObjectURL(file);
-        newPreviews.push(imageUrl);
-        newOrders.push(newOrders.length + 1);
-      });
-      setDetailImagePreviews(newPreviews);
-      setDetailImageOrders(newOrders);
-    }
-  };
-
-  const removeDetailImage = (index: number) => {
-    const newImages = [...detailImages];
-    const newPreviews = [...detailImagePreviews];
-    const newOrders = [...detailImageOrders];
-
-    newImages.splice(index, 1);
-    const removedPreview = newPreviews.splice(index, 1)[0];
-    newOrders.splice(index, 1);
-
-    URL.revokeObjectURL(removedPreview);
-
-    setDetailImages(newImages);
-    setDetailImagePreviews(newPreviews);
-    setDetailImageOrders(newOrders);
   };
 
   // 상품 상세 정보 추가
@@ -452,20 +194,21 @@ const ProductAppDetail: React.FC = () => {
     }]);
   };
 
-  // 상품 상세 정보 삭제
-  const removeProductDetail = (id: number) => {
-    setProductDetails(prev => prev.filter(item => item.id !== id));
-  };
-
   // 상품 상세 정보 입력 핸들러
   const handleProductDetailChange = (id: number, field: string, value: string) => {
     setProductDetails(prev => prev.map(item => 
       item.id === id ? { ...item, [field]: value } : item
     ));
 
-    // 상품 속성이 변경되면 해당 상품 단위 목록 로드
+    // 상품 속성이 변경되면 해당 상품 단위 목록 로드 (인라인)
     if (field === 'option_type') {
-      loadProductUnits(value, id);
+      if (!value) {
+        setProductUnitLists(prev => ({ ...prev, [id]: [] }));
+      } else {
+        fetchCommonCode("PRODUCT_OPTION_UNIT", { common_code_memo: value })
+          .then(result => setProductUnitLists(prev => ({ ...prev, [id]: result || [] })))
+          .catch(() => setProductUnitLists(prev => ({ ...prev, [id]: [] })));
+      }
       // 상품 단위 초기화
       setProductDetails(prev => prev.map(item => 
         item.id === id ? { ...item, option_unit: "", option_amount: "" } : item
@@ -492,19 +235,8 @@ const ProductAppDetail: React.FC = () => {
     }]);
   };
 
-  // 상품 반품/교환 정책 삭제
-  const removePolicyDetail = (id: number) => {
-    setPolicyDetails(prev => prev.filter(item => item.product_app_id !== id));
-  };
-
-  // 상품 반품/교환 정책 입력 핸들러
-  const handlePolicyDetailChange = (id: number, field: string, value: string) => {
-    setPolicyDetails(prev => prev.map(item => 
-      item.product_app_id === id ? { ...item, [field]: value } : item
-    ));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 상품 등록
+  const insertProductApp = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // 1. 상품 기본 정보 등록 유효성 검사
@@ -520,8 +252,8 @@ const ProductAppDetail: React.FC = () => {
       alert("브랜드명을 입력해주세요.");
       return;
     }
-    if (!formData.title.trim()) {
-      alert("제목을 입력해주세요.");
+    if (!formData.product_name.trim()) {
+      alert("상품명을 입력해주세요.");
       return;
     }
     if (!formData.original_price || parseFloat(formData.original_price) <= 0) {
@@ -634,16 +366,17 @@ const ProductAppDetail: React.FC = () => {
       const productAppData = {
         mem_id: user?.index,
         brand_name: formData.brand_name,
-        product_name: formData.product_name || formData.title,
+        product_name: formData.product_name,
         big_category: formData.big_category,
         small_category: formData.small_category,
-        title: formData.title,
+        title: formData.product_name,
         price: parseInt(formData.price),
         original_price: parseInt(formData.original_price),
         discount: parseInt(formData.discount),
         give_point: parseInt(formData.give_point),
         sell_start_dt: formData.sell_start_dt,
         sell_end_dt: formData.sell_end_dt === "unlimited" ? "29991230235959" : formData.sell_end_dt,
+        sell_dt_type: formData.sell_end_dt,
         courier_code: formData.courier_code,
         delivery_fee: parseInt(formData.delivery_fee) || 0,
         remote_delivery_fee: parseInt(formData.remote_delivery_fee) || 0,
@@ -652,6 +385,7 @@ const ProductAppDetail: React.FC = () => {
         today_send_yn: formData.today_send_yn,
         today_send_time: formData.today_send_time,
         not_today_send_day: parseInt(formData.not_today_send_day) || 0,
+        consignment_yn: formData.consignment_yn,
         view_yn: formData.view_yn,
         del_yn: "N"
       };
@@ -668,20 +402,41 @@ const ProductAppDetail: React.FC = () => {
         product_detail_app_id: detail.product_detail_app_id || null // 기존 데이터면 ID 포함
       }));
 
-      // 이미지 데이터
-      const representImageData = representImages.map((file, index) => ({
-        img_form: "REPRESENTER",
-        file_name: file.name,
-        order_seq: representImageOrders[index],
-        product_app_img_id: representImageIds[index] || null // 기존 이미지면 ID 포함
-      }));
+      // 이미지 데이터 구성 (base64 + content_type 포함)
+      const convertFileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            const base64String = reader.result as string;
+            const base64Data = base64String.split(",")[1] || base64String;
+            resolve(base64Data);
+          };
+          reader.onerror = (error) => reject(error);
+        });
+      };
 
-      const detailImageData = detailImages.map((file, index) => ({
-        img_form: "DETAIL", 
-        file_name: file.name,
-        order_seq: detailImageOrders[index],
-        product_app_img_id: detailImageIds[index] || null // 기존 이미지면 ID 포함
-      }));
+      const representImageData = await Promise.all(
+        representImages.map(async (file, index) => ({
+          img_form: "REPRESENTER",
+          file_name: file.name,
+          order_seq: representImageOrders[index],
+          product_app_img_id: null,
+          file_data: await convertFileToBase64(file),
+          content_type: file.type,
+        }))
+      );
+
+      const detailImageData = await Promise.all(
+        detailImages.map(async (file, index) => ({
+          img_form: "DETAIL",
+          file_name: file.name,
+          order_seq: 1,
+          product_app_img_id: null,
+          file_data: await convertFileToBase64(file),
+          content_type: file.type,
+        }))
+      );
 
       const imageData = [...representImageData, ...detailImageData];
 
@@ -695,46 +450,18 @@ const ProductAppDetail: React.FC = () => {
         use_yn: "Y",
         del_yn: "N"
       }));
+  
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/productApp/insertProductApp`,
+        {
+          productApp: productAppData,
+          productDetailApp: productDetailAppData,
+          imageData: imageData,
+          returnExchangeData: returnExchangeData
+        }
+      );
 
-      if (isEditMode) {
-        // 수정 - 기존 ID들 포함
-        const updateProductDetailAppData = productDetailAppData.map(detail => ({
-          ...detail,
-          product_app_id: productAppId,
-          product_detail_app_id: detail.product_detail_app_id || null // 기존 데이터면 ID 포함, 새 데이터면 null
-        }));
-
-        const updateImageData = imageData.map(image => ({
-          ...image,
-          product_app_id: productAppId,
-          product_app_img_id: image.product_app_img_id || null // 기존 이미지면 ID 포함, 새 이미지면 null
-        }));
-
-        // await axios.post(
-        //   `${process.env.REACT_APP_API_URL}/app/productApp/updateProductApp`,
-        //   {
-        //     productApp: { ...productAppData, product_app_id: productId },
-        //     productDetailApp: updateProductDetailAppData,
-        //     imageData: updateImageData,
-        //     returnExchangeData: returnExchangeData
-        //   }
-        // );
-        alert("상품이 수정되었습니다.");
-      } else {
-        // 등록
-        await axios.post(
-          `${process.env.REACT_APP_API_URL}/app/productApp/insertProductApp`,
-          {
-            productApp: productAppData,
-            productDetailApp: productDetailAppData,
-            imageData: imageData,
-            returnExchangeData: returnExchangeData
-          }
-        );
-        alert("상품이 등록되었습니다.");
-      }
-
-      // 목록 페이지로 이동
+      alert("상품이 등록되었습니다.");
       navigate("/app/productApp");
     } catch (err) {
       console.error("상품 저장 오류:", err);
@@ -746,12 +473,12 @@ const ProductAppDetail: React.FC = () => {
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">
-          {isEditMode ? "상품 수정" : "상품 등록"}
+          상품 등록
         </h2>
       </div>
 
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">1. 상품 기본 정보 등록</h3>
+        <h3 className="text-lg font-semibold">1. 상품 기본 정보 등록<span className="text-red-500"> *</span></h3>
         <button
           type="button"
           onClick={() => window.open(productGuideImg1, '_blank', 'width=1000,height=800,scrollbars=yes,resizable=yes')}
@@ -761,7 +488,7 @@ const ProductAppDetail: React.FC = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={insertProductApp} className="space-y-6">
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-200">
             <tbody>
@@ -824,13 +551,13 @@ const ProductAppDetail: React.FC = () => {
                   />
                 </td>
                 <td className="bg-gray-100 px-4 py-3 font-semibold">
-                  제목 <span className="text-red-500">*</span>
+                  상품명 <span className="text-red-500">*</span>
                 </td>
                 <td className="px-4 py-3">
                   <input
                     type="text"
-                    name="title"
-                    value={formData.title}
+                    name="product_name"
+                    value={formData.product_name}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="상품 제목을 입력하세요"
@@ -859,15 +586,23 @@ const ProductAppDetail: React.FC = () => {
                   할인율
                 </td>
                 <td className="px-4 py-3">
-                  <input
-                    type="number"
-                    name="discount"
-                    value={formData.discount}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="할인율을 입력하세요 (%)"
-                    required
-                  />
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      name="discount"
+                      value={isDiscountFocused && (formData.discount === "0" || formData.discount === 0 as any) ? "" : formData.discount}
+                      onChange={handleInputChange}
+                      onFocus={() => setIsDiscountFocused(true)}
+                      onBlur={() => setIsDiscountFocused(false)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="할인율을 입력하세요 (%)"
+                      min="0"
+                      max="100"
+                      step="1"
+                      required
+                    />
+                    <span className="ml-2">%</span>
+                  </div>
                 </td>
               </tr>
 
@@ -908,12 +643,33 @@ const ProductAppDetail: React.FC = () => {
                 <td className="bg-gray-100 px-4 py-3 font-semibold">
                   판매 시작일 <span className="text-red-500">*</span>
                 </td>
-                <td className="px-4 py-3">
+                <td
+                  className="px-4 py-3"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target && target.tagName.toLowerCase() === 'input') return;
+                    const input = e.currentTarget.querySelector('input[type=\"datetime-local\"]') as HTMLInputElement | null;
+                    if (input) openInputDatePicker(input);
+                  }}
+                >
                   <input
                     type="datetime-local"
                     name="sell_start_dt"
                     value={formData.sell_start_dt}
-                    onChange={handleInputChange}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                      requestAnimationFrame(() => {
+                        try { e.currentTarget.blur(); } catch {}
+                      });
+                    }}
+                    onInput={(e) => {
+                      const input = e.currentTarget;
+                      requestAnimationFrame(() => {
+                        try { input.blur(); } catch {}
+                      });
+                    }}
+                    onClick={(e) => openInputDatePicker(e.currentTarget)}
+                    onFocus={(e) => openInputDatePicker(e.currentTarget)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
@@ -921,7 +677,15 @@ const ProductAppDetail: React.FC = () => {
                 <td className="bg-gray-100 px-4 py-3 font-semibold">
                   판매 종료일 <span className="text-red-500">*</span>
                 </td>
-                <td className="px-4 py-3">
+                <td
+                  className="px-4 py-3"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target && (target.tagName.toLowerCase() === 'input' || target.closest('label'))) return;
+                    const input = e.currentTarget.querySelector('input[type=\"datetime-local\"]') as HTMLInputElement | null;
+                    if (input) openInputDatePicker(input);
+                  }}
+                >
                   <div className="flex space-x-4 mb-2">
                     <label className="flex items-center">
                       <input
@@ -951,7 +715,20 @@ const ProductAppDetail: React.FC = () => {
                       type="datetime-local"
                       name="sell_end_dt_custom"
                       value={formData.sell_end_dt === "custom" ? "" : formData.sell_end_dt}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sell_end_dt: e.target.value }))}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, sell_end_dt: e.target.value }));
+                        requestAnimationFrame(() => {
+                          try { e.currentTarget.blur(); } catch {}
+                        });
+                      }}
+                      onInput={(e) => {
+                        const input = e.currentTarget;
+                        requestAnimationFrame(() => {
+                          try { input.blur(); } catch {}
+                        });
+                      }}
+                      onClick={(e) => openInputDatePicker(e.currentTarget)}
+                      onFocus={(e) => openInputDatePicker(e.currentTarget)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
@@ -978,6 +755,35 @@ const ProductAppDetail: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                </td>
+                <td className="bg-gray-100 px-4 py-3 font-semibold">
+                  위탁상품 여부 <span className="text-red-500">*</span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex space-x-4 mb-2">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="consignment_yn"
+                        value="Y"
+                        checked={formData.consignment_yn === "Y"}
+                        onChange={(e) => setFormData(prev => ({ ...prev, consignment_yn: "Y" }))}
+                        className="mr-2"
+                      />
+                      위탁 상품
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="consignment_yn"
+                        value="N"
+                        checked={formData.consignment_yn === "N"}
+                        onChange={(e) => setFormData(prev => ({ ...prev, consignment_yn: "N" }))}
+                        className="mr-2"
+                      />
+                      자사 상품
+                    </label>
+                  </div>
                 </td>
               </tr>
 
@@ -1107,77 +913,22 @@ const ProductAppDetail: React.FC = () => {
                   <p className="text-sm text-gray-500">노출 순서 1번 이미지가 썸네일 이미지로 등록됩니다.</p>
                 </td>
                 <td className="px-4 py-3" colSpan={3}>
-                  <input
-                    type="file"
+                  <ProductImageUploader
+                    label=""
+                    multiple={true}
                     accept=".png,.jpg,.jpeg"
-                    multiple
-                    onChange={handleRepresentImageChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={representImagePreviews.length >= 3}
+                    maxFiles={3}
+                    maxSizeMB={1}
+                    files={representImages}
+                    previews={representImagePreviews}
+                    orders={representImageOrders}
+                    setFiles={setRepresentImages}
+                    setPreviews={setRepresentImagePreviews}
+                    setOrders={setRepresentImageOrders}
+                    disabledAdd={representImagePreviews.length >= 3}
+                    orderBadgePrefix="대표"
                   />
-                  <div className="text-sm text-gray-500 mt-1">
-                    PNG, JPG만 가능, 최대 1MB, 최소 1장 ~ 최대 3장
-                  </div>
-
-                  {productAppImgList.map((img) => {
-                    if (img.imgForm === "REPRESENTER") {
-                      return (
-                        <div key={img.fileId} className="mt-4 inline-block mr-4 mb-4">
-                          <div className="relative border border-gray-300 rounded-lg p-3 bg-gray-50">
-                            <img 
-                              src={img.imageUrl} 
-                              alt={img.fileName} 
-                              className="w-32 h-32 object-cover rounded-md"
-                            />
-                            <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 text-xs rounded">
-                              기존 대표
-                            </div>
-                            <div className="mt-2 text-xs text-gray-600 text-center">
-                              {img.fileName}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  })}
-
-                  {representImagePreviews.length > 0 && (
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {representImagePreviews.map((preview, index) => (
-                        <div key={index} className="relative border p-2 rounded">
-                          <img
-                            src={preview}
-                            alt={`대표 이미지 ${index + 1}`}
-                            className="max-w-full h-40 object-contain rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeRepresentImage(index)}
-                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </button>
-                          <div className="flex items-center mt-2">
-                            <span className="mr-2 text-sm">노출 순서:</span>
-                            <select
-                              value={representImageOrders[index] || ""}
-                              onChange={(e) => handleRepresentImageOrderChange(index, parseInt(e.target.value))}
-                              className="p-1 border border-gray-300 rounded text-sm"
-                            >
-                              {Array.from({ length: representImagePreviews.length }, (_, i) => (
-                                <option key={i} value={i + 1}>{i + 1}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="absolute top-0 left-0 bg-green-500 text-white px-2 py-1 text-xs rounded-br">
-                            대표 {representImageOrders[index]}번
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="text-sm text-gray-500 mt-1">PNG, JPG만 가능, 최대 1MB, 최소 1장 ~ 최대 3장</div>
                 </td>
               </tr>
 
@@ -1187,64 +938,22 @@ const ProductAppDetail: React.FC = () => {
                   상세 이미지 <span className="text-red-500">*</span>
                 </td>
                 <td className="px-4 py-3" colSpan={3}>
-                  <input
-                    type="file"
+                  <ProductImageUploader
+                    label=""
+                    multiple={false}
                     accept=".png,.jpg,.jpeg"
-                    onChange={handleDetailImageChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    disabled={detailImagePreviews.length >= 1}
+                    maxFiles={1}
+                    maxSizeMB={5}
+                    files={detailImages}
+                    previews={detailImagePreviews}
+                    orders={detailImageOrders.length ? detailImageOrders : [1]}
+                    setFiles={setDetailImages}
+                    setPreviews={setDetailImagePreviews}
+                    setOrders={setDetailImageOrders}
+                    disabledAdd={detailImagePreviews.length >= 1}
+                    orderBadgePrefix="상세"
                   />
-                  <div className="text-sm text-gray-500 mt-1">
-                    PNG, JPG만 가능, 최대 5MB, 정확히 1장 필요
-                  </div>
-
-                  {productAppImgList.map((img) => {
-                    if (img.imgForm === "DETAIL") {
-                      return (
-                        <div key={img.fileId} className="mt-4 inline-block mr-4 mb-4">
-                          <div className="relative border border-gray-300 rounded-lg p-3 bg-gray-50">
-                            <img 
-                              src={img.imageUrl} 
-                              alt={img.fileName} 
-                              className="w-32 h-32 object-cover rounded-md"
-                            />
-                            <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 text-xs rounded">
-                              기존 상세
-                            </div>
-                            <div className="mt-2 text-xs text-gray-600 text-center">
-                              {img.fileName}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  })}
-
-                  {detailImagePreviews.length > 0 && (
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {detailImagePreviews.map((preview, index) => (
-                        <div key={index} className="relative border p-2 rounded">
-                          <img
-                            src={preview}
-                            alt={`상세 이미지 ${index + 1}`}
-                            className="max-w-full h-40 object-contain rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeDetailImage(index)}
-                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </button>
-                          <div className="absolute top-0 left-0 bg-blue-500 text-white px-2 py-1 text-xs rounded-br">
-                            상세 {detailImageOrders[index]}번
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="text-sm text-gray-500 mt-1">PNG, JPG만 가능, 최대 5MB, 정확히 1장 필요</div>
                 </td>
               </tr>
             </tbody>
@@ -1255,7 +964,7 @@ const ProductAppDetail: React.FC = () => {
         <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center">
-              <h3 className="text-lg font-semibold">2. 상품 상세 정보 등록</h3>
+              <h3 className="text-lg font-semibold">2. 상품 상세 정보 등록<span className="text-red-500"> *</span></h3>
               <button
                 type="button"
                 onClick={addProductDetail}
@@ -1401,7 +1110,7 @@ const ProductAppDetail: React.FC = () => {
               <div className="flex justify-end mt-3">
                 <button
                   type="button"
-                  onClick={() => removeProductDetail(detail.id)}
+                  onClick={() => setProductDetails(prev => prev.filter(item => item.id !== detail.id))}
                   className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
                 >
                   삭제
@@ -1415,7 +1124,7 @@ const ProductAppDetail: React.FC = () => {
         <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center">
-              <h3 className="text-lg font-semibold">3. 상품 반품/교환 정책 등록</h3>
+              <h3 className="text-lg font-semibold">3. 상품 반품/교환 정책 등록<span className="text-red-500"> *</span></h3>
               <button
                 type="button"
                 onClick={addPolicyDetail}
@@ -1447,7 +1156,7 @@ const ProductAppDetail: React.FC = () => {
                         <input
                           type="text"
                           value={policy.title}
-                          onChange={(e) => handlePolicyDetailChange(policy.product_app_id, 'title', e.target.value)}
+                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, title: e.target.value } : item))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="제목을 입력하세요"
                         />
@@ -1458,7 +1167,7 @@ const ProductAppDetail: React.FC = () => {
                       <td className="px-4 py-3 w-1/3">
                         <select
                           value={policy.direction || ""}
-                          onChange={(e) => handlePolicyDetailChange(policy.product_app_id, 'direction', e.target.value)}
+                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, direction: e.target.value } : item))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택</option>
@@ -1474,23 +1183,23 @@ const ProductAppDetail: React.FC = () => {
                          내용 <span className="text-red-500">*</span>
                        </td>
                        <td className="px-4 py-3 w-1/2">
-                         <textarea
-                           value={policy.content}
-                           onChange={(e) => handlePolicyDetailChange(policy.product_app_id, 'content', e.target.value)}
-                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           placeholder="내용을 입력하세요"
-                           rows={4}
-                         />
+                        <textarea
+                          value={policy.content}
+                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, content: e.target.value } : item))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="내용을 입력하세요"
+                          rows={4}
+                        />
                        </td>
                        <td className="bg-gray-100 px-4 py-3 w-1/6 font-semibold">
                          순서 <span className="text-red-500">*</span>
                        </td>
                        <td className="px-4 py-3 w-1/6">
-                         <select
-                           value={policy.order_seq || ""}
-                           onChange={(e) => handlePolicyDetailChange(policy.product_app_id, 'order_seq', e.target.value)}
-                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                         >
+                        <select
+                          value={policy.order_seq || ""}
+                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, order_seq: e.target.value } : item))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
                            <option value="">선택</option>
                            {Array.from({ length: policyDetails.length }, (_, i) => {
                              const orderNum = i + 1;
@@ -1515,7 +1224,7 @@ const ProductAppDetail: React.FC = () => {
               <div className="flex justify-end mt-3">
                 <button
                   type="button"
-                  onClick={() => removePolicyDetail(policy.product_app_id)}
+                  onClick={() => setPolicyDetails(prev => prev.filter(item => item.product_app_id !== policy.product_app_id))}
                   className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
                 >
                   삭제
@@ -1538,7 +1247,7 @@ const ProductAppDetail: React.FC = () => {
             type="submit"
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
           >
-            {(isEditMode ? "수정" : "등록")}
+            등록
           </button>
         </div>
       </form>
@@ -1546,4 +1255,4 @@ const ProductAppDetail: React.FC = () => {
   );
 };
 
-export default ProductAppDetail; 
+export default ProductAppRegister;

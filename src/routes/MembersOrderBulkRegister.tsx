@@ -193,7 +193,7 @@ const MembersBulkRegister: React.FC = () => {
       <div className="flex flex-col-reverse lg:flex-row">
         <div className="flex flex-col mx-5 w-full">
           <div className="flex">
-            <span className="font-bold text-xl">회원 일괄 등록</span>
+            <span className="font-bold text-xl">회원권 일괄 등록</span>
           </div>
 
           <div>
@@ -506,7 +506,7 @@ const MembersBulkRegister: React.FC = () => {
                     전화번호
                   </th>
                   <th>
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center text-base">
                       <span>최근 회원권</span>
                       <DescriptionPopover
                         tip={
@@ -574,7 +574,7 @@ const MembersBulkRegister: React.FC = () => {
                     <td className="px-1 sm:px-2 lg:px-6 py-4 text-base text-black text-center">
                       {member.mem_phone ? convertPhone(member.mem_phone) : "-"}
                     </td>
-                    <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
+                    <td className="px-1 sm:px-2 lg:px-6 py-4 text-base text-black text-center">
                       {member.memo_pro_name ? member.memo_pro_name : "-"}
                     </td>
                     <td className="px-1 sm:px-2 lg:px-6 py-4 font-medium text-center text-black whitespace-nowrap">

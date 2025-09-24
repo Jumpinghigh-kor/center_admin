@@ -35,6 +35,8 @@ const EventAppDetail: React.FC = () => {
   const [isLoadingImages, setIsLoadingImages] = useState(false);
   const [navigationUseYn, setNavigationUseYn] = useState<"Y" | "N">("N");
   const [navigationPathList, setNavigationPathList] = useState<{ common_code: string; common_code_name: string }[]>([]);
+  const [navigationLinkType, setNavigationLinkType] = useState<"INTERNAL" | "EXTERNAL">("INTERNAL");
+  const [navigationExternalUrl, setNavigationExternalUrl] = useState<string>("");
 
   const handleDetailImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -118,9 +120,26 @@ const EventAppDetail: React.FC = () => {
       return;
     }
 
-    if (navigationUseYn === "Y" && !formData.navigation_path) {
-      alert("이동 경로를 선택해주세요.");
-      return;
+    if (navigationUseYn === "Y") {
+      if (navigationLinkType === "INTERNAL") {
+        if (!formData.navigation_path) {
+          alert("이동 경로를 선택해주세요.");
+          return;
+        }
+      } else {
+        const urlTrimmed = navigationExternalUrl.trim();
+        if (!urlTrimmed) {
+          alert("외부 이동 URL을 입력해주세요.");
+          return;
+        }
+        if (!/^https:\/\/.+/i.test(urlTrimmed)) {
+          alert("외부 이동 URL은 반드시 https://로 시작해야 합니다.");
+          return;
+        }
+        if (urlTrimmed !== navigationExternalUrl) {
+          setNavigationExternalUrl(urlTrimmed);
+        }
+      }
     }
 
     if (!detailImage && !existingContentImage) {
@@ -171,13 +190,17 @@ const EventAppDetail: React.FC = () => {
           }
         }
 
+        const finalNavigationPath = navigationUseYn === "Y"
+          ? (navigationLinkType === "INTERNAL" ? (formData.navigation_path || null) : navigationExternalUrl.trim())
+          : null;
+
         await axios.post(
           `${process.env.REACT_APP_API_URL}/app/eventApp/updateEventApp`,
           {
             event_app_id: Number(eventAppId),
             title: formData.title,
             mod_id: user.index,
-            navigation_path: navigationUseYn === "Y" ? formData.navigation_path || null : null,
+            navigation_path: finalNavigationPath,
             images: imagesData,
           }
         );
@@ -226,6 +249,17 @@ const EventAppDetail: React.FC = () => {
             reg_dt: row.reg_dt,
             mod_dt: row.mod_dt,
           });
+          // 데이터 매핑: navigation_path가 외부 URL인지 내부 코드인지 판단
+          if (row.navigation_path) {
+            const isExternal = /^https:\/\//i.test(row.navigation_path);
+            setNavigationLinkType(isExternal ? "EXTERNAL" : "INTERNAL");
+            if (isExternal) {
+              setNavigationExternalUrl(row.navigation_path);
+            }
+          } else {
+            setNavigationLinkType("INTERNAL");
+            setNavigationExternalUrl("");
+          }
         }
 
         const imgRes = await axios.post(
@@ -322,20 +356,41 @@ const EventAppDetail: React.FC = () => {
                   </div>
 
                   {navigationUseYn === "Y" ? (
-                    <select
-                      value={formData?.navigation_path || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => (prev ? { ...prev, navigation_path: e.target.value } : prev))
-                      }
-                      className="w-full p-2 border border-gray-300 rounded bg-white"
-                    >
-                      <option value="">선택</option>
-                      {navigationPathList.map((code) => (
-                        <option key={code.common_code} value={code.common_code}>
-                          {code.common_code_name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={navigationLinkType}
+                        onChange={(e) => setNavigationLinkType(e.target.value as any)}
+                        className="p-2 border border-gray-300 rounded bg-white"
+                      >
+                        <option value="INTERNAL">내부 이동</option>
+                        <option value="EXTERNAL">외부 이동</option>
+                      </select>
+
+                      {navigationLinkType === "INTERNAL" ? (
+                        <select
+                          value={formData?.navigation_path || ""}
+                          onChange={(e) =>
+                            setFormData((prev) => (prev ? { ...prev, navigation_path: e.target.value } : prev))
+                          }
+                          className="flex-1 p-2 border border-gray-300 rounded bg-white"
+                        >
+                          <option value="">선택</option>
+                          {navigationPathList.map((code) => (
+                            <option key={code.common_code} value={code.common_code}>
+                              {code.common_code_name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={navigationExternalUrl}
+                          onChange={(e) => setNavigationExternalUrl(e.target.value)}
+                          placeholder="https:// 로 시작하는 URL을 입력하세요"
+                          className="flex-1 p-2 border border-gray-300 rounded"
+                        />
+                      )}
+                    </div>
                   ) : (
                     <input
                       type="text"

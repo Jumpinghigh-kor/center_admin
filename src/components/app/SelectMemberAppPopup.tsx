@@ -88,7 +88,7 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
         setCenters([]);
       }
 
-      fetchMembers({ memName: "", memAppStatus: "" });
+      fetchMembers({ memName: "" });
     } else {
       const timer = setTimeout(() => setIsAnimating(false), 300);
       return () => {
@@ -103,14 +103,14 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
   }, [isOpen]);
 
   // 회원 목록 불러오기
-  const fetchMembers = async (override?: { memName?: string; memAppStatus?: string }) => {
+  const fetchMembers = async (override?: { memName?: string }) => {
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/memberApp/selectMemberAppList`,
         {
           center_id: centerId || undefined,
-          mem_name: (override?.memName ?? memName) || undefined,
-          mem_app_status: (override?.memAppStatus ?? memAppStatus) || undefined,
+          mem_name: override?.memName || undefined,
+          mem_app_status: 'ACTIVE',
         },
       );
 
@@ -137,11 +137,6 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
     const selected = members.filter((m) => selectedIds.has(m.mem_id));
     onSelect(selected);
     onClose();
-  };
-
-  const handleResetFilters = () => {
-    setMemName("");
-    setMemAppStatus("");
   };
 
   if (!isOpen && !isAnimating) return null;
@@ -217,15 +212,15 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
             <div className="flex justify-end gap-2 mt-4">
               <button
                 type="button"
-                onClick={() => fetchMembers()}
+                onClick={() => fetchMembers({ memName: memName })}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 disabled={isLoading}
               >
-                조회
+                검색
               </button>
               <button
                 type="button"
-                onClick={handleResetFilters}
+                onClick={() => fetchMembers({ memName: "" })}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 disabled={isLoading}
               >
@@ -243,6 +238,7 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
                     <th className="px-4 py-2 text-center">선택</th>
                     <th className="px-4 py-2">회원명</th>
                     <th className="px-4 py-2">전화번호</th>
+                    <th className="px-4 py-2">활동상태</th>
                     <th className="px-4 py-2">성별</th>
                     <th className="px-4 py-2">센터</th>
                   </tr>
@@ -280,7 +276,8 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
                           />
                         </td>
                         <td className="px-4 py-2">{m.mem_name}</td>
-                        <td className="px-4 py-2">{m.mem_phone ? m.mem_phone : '-'}</td>
+                        <td className="px-4 py-2">{m.mem_phone ? m.mem_phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</td>
+                        <td className="px-4 py-2">{m.mem_app_status === 'ACTIVE' ? '활동' : m.mem_app_status === 'PROCEED' ? '진행중' : '탈퇴'}</td>
                         <td className="px-4 py-2">{m.mem_gender}</td>
                         <td className="px-4 py-2">{m.center_name}</td>
                       </tr>

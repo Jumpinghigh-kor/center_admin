@@ -93,7 +93,10 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
         setIsLoading(true);
         const res = await axios.post(
           `${process.env.REACT_APP_API_URL}/app/memberApp/selectMemberAppList`,
-          { center_id: user?.center_id }
+          { 
+            center_id: user?.center_id
+            , mem_app_status: 'ACTIVE'
+          }
         );
         setMembers(res.data?.result || []);
       } catch (e) {
@@ -211,8 +214,8 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
           `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
           {
             post_type: 'JUMPING',
-            title: `${krDate}의 수업 예약은 ${actionText} 되었습니다.`,
-            content: `회원님께서 예약하신 ${krDate}의 수업은 ${actionText} 되었습니다. 자세한 내용이 궁금하시다면 가맹점에 문의하시기 바랍니다.`,
+            title: `${krDate}에 수업 예약이 ${actionText} 되었습니다.`,
+            content: `회원님께서 ${krDate}에 수업이 ${actionText} 되었습니다. 자세한 내용이 궁금하시다면 가맹점에 문의하시기 바랍니다.`,
             all_send_yn: 'N',
             push_send_yn: 'Y',
             userId: user?.index,
@@ -374,12 +377,13 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
                           members.map((m, idx) => {
                             const checked = checkedItems[idx] || false;
                             return (
-                              <tr key={m.mem_id} className="border-t hover:bg-gray-50">
+                              <tr key={m.mem_id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => handleIndividualCheck(idx, !checked)}>
                                 <td className="px-3 py-2 text-center">
                                   <input
                                     type="checkbox"
                                     className="w-4 h-4 cursor-pointer"
                                     checked={checked}
+                                    onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => handleIndividualCheck(idx, e.target.checked)}
                                   />
                                 </td>

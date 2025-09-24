@@ -14,7 +14,6 @@ const {
   getAttendance,
   getValidMemberOrder,
   getAllMemberList,
-  createMemberApp,
 } = require("../controllers/member");
 
 //회원 관리
@@ -31,6 +30,5 @@ router.patch("/order/:id", updateMemberOrder);
 router.delete("/order/:id", deleteMemberOrder);
 router.get("/attendance", getAttendance);
 router.post("/allMemberList", getAllMemberList);
-router.post("/createMemberApp", createMemberApp);
 
 module.exports = router;

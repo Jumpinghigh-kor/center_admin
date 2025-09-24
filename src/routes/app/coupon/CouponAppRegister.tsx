@@ -285,7 +285,18 @@ const CouponAppRegister: React.FC = () => {
                     type="datetime-local"
                     name="start_dt"
                     value={formData.start_dt}
-                    onChange={(e) => setFormData({ ...formData, start_dt: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, start_dt: e.target.value });
+                      requestAnimationFrame(() => {
+                        try { e.currentTarget.blur(); } catch {}
+                      });
+                    }}
+                    onInput={(e) => {
+                      const input = e.currentTarget;
+                      requestAnimationFrame(() => {
+                        try { input.blur(); } catch {}
+                      });
+                    }}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
                     className="w-full p-2 border cursor-pointer border-gray-300 rounded"
@@ -305,7 +316,18 @@ const CouponAppRegister: React.FC = () => {
                     type="datetime-local"
                     name="end_dt"
                     value={formData.end_dt}
-                    onChange={(e) => setFormData({ ...formData, end_dt: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, end_dt: e.target.value });
+                      requestAnimationFrame(() => {
+                        try { e.currentTarget.blur(); } catch {}
+                      });
+                    }}
+                    onInput={(e) => {
+                      const input = e.currentTarget;
+                      requestAnimationFrame(() => {
+                        try { input.blur(); } catch {}
+                      });
+                    }}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
                     className="w-full p-2 border cursor-pointer border-gray-300 rounded"
@@ -356,7 +378,7 @@ const CouponAppRegister: React.FC = () => {
             disabled={isSubmitting}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
           >
-            {isSubmitting ? '등록 중...' : '등록'}
+            등록
           </button>
         </div>
       </form>

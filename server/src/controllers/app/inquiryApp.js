@@ -31,7 +31,6 @@ exports.selectInquiryAppList = (req, res) => {
       , CASE
           WHEN m.mem_app_status = 'ACTIVE' THEN '활동 회원'
           WHEN m.mem_app_status = 'PROCEED' THEN '가입 진행 중 회원'
-          WHEN m.mem_app_status = 'SLEEP' THEN '휴면 회원'
           WHEN m.mem_app_status = 'EXIT' THEN '탈퇴 회원'
           ELSE '-'
         END AS mem_app_status

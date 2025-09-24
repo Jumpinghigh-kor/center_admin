@@ -145,7 +145,18 @@ const NoticesAppRegister: React.FC = () => {
                      type="datetime-local"
                      name="start_dt"
                      value={formData.start_dt ? `${formData.start_dt.slice(0, 4)}-${formData.start_dt.slice(4, 6)}-${formData.start_dt.slice(6, 8)}T${formData.start_dt.slice(8, 10)}:${formData.start_dt.slice(10, 12)}` : ''}
-                     onChange={handleInputChange}
+                     onChange={(e) => {
+                       handleInputChange(e);
+                       requestAnimationFrame(() => {
+                         try { e.currentTarget.blur(); } catch {}
+                       });
+                     }}
+                     onInput={(e) => {
+                       const input = e.currentTarget;
+                       requestAnimationFrame(() => {
+                         try { input.blur(); } catch {}
+                       });
+                     }}
                      onClick={(e) => openInputDatePicker(e.currentTarget)}
                      onFocus={(e) => openInputDatePicker(e.currentTarget)}
                      className="w-full p-2 border cursor-pointer border-gray-300 rounded"
@@ -164,7 +175,18 @@ const NoticesAppRegister: React.FC = () => {
                      type="datetime-local"
                      name="end_dt"
                      value={formData.end_dt ? `${formData.end_dt.slice(0, 4)}-${formData.end_dt.slice(4, 6)}-${formData.end_dt.slice(6, 8)}T${formData.end_dt.slice(8, 10)}:${formData.end_dt.slice(10, 12)}` : ''}
-                     onChange={handleInputChange}
+                     onChange={(e) => {
+                       handleInputChange(e);
+                       requestAnimationFrame(() => {
+                         try { e.currentTarget.blur(); } catch {}
+                       });
+                     }}
+                     onInput={(e) => {
+                       const input = e.currentTarget;
+                       requestAnimationFrame(() => {
+                         try { input.blur(); } catch {}
+                       });
+                     }}
                      onClick={(e) => openInputDatePicker(e.currentTarget)}
                      onFocus={(e) => openInputDatePicker(e.currentTarget)}
                      className="w-full p-2 border cursor-pointer border-gray-300 rounded"

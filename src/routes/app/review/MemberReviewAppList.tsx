@@ -32,6 +32,8 @@ const MemberReviewApp: React.FC = () => {
   const [reviewImgList, setReviewImgList] = useState<ReviewImg[]>([]);
   const user = useUserStore((state) => state.user);
   const [showImagePopup, setShowImagePopup] = useState<boolean>(false);
+  const [truncatedMap, setTruncatedMap] = useState<Record<number, boolean>>({});
+  const [expandedMap, setExpandedMap] = useState<Record<number, boolean>>({});
   const { checkedItems, allChecked, handleAllCheck, handleIndividualCheck, resetCheckedItems } = useCheckbox(reviewList.length);
   
   // 페이지네이션 훅 사용
@@ -298,7 +300,7 @@ const MemberReviewApp: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="flex justify-start items-center mb-2">
+            <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-semibold">총 {reviewList.length}건</p>
             </div>
             <div className="overflow-x-auto">
@@ -360,14 +362,51 @@ const MemberReviewApp: React.FC = () => {
                         {review.title}
                       </td>
                       <td className="text-center max-w-[200px] hidden md:table-cell">
-                        <div style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {review.content}
+                        <div className="inline-block text-left max-w-[200px]">
+                          <div
+                            ref={(el) => {
+                              if (!el) return;
+                              const isTruncated = el.scrollHeight > el.clientHeight + 1;
+                              const id = review.review_app_id;
+                              setTruncatedMap((prev) => (prev[id] === isTruncated ? prev : { ...prev, [id]: isTruncated }));
+                            }}
+                            style={expandedMap[review.review_app_id]
+                              ? { whiteSpace: 'pre-wrap', wordBreak: 'break-word' }
+                              : {
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical' as any,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word'
+                                }
+                            }
+                          >
+                            {review.content}
+                          </div>
+                          {truncatedMap[review.review_app_id] && !expandedMap[review.review_app_id] && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedMap((prev) => ({ ...prev, [review.review_app_id]: true }));
+                              }}
+                              className="ml-1 text-blue-500 hover:underline text-sm align-baseline"
+                            >
+                              [더보기]
+                            </button>
+                          )}
+                          {expandedMap[review.review_app_id] && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedMap((prev) => ({ ...prev, [review.review_app_id]: false }));
+                              }}
+                              className="ml-1 text-blue-500 hover:underline text-sm align-baseline"
+                            >
+                              [접기]
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="text-center">

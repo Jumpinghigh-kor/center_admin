@@ -192,8 +192,9 @@ const InquiryShoppingAppList: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="mb-6">
+            <div className="mb-6 flex justify-between items-center">
               <p className="text-sm font-bold">총 {shoppingInquiryList.length}건</p>
+              <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">

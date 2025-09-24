@@ -230,7 +230,7 @@ useEffect(() => {
           {(!selectedMember?.mem_app_status || selectedMember?.mem_app_status === 'EXIT') ?
             (<div className="flex justify-end">
               <div className="flex flex-col items-end">
-                {/* <button
+                <button
                   className={`rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
                     selectedMember
                     ? "bg-blue-600 hover:bg-green-700 cursor-pointer"
@@ -245,7 +245,7 @@ useEffect(() => {
                   disabled={!selectedMember}
                   >
                   어플 계정 생성
-                </button> */}
+                </button>
               </div>
             </div>
           ) : (
@@ -254,25 +254,7 @@ useEffect(() => {
                 <button
                   className={`rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
                     selectedMember
-                    ? "bg-blue-600 hover:bg-green-700 cursor-pointer"
-                    : "bg-gray-400 cursor-not-allowed"
-                  }`}
-                  onClick={() => {
-                    if (selectedMember) {
-                      setPopupMode("passwordChange");
-                      setPopupToggle(true);
-                    }
-                  }}
-                  disabled={!selectedMember}
-                  >
-                  어플 비밀번호 변경
-                </button>
-              </div>
-              <div className="flex flex-col items-end">
-                <button
-                  className={`rounded-2xl mt-3 ml-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
-                    selectedMember
-                    ? "bg-orange-600 hover:bg-green-700 cursor-pointer"
+                    ? "bg-orange-600 hover:bg-orange-700 cursor-pointer"
                     : "bg-gray-400 cursor-not-allowed"
                   }`}
                   onClick={() => {
@@ -283,7 +265,7 @@ useEffect(() => {
                   }}
                   disabled={!selectedMember}
                   >
-                  어플 이메일 변경
+                  어플 정보 변경
                 </button>
               </div>
             </div>
@@ -612,6 +594,12 @@ useEffect(() => {
                           >
                             남은횟수
                           </th>
+                          <th
+                            scope="col"
+                            className="text-base px-1 sm:px-2 lg:px-6 py-3 text-center"
+                          >
+                            메모
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -651,6 +639,11 @@ useEffect(() => {
                             <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
                               {order.pro_type === "회차권"
                                 ? order.memo_remaining_counts
+                                : "-"}
+                            </td>
+                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
+                              {order.memo_history
+                                ? order.memo_history
                                 : "-"}
                             </td>
                           </tr>

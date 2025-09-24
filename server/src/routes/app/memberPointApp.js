@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   deleteMemberPointApp,
   updatePointAmount,
+  updatePointStatus,
 } = require("../../controllers/app/memberPointApp");
 
 // 포인트 삭제

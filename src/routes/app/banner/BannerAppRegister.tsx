@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useUserStore } from "../../../store/store";
-import { openInputDatePicker } from "../../../utils/commonUtils";
+import { openInputDatePicker, isValidDateRange } from "../../../utils/commonUtils";
 
 interface BannerApp {
   banner_app_id: number;
@@ -53,7 +53,7 @@ const BannerAppRegister: React.FC = () => {
     banner_locate: "",
     use_yn: "Y",
     del_yn: "N",
-    order_seq: 0,
+    order_seq: 1,
     start_dt: "",
     end_dt: "",
     navigation_type: "APP",
@@ -125,8 +125,8 @@ const BannerAppRegister: React.FC = () => {
       return;
     }
 
-    if (formData.start_dt > formData.end_dt) {
-      alert("시작일은 종료일보다 이전이어야 합니다.");
+    if (!isValidDateRange(formData.start_dt, formData.end_dt)) {
+      alert("종료일은 시작일보다 빠를 수 없습니다.");
       return;
     }
 
@@ -394,7 +394,7 @@ const BannerAppRegister: React.FC = () => {
                       const value = e.target.value;
                       if (value === "" || /^[0-9]+$/.test(value)) {
                         if (value.length <= 3) {
-                          setFormData({ ...formData, order_seq: parseInt(value) || 0 });
+                          setFormData({ ...formData, order_seq: parseInt(value) || 1 });
                         }
                       }
                     }}
@@ -431,6 +431,15 @@ const BannerAppRegister: React.FC = () => {
                         ...prev,
                         start_dt: formattedValue
                       }));
+                      requestAnimationFrame(() => {
+                        try { e.currentTarget.blur(); } catch {}
+                      });
+                    }}
+                    onInput={(e) => {
+                      const input = e.currentTarget;
+                      requestAnimationFrame(() => {
+                        try { input.blur(); } catch {}
+                      });
                     }}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
@@ -459,6 +468,15 @@ const BannerAppRegister: React.FC = () => {
                         ...prev,
                         end_dt: formattedValue
                       }));
+                      requestAnimationFrame(() => {
+                        try { e.currentTarget.blur(); } catch {}
+                      });
+                    }}
+                    onInput={(e) => {
+                      const input = e.currentTarget;
+                      requestAnimationFrame(() => {
+                        try { input.blur(); } catch {}
+                      });
                     }}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}

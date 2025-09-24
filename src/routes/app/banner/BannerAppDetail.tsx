@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useUserStore } from "../../../store/store";
-import { openInputDatePicker } from "../../../utils/commonUtils";
+import { openInputDatePicker, isValidDateRange } from "../../../utils/commonUtils";
 
 interface BannerApp {
   banner_app_id: number;
@@ -134,6 +134,12 @@ const BannerAppDetail: React.FC = () => {
 
     try {
       if (type === 'EDIT') {
+        // 유효성: 종료일은 시작일보다 빠를 수 없음 (공통 함수 사용)
+        if (!isValidDateRange(formData.start_dt || "", formData.end_dt || "")) {
+          alert("종료일은 시작일보다 빠를 수 없습니다.");
+          return;
+        }
+
         const data = new FormData();
         
         data.append("bannerAppId", bannerAppId);
@@ -453,12 +459,24 @@ const BannerAppDetail: React.FC = () => {
                     value={formData.start_dt && formData.start_dt.length >= 12 ? 
                       `${formData.start_dt.slice(0, 4)}-${formData.start_dt.slice(4, 6).padStart(2, '0')}-${formData.start_dt.slice(6, 8).padStart(2, '0')}T${formData.start_dt.slice(8, 10).padStart(2, '0')}:${formData.start_dt.slice(10, 12).padStart(2, '0')}` : ''}
                     onChange={(e) => {
-                      const value = e.target.value;
+                      const input = e.currentTarget as HTMLInputElement;
+                      const value = input.value;
                       const formattedValue = value ? value.replace(/[-:T]/g, '').slice(0, 12) : '';
                       setFormData(prev => ({
                         ...prev,
                         start_dt: formattedValue
                       }));
+                      // 값 반영 후 즉시 포커스 제거(달력 닫힘) - setTimeout 미사용
+                      try {
+                        // 일부 브라우저에서 즉시 blur가 무시되는 케이스 대비
+                        // requestAnimationFrame으로 레이아웃 이후 실행
+                        const el = input;
+                        if (typeof window.requestAnimationFrame === 'function') {
+                          window.requestAnimationFrame(() => el.blur());
+                        } else {
+                          el.blur();
+                        }
+                      } catch {}
                     }}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
@@ -481,12 +499,21 @@ const BannerAppDetail: React.FC = () => {
                     value={formData.end_dt && formData.end_dt.length >= 12 ? 
                       `${formData.end_dt.slice(0, 4)}-${formData.end_dt.slice(4, 6).padStart(2, '0')}-${formData.end_dt.slice(6, 8).padStart(2, '0')}T${formData.end_dt.slice(8, 10).padStart(2, '0')}:${formData.end_dt.slice(10, 12).padStart(2, '0')}` : ''}
                     onChange={(e) => {
-                      const value = e.target.value;
+                      const input = e.currentTarget as HTMLInputElement;
+                      const value = input.value;
                       const formattedValue = value ? value.replace(/[-:T]/g, '').slice(0, 12) : '';
                       setFormData(prev => ({
                         ...prev,
                         end_dt: formattedValue
                       }));
+                      try {
+                        const el = input;
+                        if (typeof window.requestAnimationFrame === 'function') {
+                          window.requestAnimationFrame(() => el.blur());
+                        } else {
+                          el.blur();
+                        }
+                      } catch {}
                     }}
                     onClick={(e) => openInputDatePicker(e.currentTarget)}
                     onFocus={(e) => openInputDatePicker(e.currentTarget)}

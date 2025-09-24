@@ -3,6 +3,7 @@ import { useUserStore } from "../store/store";
 import axios from "axios";
 import ReservationPopup from "../components/ReservationPopup";
 import ReservationRegisterPopup from "../components/ReservationRegisterPopup";
+import { useLocation } from "react-router-dom";
 
 
 interface Schedule {
@@ -18,11 +19,13 @@ interface Schedule {
 
 const ReservationManagement: React.FC = () => {
   const user = useUserStore((state) => state.user);
+  const location = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<{ schedule: Schedule } | null>(null);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const nowLocation = location.pathname.startsWith("/app")
 
   const fetchMemberScheduleApp = async () => {
     try {
@@ -116,7 +119,7 @@ const ReservationManagement: React.FC = () => {
   }
 
   return (
-    <div className="px-2 py-3 lg:p-10">
+    <div className={`${nowLocation ? "p-6 bg-white rounded-lg shadow-lg overflow-hidden" : "px-2 py-3 lg:p-10"}`}>
       <div className="flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <span className="font-bold text-xl">예약 관리</span>
@@ -172,7 +175,7 @@ const ReservationManagement: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden p-6">
+        <div className={`${nowLocation ? "overflow-hidden" : "overflow-hidden p-6 bg-white rounded-lg shadow-lg"}`}>
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>

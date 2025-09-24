@@ -319,8 +319,9 @@ const BannerAppList: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="mb-4">
+            <div className="mb-4 flex justify-between items-center">
               <p className="text-sm font-semibold">총 {bannersList.length}건</p>
+              <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">

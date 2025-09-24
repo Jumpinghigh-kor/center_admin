@@ -170,8 +170,9 @@ const UpdateLogAppList: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="flex justify-start items-center mb-2">
+            <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-semibold">총 {updateLogList.length}건</p>
+              <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">

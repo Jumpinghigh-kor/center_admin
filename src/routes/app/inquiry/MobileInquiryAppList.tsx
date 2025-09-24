@@ -130,12 +130,12 @@ const MobileInquiryAppList: React.FC = () => {
                       <input
                         type="radio"
                         name="mem_app_status"
-                        value="SLEEP"
-                        checked={searchData.mem_app_status === 'SLEEP'}
+                        value="PROCEED"
+                        checked={searchData.mem_app_status === 'PROCEED'}
                         onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
                         className="mr-1"
                       />
-                      <span className="text-sm">휴면회원</span>
+                      <span className="text-sm">가입중 회원</span>
                     </label>
                   </div>
                 </td>
@@ -207,8 +207,9 @@ const MobileInquiryAppList: React.FC = () => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <div className="mt-4 mb-4">
+              <div className="mt-4 mb-4 flex justify-between items-center">
                 <p className="text-sm font-bold">총 {inquiryList.length}건</p>
+                <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
               </div>
               <table className="min-w-full bg-white">
                 <thead>

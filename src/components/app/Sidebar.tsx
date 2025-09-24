@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useUserStore } from "../../store/store";
+import { useUserStore, useSidebarStore } from "../../store/store";
 import profileImage from "../../images/profile2.png";
 
 interface SidebarProps {
@@ -11,11 +11,58 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const navigate = useNavigate();
   const user = useUserStore((state) => state.user);
+  const sidebar = useSidebarStore((state) => state.sidebar);
+  const [isVisible, setIsVisible] = useState<boolean>(true);
+  const prevSidebar = useRef<boolean>(sidebar);
+  
+  // 햄버거 메뉴(전역 sidebar)가 false -> true로 변할 때만 토글
+  useEffect(() => {
+    if (!prevSidebar.current && sidebar) {
+      setIsVisible((v) => !v);
+    }
+    prevSidebar.current = sidebar;
+  }, [sidebar]);
+
+  // App 사이드바 숨김 시, 본문 컨테이너를 전체 폭으로 확장
+  useEffect(() => {
+    const contentContainer = document.querySelector(
+      ".flex-1.overflow-x-hidden.p-4 .container.mx-auto"
+    ) as HTMLElement | null;
+    if (!contentContainer) return;
+    if (!isVisible) {
+      contentContainer.style.maxWidth = "100%";
+      contentContainer.style.width = "100%";
+      contentContainer.style.marginLeft = "0";
+      contentContainer.style.marginRight = "0";
+    } else {
+      contentContainer.style.maxWidth = "";
+      contentContainer.style.width = "";
+      contentContainer.style.marginLeft = "";
+      contentContainer.style.marginRight = "";
+    }
+  }, [isVisible]);
+
+  // App 사이드바 숨김 시, 헤더 아이콘 영역이 좌측에 붙도록 헤더 마진 조정
+  useEffect(() => {
+    const headerContainer = document.querySelector(
+      "nav .bg-custom-393939"
+    ) as HTMLElement | null;
+    if (!headerContainer) return;
+    if (!isVisible) {
+      headerContainer.style.marginLeft = "0px";
+    } else {
+      headerContainer.style.marginLeft = "";
+    }
+  }, [isVisible]);
   
   const handleNavigation = (path: string, tab: string) => {
     setActiveTab(tab);
     navigate(path);
   };
+
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <div className="bg-white w-16 md:w-64 shadow-lg h-full flex flex-col">
@@ -56,6 +103,36 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                 />
               </svg>
               <span className="hidden md:inline">대시보드</span>
+            </button>
+          </li>
+
+          <li>
+            <button
+              onClick={() =>
+                handleNavigation("/app/memberAppList", "memberAppList")
+              }
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === "memberAppList"
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="회원 관리"
+            >
+              <svg
+                className="w-6 h-6 md:mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5.121 17.804A7 7 0 0112 15a7 7 0 016.879 2.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="hidden md:inline">회원 관리</span>
             </button>
           </li>
 
@@ -481,40 +558,40 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                   <span className="hidden md:inline">이벤트 관리</span>
                 </button>
               </li>
-
-              <li className="border-t border-gray-500">
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("user");
-                    window.location.href = "/login";
-                  }}
-                  className={`flex items-center w-full py-2 px-4 text-left ${
-                    activeTab === "logout"
-                      ? "bg-gray-200 text-gray-900"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  title="로그아웃"
-                >
-                  <svg
-                    className="w-6 h-6 md:mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
-                  </svg>
-                  <span className="hidden md:inline">로그아웃</span>
-                </button>
-              </li>
             </>
           )}
+          
+          <li className="border-t border-gray-500">
+            <button
+              onClick={() => {
+                localStorage.removeItem("token");
+                localStorage.removeItem("user");
+                window.location.href = "/login";
+              }}
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === "logout"
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="로그아웃"
+            >
+              <svg
+                className="w-6 h-6 md:mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              <span className="hidden md:inline">로그아웃</span>
+            </button>
+          </li>
         </ul>        
       </div>
 

@@ -67,8 +67,8 @@ exports.selectMemberReviewAppList = (req, res) => {
       , pa.title AS product_title
       , pa.brand_name
     FROM		    members m
-    INNER JOIN	member_review_app mra ON m.mem_id = mra.mem_id
-    LEFT JOIN	  product_app pa	ON mra.product_app_id = pa.product_app_id
+    INNER JOIN	member_review_app mra   ON m.mem_id = mra.mem_id
+    LEFT JOIN	  product_app pa	        ON mra.product_app_id = pa.product_app_id
     WHERE		    mra.del_yn = 'N'
     AND			    mra.admin_del_yn = 'N'
     ${addCondition}

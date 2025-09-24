@@ -212,7 +212,7 @@ const PostAppDetail: React.FC = () => {
                         type="button"
                         onClick={() => setIsPopup(true)}
                         className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={pushSendYn === "N"}
+                        disabled
                         title={pushSendYn === "N" ? "푸쉬 발송이 '아니오'인 경우 회원 선택이 비활성화됩니다." : undefined}
                       >
                         회원 선택

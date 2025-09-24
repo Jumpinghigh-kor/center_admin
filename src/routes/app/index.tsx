@@ -10,8 +10,9 @@ import BannerAppRegister from "./banner/BannerAppRegister";
 import NoticesAppList from "./notice/NoticesAppList";
 import NoticesAppRegister from "./notice/NoticesAppRegister";
 import NoticesAppDetail from "./notice/NoticesAppDetail";
-import ProductAppList from "./ProductAppList";
-import ProductAppDetail from "./ProductAppDetail";
+import ProductAppList from "./product/ProductAppList";
+import ProductAppDetail from "./product/ProductAppDetail";
+import ProductAppRegister from "./product/ProductAppRegister";
 import UpdateLogAppList from "./updateLogApp/UpdateLogAppList";
 import UpdateLogAppRegister from "./updateLogApp/UpdateLogAppRegister";
 import UpdateLogAppDetail from "./updateLogApp/UpdateLogAppDetail";
@@ -36,6 +37,7 @@ import PostAppDetail from "./post/PostAppDetail";
 import PostAppRegister from "./post/PostAppRegister";
 import InquiryShoppingAppDetail from "./inquiryShopping/InquiryShoppingAppDetail";
 import ReservationManagement from "../ReservationManagement";
+import MemberAppList from "./member/MemberAppList";
 
 const MemberApp: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -86,6 +88,8 @@ const MemberApp: React.FC = () => {
       setActiveTab("memberOrderAppReturn");
     } else if (location.pathname.includes("/postAppList")) {
       setActiveTab("postAppList");
+    } else if (location.pathname.includes("/memberAppList")) {
+      setActiveTab("memberAppList");
     }
 
     // 햄버거 메뉴 클릭 시 사이드바가 표시되는 것 방지
@@ -111,10 +115,11 @@ const MemberApp: React.FC = () => {
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div className="flex-1 overflow-x-hidden p-4">
+      <div className="flex-1 overflow-x-hidden p-4 mt-6">
         <div className="container mx-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/memberAppList" element={<MemberAppList />} />
             <Route path="/banner" element={<BannerAppList />} />
             <Route path="/banner/bannerAppDetail" element={<BannerAppDetail />} />
             <Route path="/banner/bannerAppRegister" element={<BannerAppRegister />} />
@@ -122,7 +127,8 @@ const MemberApp: React.FC = () => {
             <Route path="/notice/noticesAppRegister" element={<NoticesAppRegister />} />
             <Route path="/notice/noticesAppDetail" element={<NoticesAppDetail />} />
             <Route path="/productApp" element={<ProductAppList />} />
-            <Route path="/productApp/detail" element={<ProductAppDetail />} />
+            <Route path="/productApp/productAppDetail" element={<ProductAppDetail />} />
+            <Route path="/productApp/productAppRegister" element={<ProductAppRegister />} />
             <Route path="/updateLogApp" element={<UpdateLogAppList />} />
             <Route path="/updateLogApp/updateLogAppRegister" element={<UpdateLogAppRegister />} />
             <Route path="/updateLogApp/updateLogAppDetail" element={<UpdateLogAppDetail />} />

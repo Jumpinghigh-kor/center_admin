@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useUserStore } from "../store/store";
 import {
   convertDateTime,
@@ -7,6 +7,7 @@ import {
   convertPhone,
 } from "../utils/formatUtils";
 import { Datepicker } from "flowbite-react";
+import { openInputDatePicker } from "../utils/commonUtils";
 import DeleteCheckinLogModal from "../components/DeleteCheckinLogModal";
 
 type Log = {
@@ -38,6 +39,7 @@ const MembersCheckInList: React.FC = () => {
   const [selectedMemberIndex, setSelectedMemberIndex] = useState<number>(-1);
   const [memberSearchPerformed, setMemberSearchPerformed] =
     useState<boolean>(false);
+  const checkinDateInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -184,7 +186,7 @@ const MembersCheckInList: React.FC = () => {
       <div className="flex justify-between items-center">
         <span className="font-bold text-xl">회원 출입 내역</span>
         <button
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded cursor-pointer"
           onClick={() => {
             setIsEditMode(false);
             setCheckinNumber("");
@@ -203,7 +205,7 @@ const MembersCheckInList: React.FC = () => {
         </button>
       </div>
       <div className="flex justify-center items-center my-4">
-        <span className="font-bold text-3xl mb-1">
+        <span className="font-bold text-3xl mb-1 cursor-pointer">
           <Datepicker
             key={date.getTime()}
             language="kr"
@@ -211,6 +213,7 @@ const MembersCheckInList: React.FC = () => {
             onSelectedDateChanged={onSelectedDateChanged}
             labelTodayButton="오늘"
             labelClearButton="끄기"
+            className="cursor-pointer"
           />
         </span>
       </div>
@@ -437,7 +440,7 @@ const MembersCheckInList: React.FC = () => {
                             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                             onClick={handleMemberSearch}
                           >
-                            검색
+                            확인
                           </button>
                         </div>
                         {memberSearchResults.length > 0 && (
@@ -507,14 +510,19 @@ const MembersCheckInList: React.FC = () => {
                       출입 시간
                     </label>
                     <input
+                      onClick={() => openInputDatePicker(checkinDateInputRef.current)}
                       type="datetime-local"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                      ref={checkinDateInputRef}
                       value={checkinDate}
                       onChange={(e) => {
                         setCheckinDate(e.target.value);
                         setMemberships([]);
                         setIsSearched(false);
                         setSelectedMembership("");
+                        try {
+                          e.currentTarget.blur();
+                        } catch {}
                       }}
                     />
                   </div>
@@ -524,7 +532,7 @@ const MembersCheckInList: React.FC = () => {
                       className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                       onClick={handleSearch}
                     >
-                      검색
+                      확인
                     </button>
                   </div>
                   <div>

@@ -11,6 +11,8 @@ const EventAppRegister: React.FC = () => {
   const [navigationUseYn, setNavigationUseYn] = useState<"Y" | "N">("Y");
   const [navigationPath, setNavigationPath] = useState<string>("");
   const [navigationPathList, setNavigationPathList] = useState<{ common_code: string; common_code_name: string }[]>([]);
+  const [navigationLinkType, setNavigationLinkType] = useState<"INTERNAL" | "EXTERNAL">("INTERNAL");
+  const [navigationExternalUrl, setNavigationExternalUrl] = useState<string>("");
 
   const [detailImage, setDetailImage] = useState<File | null>(null);
   const [buttonImage, setButtonImage] = useState<File | null>(null);
@@ -99,9 +101,25 @@ const EventAppRegister: React.FC = () => {
       return;
     }
     if (navigationUseYn === "Y") {
-      if (!navigationPath) {
-        alert("이동 경로를 선택해주세요.");
-        return;
+      if (navigationLinkType === "INTERNAL") {
+        if (!navigationPath) {
+          alert("이동 경로를 선택해주세요.");
+          return;
+        }
+      } else {
+        const externalUrlTrimmed = navigationExternalUrl.trim();
+        if (!externalUrlTrimmed) {
+          alert("외부 이동 URL을 입력해주세요.");
+          return;
+        }
+        if (!/^https:\/\/.+/i.test(externalUrlTrimmed)) {
+          alert("외부 이동 URL은 반드시 https://로 시작해야 합니다.");
+          return;
+        }
+        // trim 적용
+        if (externalUrlTrimmed !== navigationExternalUrl) {
+          setNavigationExternalUrl(externalUrlTrimmed);
+        }
       }
       if (!buttonImage) {
         alert("버튼 이미지를 선택해주세요.");
@@ -130,11 +148,15 @@ const EventAppRegister: React.FC = () => {
         });
       }
 
+      const finalNavigationPath = navigationUseYn === "Y"
+        ? (navigationLinkType === "INTERNAL" ? navigationPath : navigationExternalUrl.trim())
+        : null;
+
       await axios.post(`${process.env.REACT_APP_API_URL}/app/eventApp/insertEventApp`, {
         title,
         use_yn: "Y",
         reg_id: user.index,
-        navigation_path: navigationUseYn === "Y" ? navigationPath : null,
+        navigation_path: finalNavigationPath,
         images: imagesData,
       });
 
@@ -199,18 +221,39 @@ const EventAppRegister: React.FC = () => {
                   </div>
 
                   {navigationUseYn === "Y" ? (
-                    <select
-                      value={navigationPath}
-                      onChange={(e) => setNavigationPath(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded bg-white"
-                    >
-                      <option value="">선택</option>
-                      {navigationPathList.map((code) => (
-                        <option key={code.common_code} value={code.common_code}>
-                          {code.common_code_name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={navigationLinkType}
+                        onChange={(e) => setNavigationLinkType(e.target.value as any)}
+                        className="p-2 border border-gray-300 rounded bg-white"
+                      >
+                        <option value="INTERNAL">내부 이동</option>
+                        <option value="EXTERNAL">외부 이동</option>
+                      </select>
+
+                      {navigationLinkType === "INTERNAL" ? (
+                        <select
+                          value={navigationPath}
+                          onChange={(e) => setNavigationPath(e.target.value)}
+                          className="flex-1 p-2 border border-gray-300 rounded bg-white"
+                        >
+                          <option value="">선택</option>
+                          {navigationPathList.map((code) => (
+                            <option key={code.common_code} value={code.common_code}>
+                              {code.common_code_name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={navigationExternalUrl}
+                          onChange={(e) => setNavigationExternalUrl(e.target.value)}
+                          placeholder="https:// 로 시작하는 URL을 입력하세요"
+                          className="flex-1 p-2 border border-gray-300 rounded"
+                        />
+                      )}
+                    </div>
                   ) : (
                     <input
                       type="text"

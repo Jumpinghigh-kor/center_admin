@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosResponse } from "axios";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useUserStore } from "../store/store";
 import { useNavigate } from "react-router-dom";
 
@@ -8,13 +8,74 @@ const Setting: React.FC = () => {
   const user = useUserStore((state) => state.user);
   const [mode, setMode] = useState(1);
   const [currentPassword, setCurrentPassword] = useState("");
+  const [lastPrimaryPassword, setLastPrimaryPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // 접근 인증(1차/2차) 게이트
+  const [authStep, setAuthStep] = useState<"primary" | "secondary" | "done">("primary");
+  const [primaryAuthPwd, setPrimaryAuthPwd] = useState("");
+  const [secondaryAuthPwd, setSecondaryAuthPwd] = useState("");
+
+  // 항상 1차 → 2차 인증 요구
+  useEffect(() => {
+    setAuthStep("primary");
+  }, []);
+
+  // 두 비밀번호를 한 번에 입력받아 순차 인증
+  const handleAuthBoth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.usr_id) {
+      alert("유저 정보가 없습니다. 다시 로그인해 주세요.");
+      navigate("/login");
+      return;
+    }
+    if (!primaryAuthPwd) {
+      alert("1차 비밀번호를 입력해 주세요.");
+      return;
+    }
+    if (!secondaryAuthPwd) {
+      alert("2차 비밀번호를 입력해 주세요.");
+      return;
+    }
+    try {
+      // 1차 인증
+      const res1 = await axios.post(`${process.env.REACT_APP_API_URL}/login/primary`, {
+        id: user.usr_id,
+        password: primaryAuthPwd,
+      });
+      const ok1 = (res1 as any)?.data?.login === true;
+      if (!ok1) {
+        alert("1차 비밀번호가 올바르지 않습니다.");
+        return;
+      }
+      // 2차 인증
+      const res2 = await axios.post(`${process.env.REACT_APP_API_URL}/login/secondary`, {
+        id: user.usr_id,
+        password: secondaryAuthPwd,
+      });
+      const ok2 = (res2 as any)?.data?.login === true;
+      if (!ok2) {
+        alert("2차 비밀번호가 올바르지 않습니다.");
+        return;
+      }
+      const token = (res2 as any)?.data?.access_token;
+      if (token) {
+        localStorage.setItem("accessToken", token);
+      }
+      setPrimaryAuthPwd("");
+      setLastPrimaryPassword(primaryAuthPwd);
+      setSecondaryAuthPwd("");
+      setAuthStep("done");
+    } catch (error) {
+      alert("비밀번호를 다시 확인해 주세요.");
+    }
+  };
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     // 간단한 검증 로직
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword) {
       alert("모든 필드를 입력해주세요.");
       return;
     }
@@ -33,7 +94,8 @@ const Setting: React.FC = () => {
         `${process.env.REACT_APP_API_URL}/user/${user.center_id}`,
         {
           mode: mode,
-          currentPassword: currentPassword,
+          // 서버는 현재 비밀번호를 요구하므로, 직전에 인증한 1차 비밀번호로 대체
+          currentPassword: lastPrimaryPassword,
           newPassword: newPassword,
         }
       );
@@ -51,6 +113,43 @@ const Setting: React.FC = () => {
 
   return (
     <div className="p-3 sm:p-10">
+      {authStep !== "done" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow w-full max-w-sm mx-4">
+            <div className="bg-custom-C4C4C4 text-white px-4 py-3 rounded-t">
+              <div className="text-base font-semibold">
+                비밀번호 인증 (1차/2차)
+              </div>
+            </div>
+            <div className="p-4">
+              <form onSubmit={handleAuthBoth} className="space-y-3">
+                <div className="text-sm text-gray-600">설정 화면에 접근하려면 1차/2차 비밀번호가 모두 필요합니다.</div>
+                <input
+                  type="password"
+                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                  placeholder="1차 비밀번호"
+                  value={primaryAuthPwd}
+                  onChange={(e) => setPrimaryAuthPwd(e.target.value)}
+                  autoFocus
+                />
+                <input
+                  type="password"
+                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                  placeholder="2차 비밀번호"
+                  value={secondaryAuthPwd}
+                  onChange={(e) => setSecondaryAuthPwd(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="w-full text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5"
+                >
+                  확인
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col">
         <span className="font-bold text-xl">계정 관리</span>
       </div>
@@ -123,20 +222,6 @@ const Setting: React.FC = () => {
                   className="space-y-4 mt-4"
                   onSubmit={handleUpdatePassword}
                 >
-                  <div>
-                    <input
-                      type="password"
-                      name="password"
-                      id="password"
-                      className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-                      placeholder="현재 비밀번호"
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      value={currentPassword}
-                      maxLength={15}
-                      autoComplete="off"
-                      required
-                    />
-                  </div>
                   <div>
                     <input
                       type="password"

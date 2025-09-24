@@ -252,6 +252,17 @@ exports.updateCouponApp = (req, res) => {
   try {
     const { coupon_app_id, user_id, product_app_id, discount_type, discount_amount, min_order_amount, description, badge_text, start_dt, end_dt, coupon_notice } = req.body;
 
+    let formatted_start_dt = '';
+    let formatted_end_dt = '';
+
+    if(start_dt) {
+      formatted_start_dt = start_dt.replace(/[-:T\s]/g, '') + '00';
+    }
+
+    if(end_dt) {
+      formatted_end_dt = end_dt.replace(/[-:T\s]/g, '') + '00';
+    }
+
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
 
@@ -271,7 +282,7 @@ exports.updateCouponApp = (req, res) => {
       WHERE coupon_app_id = ?
     `;
 
-    db.query(updateCouponQuery, [product_app_id, discount_type, discount_amount, min_order_amount, description, badge_text, start_dt, end_dt, coupon_notice, mod_dt, user_id || null, coupon_app_id], (err, result) => {
+    db.query(updateCouponQuery, [product_app_id, discount_type, discount_amount, min_order_amount, description, badge_text, formatted_start_dt, formatted_end_dt, coupon_notice, mod_dt, user_id || null, coupon_app_id], (err, result) => {
         if (err) {
           console.error("쿠폰 수정 오류:", err.sqlMessage);
           return res
@@ -329,6 +340,43 @@ exports.deleteCouponApp = (req, res) => {
     );
   } catch (error) {
     console.error("쿠폰 일괄 삭제 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};
+
+
+// 쿠폰 수정
+exports.updateCouponAppUseYn = (req, res) => {
+  try {
+    const { member_coupon_app_id, user_id, use_yn } = req.body;
+
+    const now = dayjs();
+    const mod_dt = now.format("YYYYMMDDHHmmss");
+
+    const updateCouponQuery = `
+      UPDATE member_coupon_app  SET
+        order_app_id = ?
+        , use_yn = ?
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE member_coupon_app_id = ?
+    `;
+
+    db.query(updateCouponQuery, [null, use_yn, mod_dt, user_id || null, member_coupon_app_id], (err, result) => {
+        if (err) {
+          console.error("쿠폰 수정 오류:", err.sqlMessage);
+          return res
+            .status(500)
+            .json({ error: "쿠폰 사용 여부 수정 중 오류가 발생했습니다." });
+        }
+
+        res.status(200).json({
+          message: "쿠폰가 성공적으로 수정되었습니다.",
+        });
+      }
+    );
+  } catch (error) {
+    console.error("쿠폰 수정 중 오류 발생:", error);
     res.status(500).json({ error: "서버 오류가 발생했습니다." });
   }
 };

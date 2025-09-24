@@ -31,8 +31,8 @@ const cron = require("node-cron");
 
 const PORT = process.env.PORT || 8080;
 const app = express();
-app.use(express.json({ extended: true }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(
   cors({
     origin: [
@@ -80,7 +80,6 @@ app.post("/api/login/primary", (req, res) => {
     .createHash("sha256")
     .update(req.body.password)
     .digest("base64");
-
   const loginQuery = `SELECT * FROM users WHERE usr_id = ? AND usr_password = ?`;
   db.query(loginQuery, [id, password], (err, result) => {
     if (err) {

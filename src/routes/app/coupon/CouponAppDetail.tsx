@@ -3,18 +3,31 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useUserStore } from "../../../store/store";
 import { openInputDatePicker } from "../../../utils/commonUtils";
+import ProductAppPopup from "../../../components/app/ProductAppPopup";
+import couponImg1 from "../../../images/coupon_example_001.png";
+import couponImg2 from "../../../images/coupon_example_002.png";
 
 interface CouponApp {
   coupon_app_id: number;
-  coupon_type: string;
-  title: string;
-  content: string;
-  start_dt: string;
-  end_dt: string;
-  coupon_notice: "Y" | "N";
+  product_app_id: number;
+  discount_type: string;
+  discount_amount: number;
+  min_order_amount: number;
+  description: string;
+  badge_text: string;
+  start_dt: string | number;
+  end_dt: string | number;
+  coupon_notice: string;
   del_yn: "Y" | "N";
-  reg_dt: string;
+  reg_date: string;
+  reg_time: string;
   mod_dt: string;
+  reg_id: string;
+  mod_id: string;
+  title: string;
+  brand_name: string;
+  product_del_yn: string;
+  have_cnt: number;
 }
 
 interface CouponMember {
@@ -34,13 +47,24 @@ const CouponAppDetail: React.FC = () => {
   const [couponData, setCouponData] = useState<CouponApp | null>(null);
   const [memberCouponList, setMemberCouponList] = useState<CouponMember[]>([]);
   const [formData, setFormData] = useState({
-    coupon_type: "NOTICE",
+    product_app_id: -1,
+    product_name: "",
+    brand_name: "",
+    discount_amount: 0,
+    discount_type: "FIXED",
+    min_order_amount: 0,
+    description: "",
+    badge_text: "",
     title: "",
-    content: "",
+    coupon_notice: "",
     start_dt: "",
     end_dt: "",
-    coupon_notice: "Y" as "Y" | "N",
   });
+  const [showProductPopup, setShowProductPopup] = useState(false);
+  const [isDiscountFocused, setIsDiscountFocused] = useState(false);
+  const [isMinOrderFocused, setIsMinOrderFocused] = useState(false);
+  const [isBadgeTextFocused, setIsBadgeTextFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const couponAppId = searchParams.get('couponAppId');
 
@@ -60,12 +84,18 @@ const CouponAppDetail: React.FC = () => {
         const data = response.data.result[0];
         setCouponData(data);
         setFormData({
-          coupon_type: data.coupon_type,
+          product_app_id: data.product_app_id,
+          product_name: (data as any).product_name || data.title || "",
+          brand_name: data.brand_name,
+          discount_amount: data.discount_amount,
+          discount_type: data.discount_type,
+          min_order_amount: data.min_order_amount,
+          description: data.description,
+          badge_text: data.badge_text,
           title: data.title,
-          content: data.content,
+          coupon_notice: data.coupon_notice,
           start_dt: data.start_dt,
           end_dt: data.end_dt,
-          coupon_notice: data.coupon_notice,
         });
       }
     } catch (error) {
@@ -97,82 +127,50 @@ const CouponAppDetail: React.FC = () => {
     selectMembercouponAppList(couponAppId || "");
   }, [couponAppId]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    if (name === 'start_dt' || name === 'end_dt') {
-      const formattedValue = value ? `${value.replace(/[-:T]/g, '').slice(0, 14)}00` : '';
-      setFormData(prev => {
-        const newData = {
-          ...prev,
-          [name]: formattedValue
-        };
-        
-        // Validate date range
-        if (newData.start_dt && newData.end_dt) {
-          if (newData.start_dt > newData.end_dt) {
-            alert("종료일은 시작일보다 늦어야 합니다.");
-            // Clear end date if it's earlier than start date
-            if (name === 'end_dt') {
-              newData.end_dt = '';
-            }
-          }
-        }
-        
-        return newData;
-      });
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
-
-  const handleUpdate = async () => {
+  const modifyCouponApp = async (action: 'update' | 'delete') => {
     if (!couponData) return;
-    
-    if(window.confirm("정말로 수정하시겠습니까?")) {
-    
-    if (formData.start_dt > formData.end_dt) {
-      alert("종료일은 시작일보다 늦어야 합니다.");
-      return;
-    }
-    try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/couponApp/updateCouponApp`,
-        {
-          couponAppId: couponData.coupon_app_id,
-          coupon_type: formData.coupon_type,
-          title: formData.title,
-          content: formData.content,
-          start_dt: formData.start_dt,
-          end_dt: formData.end_dt,
-          coupon_notice: formData.coupon_notice,
-          userId: user.index,
-        }
-      );
-
-      navigate("/app/couponAppList");
-    } catch (error) {
-        console.error("쿠폰 수정 오류:", error);
-        alert("쿠폰 수정 중 오류가 발생했습니다.");
+    if (action === 'update') {
+      if (!window.confirm(memberCouponList.length > 0 ? "해당 쿠폰을 소유하고 있는 회원들이 존재합니다.\n정말로 쿠폰 정보를 수정하시겠습니까?" : "쿠폰 정보를 수정하시겠습니까?")) return;
+      
+      if (formData.start_dt > formData.end_dt) {
+        alert("종료일은 시작일보다 늦어야 합니다.");
+        return;
       }
-    }
-  };
-
-  const handleDelete = async () => {
-    if (window.confirm("정말로 삭제하시겠습니까?")) {
       try {
         await axios.post(
-          `${process.env.REACT_APP_API_URL}/app/couponApp/batchDeleteCouponApp`,
+          `${process.env.REACT_APP_API_URL}/app/couponApp/updateCouponApp`,
           {
-            coupon_app_ids: [couponData?.coupon_app_id],
+            coupon_app_id: couponData.coupon_app_id,
+            product_app_id: formData.product_app_id,
+            discount_type: formData.discount_type,
+            discount_amount: formData.discount_amount,
+            min_order_amount: formData.min_order_amount,
+            description: formData.description,
+            badge_text: formData.badge_text,
+            title: formData.title,
+            start_dt: formData.start_dt,
+            end_dt: formData.end_dt,
+            coupon_notice: formData.coupon_notice,
             userId: user.index,
           }
         );
-
-        navigate("/app/couponAppList");
+        navigate("/app/couponApp");
+      } catch (error) {
+        console.error("쿠폰 수정 오류:", error);
+        alert("쿠폰 수정 중 오류가 발생했습니다.");
+      }
+    } else {
+      if (!window.confirm(memberCouponList.length > 0 ? "해당 쿠폰을 소유하고 있는 회원들이 존재합니다.\n정말로 쿠폰을 삭제하시겠습니까?" : "쿠폰을 삭제하시겠습니까?")) return;
+      
+      try {
+        await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/couponApp/deleteCouponApp`,
+          {
+            coupon_app_id: [couponData?.coupon_app_id],
+            userId: user.index,
+          }
+        );
+        navigate("/app/couponApp");
       } catch (err) {
         console.error("쿠폰 삭제 오류:", err);
         alert("쿠폰 삭제 중 오류가 발생했습니다.");
@@ -183,7 +181,7 @@ const CouponAppDetail: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold">쿠폰 상세</h2>
+        <h2 className="text-xl font-semibold">쿠폰 등록</h2>
       </div>
 
       <form className="space-y-6">
@@ -191,120 +189,233 @@ const CouponAppDetail: React.FC = () => {
           <table className="min-w-full bg-white border border-gray-200">
             <tbody>
               <tr className="border-b border-gray-200">
-                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
-                  쿠폰 유형
+                <td className="bg-gray-100 px-4 py-3 font-semibold">
+                  상품 선택 <span className="text-red-500">*</span>
                 </td>
                 <td className="px-4 py-3">
-                  <select
-                    name="coupon_type"
-                    value={formData.coupon_type}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded"                     
-                  >
-                    <option value="NOTICE">쿠폰</option>
-                    <option value="EVENT">이벤트</option>
-                    <option value="GUIDE">가이드</option>
-                  </select>
-                </td>
-                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
-                  쿠폰 노출 여부
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center space-x-6">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="coupon_notice"
-                        value="Y"
-                        checked={formData.coupon_notice === "Y"}
-                        onChange={handleInputChange}
-                        className="form-radio h-5 w-5 text-red-600"
-                      />
-                      <span className="ml-2">네</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="coupon_notice"
-                        value="N"
-                        checked={formData.coupon_notice === "N"}
-                        onChange={handleInputChange}
-                        className="form-radio h-5 w-5 text-blue-600"
-                      />
-                      <span className="ml-2">아니오</span>
-                    </label>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button 
+                      type="button"
+                      onClick={() => setShowProductPopup(true)}
+                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    >
+                      선택
+                    </button>
                   </div>
                 </td>
               </tr>
-
-               <tr className="border-b border-gray-200">
-                 <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
-                   시작일
-                 </td>
-                 <td className="px-4 py-3" onClick={(e) => {
-                   const target = e.target as HTMLElement;
-                   if (target && target.tagName.toLowerCase() === 'input') return;
-                   const input = e.currentTarget.querySelector('input[type="datetime-local"]') as HTMLInputElement | null;
-                   if (input) openInputDatePicker(input);
-                 }}>
-                   <input
-                     type="datetime-local"
-                     name="start_dt"
-                     value={formData.start_dt ? `${formData.start_dt.slice(0, 4)}-${formData.start_dt.slice(4, 6)}-${formData.start_dt.slice(6, 8)}T${formData.start_dt.slice(8, 10)}:${formData.start_dt.slice(10, 12)}` : ''}
-                     onChange={handleInputChange}
-                     onClick={(e) => openInputDatePicker(e.currentTarget)}
-                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
-                     className="w-full p-2 border cursor-pointer border-gray-300 rounded"
-                   />
-                 </td>
-                 <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
-                   종료일
-                 </td>
-                 <td className="px-4 py-3" onClick={(e) => {
-                   const target = e.target as HTMLElement;
-                   if (target && target.tagName.toLowerCase() === 'input') return;
-                   const input = e.currentTarget.querySelector('input[type="datetime-local"]') as HTMLInputElement | null;
-                   if (input) openInputDatePicker(input);
-                 }}>
-                   <input
-                     type="datetime-local"
-                     name="end_dt"
-                     value={formData.end_dt ? `${formData.end_dt.slice(0, 4)}-${formData.end_dt.slice(4, 6)}-${formData.end_dt.slice(6, 8)}T${formData.end_dt.slice(8, 10)}:${formData.end_dt.slice(10, 12)}` : ''}
-                     onChange={handleInputChange}
-                     onClick={(e) => openInputDatePicker(e.currentTarget)}
-                     onFocus={(e) => openInputDatePicker(e.currentTarget)}
-                     className="w-full p-2 border cursor-pointer border-gray-300 rounded"
-                   />
-                 </td>
-               </tr>
-
-
+              <tr>
+                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
+                  브랜드 이름 <span className="text-red-500">*</span>
+                </td>
+                <td className="px-4 py-3 w-2/6">
+                  <p>
+                    {formData.product_app_id === -1 ? '미선택' : formData.product_app_id === 0
+                      ? '전체 상품'
+                      : `브랜드명: ${formData.brand_name}`}
+                  </p>
+                </td>
+                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
+                  상품 이름 <span className="text-red-500">*</span>
+                </td>
+                <td className="px-4 py-3 w-2/6">
+                  <p>
+                    {formData.product_app_id === -1 ? '미선택' : formData.product_app_id === 0
+                      ? '전체 상품'
+                      : `상품명: ${formData.product_name || '-'}`}
+                  </p>
+                </td>
+              </tr>
               <tr className="border-b border-gray-200">
                 <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
-                  쿠폰 제목
+                  할인 금액 <span className="text-red-500">*</span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 flex flex-row items-center w-2/6">
+                  <input
+                    type="number"
+                    name="discount_amount"
+                    value={isDiscountFocused && formData.discount_amount === 0 ? '' : formData.discount_amount}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const normalized = raw.replace(/^0+(?=\d)/, '');
+                      let n = Number(normalized);
+                      if (isNaN(n)) n = 0;
+                      if (formData.discount_type === 'PERCENT') {
+                        if (n < 1) n = 1;
+                        if (n > 100) n = 100;
+                      }
+                      setFormData({ ...formData, discount_amount: n });
+                    }}
+                    onFocus={() => setIsDiscountFocused(true)}
+                    onBlur={() => setIsDiscountFocused(false)}
+                    inputMode="numeric"
+                    min={formData.discount_type === 'PERCENT' ? 1 : 0}
+                    max={formData.discount_type === 'PERCENT' ? 100 : undefined}
+                    className="p-2 border border-gray-300 rounded"
+                    placeholder="0"
+                    disabled={false}
+                  />
+                  <span className="ml-2">{formData.discount_type === 'PERCENT' ? '%' : '원'}</span>
+                </td>
+                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
+                  할인 단위 <span className="text-red-500">*</span>
+                </td>
+                <td className="px-4 py-3 w-2/6">
+                  <select
+                    name="discount_type"
+                    value={formData.discount_type}
+                    onChange={(e) => {
+                      const nextType = e.target.value as 'FIXED' | 'PERCENT';
+                      let nextAmount = formData.discount_amount;
+                      if (nextType === 'PERCENT') {
+                        if (!nextAmount || nextAmount < 1) nextAmount = 1;
+                        if (nextAmount > 100) nextAmount = 100;
+                      }
+                      setFormData({ ...formData, discount_type: nextType, discount_amount: nextAmount });
+                    }}
+                    className="p-2 border border-gray-300 rounded"
+                    disabled={false}
+                  >
+                    <option value="FIXED">원</option>
+                    <option value="PERCENT">%</option>
+                  </select>
+                </td>
+              </tr>
+              <tr className="border-b border-gray-200">
+                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
+                  최소 주문 금액
+                </td>
+                <td className="px-4 py-3 w-2/6">
+                  <input
+                    type="number"
+                    name="min_order_amount"
+                    value={isMinOrderFocused && formData.min_order_amount === 0 ? '' : formData.min_order_amount}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const normalized = raw.replace(/^0+(?=\d)/, '');
+                      let n = Number(normalized);
+                      if (isNaN(n)) n = 0;
+                      setFormData({ ...formData, min_order_amount: n });
+                    }}
+                    onFocus={() => setIsMinOrderFocused(true)}
+                    onBlur={() => setIsMinOrderFocused(false)}
+                    inputMode="numeric"
+                    className="p-2 border border-gray-300 rounded"
+                    placeholder="0"
+                    disabled={false}
+                  />
+                  <span className="ml-2">원</span>
+                </td>
+                <td className="bg-gray-100 px-4 py-3 w-1/6 font-semibold">
+                  쿠폰 설명 <span className="text-red-500">*</span>
+                </td>
+                <td className="px-4 py-3 w-2/6">
                   <input
                     type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
+                    name="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="w-full p-2 border border-gray-300 rounded"
-                    placeholder="쿠폰 제목을 입력하세요"
+                    placeholder="쿠폰 설명을 간략히 입력하세요."
+                    disabled={false}
                   />
                 </td>
               </tr>
-
               <tr className="border-b border-gray-200">
-                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
-                  쿠폰 내용
+                <td className="bg-gray-100 px-4 py-3 w-1/6 font-semibold">
+                  시작일 <span className="text-red-500">*</span>
                 </td>
-                <td className="px-4 py-3 w-1/3">
+                <td className="px-4 py-3 w-2/6" onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target && target.tagName.toLowerCase() === 'input') return;
+                  const input = e.currentTarget.querySelector('input[type="datetime-local"]') as HTMLInputElement | null;
+                  if (input) openInputDatePicker(input);
+                }}>
+                  <input
+                    type="datetime-local"
+                    name="start_dt"
+                    value={formData.start_dt}
+                    onChange={(e) => {
+                      setFormData({ ...formData, start_dt: e.target.value });
+                      requestAnimationFrame(() => {
+                        try { e.currentTarget.blur(); } catch {}
+                      });
+                    }}
+                    onInput={(e) => {
+                      const input = e.currentTarget;
+                      requestAnimationFrame(() => {
+                        try { input.blur(); } catch {}
+                      });
+                    }}
+                    onClick={(e) => openInputDatePicker(e.currentTarget)}
+                    onFocus={(e) => openInputDatePicker(e.currentTarget)}
+                    className="w-full p-2 border cursor-pointer border-gray-300 rounded"
+                    disabled={false}
+                  />
+                </td>
+                <td className="bg-gray-100 px-4 py-3 w-1/6 font-semibold">
+                  종료일 <span className="text-red-500">*</span>
+                </td>
+                <td className="px-4 py-3 w-2/6" onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target && target.tagName.toLowerCase() === 'input') return;
+                  const input = e.currentTarget.querySelector('input[type="datetime-local"]') as HTMLInputElement | null;
+                  if (input) openInputDatePicker(input);
+                }}>
+                  <input
+                    type="datetime-local"
+                    name="end_dt"
+                    value={formData.end_dt}
+                    onChange={(e) => {
+                      setFormData({ ...formData, end_dt: e.target.value });
+                      requestAnimationFrame(() => {
+                        try { e.currentTarget.blur(); } catch {}
+                      });
+                    }}
+                    onInput={(e) => {
+                      const input = e.currentTarget;
+                      requestAnimationFrame(() => {
+                        try { input.blur(); } catch {}
+                      });
+                    }}
+                    onClick={(e) => openInputDatePicker(e.currentTarget)}
+                    onFocus={(e) => openInputDatePicker(e.currentTarget)}
+                    className="w-full p-2 border cursor-pointer border-gray-300 rounded"
+                    disabled={false}
+                  />
+                </td>
+              </tr>
+              <tr className="border-b border-gray-200">
+                <td className="bg-gray-100 px-4 py-3 w-1/6 font-semibold">
+                  뱃지 텍스트
+                </td>
+                <td className="px-4 py-3 w-2/6">
+                  <input
+                    type="text"
+                    name="badge_text"
+                    value={isBadgeTextFocused && !formData.badge_text ? '' : (formData.badge_text ? formData.badge_text : "-")}
+                    onChange={(e) => setFormData({ ...formData, badge_text: e.target.value })}
+                    onFocus={() => setIsBadgeTextFocused(true)}
+                    onBlur={() => setIsBadgeTextFocused(false)}
+                    className="p-2 border border-gray-300 rounded"
+                    disabled={false}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="bg-gray-100 px-4 py-3 w-1/6 font-semibold">
+                  쿠폰 이용약관 <span className="text-red-500">*</span>
+                </td>
+                <td className="px-4 py-3 w-2/6">
                   <textarea
-                    name="content"
-                    value={formData.content}
-                    onChange={handleInputChange}
-                    className="w-full min-h-[150px] p-2 border border-gray-300 rounded"
+                    name="coupon_notice"
+                    value={formData.coupon_notice}
+                    onChange={(e) => setFormData({ ...formData, coupon_notice: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded"
+                    style={{ whiteSpace: 'pre-wrap' }}
+                    rows={4}
+                    disabled={false}
+                    placeholder="쿠폰 이용약관을 입력하세요. (줄바꿈 가능)"
                   />
                 </td>
               </tr>
@@ -315,21 +426,23 @@ const CouponAppDetail: React.FC = () => {
         <div className="flex justify-end gap-2 mt-6">
           <button
             type="button"
-            onClick={handleUpdate}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            수정
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+            onClick={() => modifyCouponApp('delete')}
+            disabled={isSubmitting}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50"
           >
             삭제
           </button>
+          <button
+            type="button"
+            onClick={() => modifyCouponApp('update')}
+            disabled={isSubmitting}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          >
+            수정
+          </button>
         </div>
       </form>
-      
+
       <div className="mt-12">
         {memberCouponList.length === 0 ? (
           <div className="text-center py-8 text-gray-500">소유 회원이 없습니다.</div>
@@ -362,6 +475,22 @@ const CouponAppDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold">쿠폰 가이드 이미지</h3>
+        <div className="flex justify-start items-center gap-4 mt-4 overflow-hidden">
+          <img src={couponImg1} alt="쿠폰 이미지" className="w-1/3 h-auto" />
+          <img src={couponImg2} alt="쿠폰 이미지" className="w-1/3 h-auto" />
+        </div>
+      </div>
+
+      <ProductAppPopup
+        isOpen={showProductPopup}
+        onClose={() => setShowProductPopup(false)}
+        selectedProductId={formData.product_app_id}
+        onChangeSelected={() => {}}
+        onConfirm={({ product_app_id, title, brand_name }) => { setFormData({ ...formData, product_app_id, product_name: title || "", brand_name: brand_name || "" }); setShowProductPopup(false); }}
+      />
     </div>
   );
 };

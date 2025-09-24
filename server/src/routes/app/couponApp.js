@@ -7,6 +7,7 @@ const {
   insertCouponApp,
   updateCouponApp,
   deleteCouponApp,
+  updateCouponAppUseYn,
 } = require("../../controllers/app/couponApp");
 
 // 쿠폰 목록 조회
@@ -26,5 +27,8 @@ router.post("/updateCouponApp", updateCouponApp);
 
 // 쿠폰 삭제
 router.post("/deleteCouponApp", deleteCouponApp);
+
+// 쿠폰 사용 여부 수정
+router.post("/updateCouponAppUseYn", updateCouponAppUseYn);
 
 module.exports = router;

@@ -143,7 +143,7 @@ const MembersBulkExtend: React.FC = () => {
       <div className="">
         <div className="mx-5 w-full">
           <div>
-            <span className="font-bold text-xl">회원 일괄 등록</span>
+            <span className="font-bold text-xl">회원권 일괄 등록</span>
           </div>
           <div>
             <MembersOrderBulkNav />

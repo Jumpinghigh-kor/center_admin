@@ -98,8 +98,28 @@ const ProductAppPopup: React.FC<ProductAppPopupProps> = ({
         {/* 검색 영역 */}
         <ProductSearch key={searchResetKey} onSearch={selectProductAppList} />
 
-        <div className="mt-4 mb-2">
+        <div className="mt-10 mb-2 flex justify-between items-center">
           <p className="text-sm font-semibold">총 {productList.length}건</p>
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={() => {
+                if (localSelectedId === -1) {
+                  alert("상품을 선택해주세요.");
+                  return;
+                }
+                if (localSelectedId === 0) {
+                  onConfirm({ product_app_id: 0, title: "", brand_name: "" });
+                } else {
+                  const sel = productList.find(p => p.product_app_id === localSelectedId);
+                  if (sel) onConfirm({ product_app_id: sel.product_app_id, title: sel.title, brand_name: sel.brand_name });
+                  else onConfirm({ product_app_id: 0, title: "", brand_name: "" });
+                }
+              }}
+              className="px-4 py-2 text-white bg-green-700 rounded hover:bg-green-800 transition-colors cursor-pointer"
+            >
+              선택
+            </button>
+          </div>
         </div>
       
         {productList.length === 0 ? (
@@ -160,30 +180,6 @@ const ProductAppPopup: React.FC<ProductAppPopupProps> = ({
             />
           </div>
         )}
-
-        <div className="flex justify-end mt-4 space-x-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-          >
-            취소
-          </button>
-          <button
-            onClick={() => {
-              if (localSelectedId === 0) {
-                onConfirm({ product_app_id: 0, title: "", brand_name: "" });
-              } else {
-                const sel = productList.find(p => p.product_app_id === localSelectedId);
-                if (sel) onConfirm({ product_app_id: sel.product_app_id, title: sel.title, brand_name: sel.brand_name });
-                else onConfirm({ product_app_id: 0, title: "", brand_name: "" });
-              }
-            }}
-            className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 transition-colors"
-            disabled={localSelectedId === -1}
-          >
-            선택
-          </button>
-        </div>
       </div>
     </div>
   );

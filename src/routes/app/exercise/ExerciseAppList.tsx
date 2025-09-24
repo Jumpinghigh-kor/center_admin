@@ -6,6 +6,7 @@ import Pagination from "../../../components/Pagination";
 import { usePagination } from "../../../hooks/usePagination";
 import { useSearch } from "../../../hooks/useSearch";
 import { formatExerciseTime } from "../../../utils/formatUtils";
+import { openInputDatePicker } from "../../../utils/commonUtils";
 
 interface ExerciseApp {
   exercise_app_id: number;
@@ -41,6 +42,56 @@ const ExerciseAppList: React.FC = () => {
 
   // 현재 페이지에 표시할 데이터
   const currentInquiries = pagination.getCurrentPageData(exerciseAppList);
+
+  // HHMM 문자열 또는 숫자(분)를 총 분으로 변환. 유효하지 않으면 0
+  const parseHHMMToMinutes = (value: any): number => {
+    if (value == null) return 0;
+    // 숫자는 분 단위로 간주
+    if (typeof value === 'number') {
+      const v = Math.max(0, Math.floor(value));
+      return Number.isFinite(v) ? v : 0;
+    }
+    const raw = String(value).trim();
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length === 0) return 0;
+    if (digits.length <= 2) {
+      // 분만 제공된 경우
+      const mm = parseInt(digits, 10);
+      return Number.isNaN(mm) ? 0 : Math.max(0, mm);
+    }
+    // 마지막 2자리는 분, 앞은 시간
+    const mm = parseInt(digits.slice(-2), 10);
+    const hh = parseInt(digits.slice(0, -2), 10);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) return 0;
+    if (mm < 0 || mm >= 60) return 0;
+    const total = hh * 60 + mm;
+    return total > 0 ? total : 0;
+  };
+
+  // 강도에 따른 점핑 칼로리 계산
+  const calcJumpingKcal = (intensity: any, timeValue: any): number => {
+    const normalize = (v: any): string => {
+      const raw = String(v ?? '').trim();
+      const s = raw.toUpperCase();
+      // 숫자/영문
+      if (s === '1' || s === 'LOW') return 'LOW';
+      if (s === '2' || s === 'MODERATE' || s === 'MEDIUM') return 'MODERATE';
+      if (s === '3' || s === 'HIGH') return 'HIGH';
+      // 한글 라벨 매핑
+      if (raw === '저강도') return 'LOW';
+      if (raw === '중강도') return 'MODERATE';
+      if (raw === '고강도') return 'HIGH';
+      return '';
+    };
+    const key = normalize(intensity);
+    const baseMap: Record<string, number> = { LOW: 300, MODERATE: 400, HIGH: 500 };
+    const base = baseMap[key] ?? 0;
+    if (!base) return 0;
+    const minutes = parseHHMMToMinutes(timeValue);
+    if (minutes <= 0) return 0;
+    const hours = minutes / 60;
+    return Math.round(base * hours);
+  };
 
   // 공통 코드 목록 불러오기
   const selectCommonCodeList = async () => {
@@ -178,22 +229,34 @@ const ExerciseAppList: React.FC = () => {
               </tr>
               <tr>
                 <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">운동일시</td>
-                <td className="border p-2 flex items-center justify-between">
+                <td
+                  className="border p-2 flex items-center justify-between"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target && target.tagName.toLowerCase() === 'input') return;
+                    const firstInput = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                    if (firstInput) openInputDatePicker(firstInput);
+                  }}
+                >
                   <input
                     type="date"
                     value={searchData.exercise_start_dt}
                     onChange={(e) => setSearchData({ ...searchData, exercise_start_dt: e.target.value })}
-                    className="w-1/2 px-2 py-1 border border-gray-300 rounded"
+                    onClick={(e) => openInputDatePicker(e.currentTarget)}
+                    onFocus={(e) => openInputDatePicker(e.currentTarget)}
+                    className="w-1/2 px-2 py-1 border border-gray-300 rounded cursor-pointer"
                   />
                   ~
                   <input
                     type="date"
                     value={searchData.exercise_end_dt}
                     onChange={(e) => setSearchData({ ...searchData, exercise_end_dt: e.target.value })}
-                    className="w-1/2 px-2 py-1 border border-gray-300 rounded"
+                    onClick={(e) => openInputDatePicker(e.currentTarget)}
+                    onFocus={(e) => openInputDatePicker(e.currentTarget)}
+                    className="w-1/2 px-2 py-1 border border-gray-300 rounded cursor-pointer"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">점프 운동 강도</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">점핑 운동 강도</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -321,12 +384,13 @@ const ExerciseAppList: React.FC = () => {
                       운동 일시
                     </th>
                     <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      점프 운동 시간
+                      점핑 운동 시간
                     </th>
                     <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      점프 운동 강도
+                      점핑 운동 강도
                     </th>
-                    <th className="text-center whitespace-nowrap">점프 심박수</th>
+                    <th className="text-center whitespace-nowrap">점핑 심박수</th>
+                    <th className="text-center whitespace-nowrap">점핑 칼로리</th>
                     <th className="text-center whitespace-nowrap">기타 운동 종류</th>
                     <th className="text-center whitespace-nowrap">기타 운동 시간</th>
                     <th className="text-center whitespace-nowrap">기타 운동 칼로리</th>
@@ -367,6 +431,12 @@ const ExerciseAppList: React.FC = () => {
                       </td>
                       <td className="text-center whitespace-nowrap">
                         {exercise.jumping_heart_rate || '-'}
+                      </td>
+                      <td className="text-center whitespace-nowrap">
+                        {(() => {
+                          const kcal = calcJumpingKcal((exercise as any).jumping_intensity_level, (exercise as any).jumping_exercise_time);
+                          return kcal > 0 ? kcal : '-';
+                        })()}
                       </td>
                       <td className="text-center px-2 truncate">
                         {exercise.other_exercise_type ? 

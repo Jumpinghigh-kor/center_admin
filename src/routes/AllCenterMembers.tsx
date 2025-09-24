@@ -4,6 +4,8 @@ import { useUserStore } from "../store/store";
 import "./../styles/Members.css";
 import { Center, Member } from "../utils/types";
 import { useNavigate } from "react-router-dom";
+import { usePagination } from "../hooks/usePagination";
+import Pagination from "../components/Pagination";
 
 const AllCenterMembers: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -19,26 +21,21 @@ const AllCenterMembers: React.FC = () => {
 
   const filteredMembers = members;
 
-  // 페이지네이션 계산
-  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentMembers = filteredMembers.slice(startIndex, endIndex);
+  // 공통 페이지네이션 훅 사용
+  const pagination = usePagination({
+    totalItems: filteredMembers.length,
+    itemsPerPage,
+  });
+  const currentMembers = pagination.getCurrentPageData(filteredMembers);
 
-  // 페이지 변경 핸들러
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  // 페이지 번호 그룹 계산 (10개씩)
-  const pageGroupSize = 10;
-  const currentPageGroup = Math.ceil(currentPage / pageGroupSize);
-  const startPage = (currentPageGroup - 1) * pageGroupSize + 1;
-  const endPage = Math.min(startPage + pageGroupSize - 1, totalPages);
-  const pageNumbers = Array.from(
-    { length: endPage - startPage + 1 },
-    (_, i) => startPage + i
-  );
+  // 검색/필터 변경 후 페이지 범위 보정 (현재 페이지가 총 페이지보다 클 경우 1페이지로 이동)
+  useEffect(() => {
+    const total = filteredMembers.length;
+    const totalPagesCalc = Math.max(1, Math.ceil(total / itemsPerPage));
+    if (pagination.currentPage > totalPagesCalc) {
+      pagination.handlePageChange(1);
+    }
+  }, [filteredMembers.length]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -166,7 +163,7 @@ const AllCenterMembers: React.FC = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
-                      setCurrentPage(1);
+                      pagination.resetPage();
                       fetchData();
                     }
                   }}
@@ -249,7 +246,7 @@ const AllCenterMembers: React.FC = () => {
                   className={`bg-white border-b hover:bg-gray-50`}
                 >
                   <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center text-base">
-                    {filteredMembers.length - (startIndex + index)}
+                    {filteredMembers.length - (((pagination.currentPage - 1) * itemsPerPage) + index)}
                   </td>
                   <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center text-base">
                     {member.mem_name ? member.mem_name : "-"}
@@ -276,73 +273,17 @@ const AllCenterMembers: React.FC = () => {
         </table>
       </div>
 
-      {/* 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center mt-4 space-x-2">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            이전
-          </button>
-
-          {startPage > 1 && (
-            <>
-              <button
-                onClick={() => handlePageChange(1)}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-700"
-              >
-                1
-              </button>
-              {startPage > 2 && <span className="px-2 text-gray-500">...</span>}
-            </>
-          )}
-
-          {pageNumbers.map((page) => (
-            <button
-              key={page}
-              onClick={() => handlePageChange(page)}
-              className={`px-3 py-2 text-sm font-medium rounded-lg ${
-                currentPage === page
-                  ? "text-white bg-blue-600 border border-blue-600"
-                  : "text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700"
-              }`}
-            >
-              {page}
-            </button>
-          ))}
-
-          {endPage < totalPages && (
-            <>
-              {endPage < totalPages - 1 && (
-                <span className="px-2 text-gray-500">...</span>
-              )}
-              <button
-                onClick={() => handlePageChange(totalPages)}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-700"
-              >
-                {totalPages}
-              </button>
-            </>
-          )}
-
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            다음
-          </button>
-        </div>
+      {/* 공통 페이지네이션 */}
+      {filteredMembers.length > 0 && (
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          onPageChange={pagination.handlePageChange}
+        />
       )}
 
-      {/* 페이지 정보 */}
-      <div className="flex justify-center mt-2 text-sm text-gray-600">
-        총 {filteredMembers.length}개 중 {startIndex + 1}-
-        {Math.min(endIndex, filteredMembers.length)}개 표시 (페이지{" "}
-        {currentPage}/{totalPages})
-      </div>
+      {/* 페이지 정보: Pagination 컴포넌트에 통합되어 있어 별도 표시 제거 */}
     </div>
   );
 };
