@@ -337,14 +337,14 @@ exports.getReservationMemberListByDate = (req, res) => {
   const { sch_dt } = req.body;
   const query = `
     SELECT
-      m.mem_name,
-      m.mem_id
-    FROM members m
-    INNER JOIN member_schedule_app msa ON m.mem_id = msa.mem_id
-    WHERE m.mem_status = 1
-      AND msa.del_yn = 'N'
-      AND (msa.agree_yn IS NULL OR msa.agree_yn = 'Y')
-      AND msa.sch_dt = ?
+      m.mem_name
+      , m.mem_id
+    FROM        members m
+    INNER JOIN  member_schedule_app msa ON m.mem_id = msa.mem_id
+    WHERE       m.mem_status = 1
+    AND         msa.del_yn = 'N'
+    AND         (msa.agree_yn IS NULL OR msa.agree_yn = 'Y')
+    AND         msa.sch_dt = ?
   `;
 
   db.query(query, [sch_dt], (err, result) => {

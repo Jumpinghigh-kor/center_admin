@@ -70,6 +70,18 @@ const Dashboard: React.FC = () => {
   const [monthRegCount, setMonthRegCount] = useState<number>(0);
   const [noticesAppList, setNoticesAppList] = useState<any[]>([]);
   const [updateLogList, setUpdateLogList] = useState<any[]>([]);
+  const [centerList, setCenterList] = useState<Array<{ center_id: number; center_name: string }>>([]);
+  const [selectedCenterId, setSelectedCenterId] = useState<string>("");
+
+  const getEffectiveCenterId = (overrideCenterId?: string | number | null) => {
+    if (overrideCenterId !== undefined && overrideCenterId !== null) {
+      const v = String(overrideCenterId).trim();
+      return v === "" ? null : v;
+    }
+    const picked = String(selectedCenterId || "").trim();
+    if (picked) return picked;
+    return null;
+  };
   // 매출 차트 관련 상태
   const [salesPeriod, setSalesPeriod] = useState<string>('day');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -91,9 +103,26 @@ const Dashboard: React.FC = () => {
   
   const user = useUserStore((state) => state.user);
 
+  // 센터 목록 불러오기
+  const selectCenterList = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/center/list`,
+        {
+          params: user
+        }
+      );
+
+      setCenterList(response.data.result);
+    } catch (err) {
+      console.error("센터 목록 로딩 오류:", err);
+    } finally {
+    }
+  };
+
   // 매출 데이터 조회 API
-  const selectSalesList = async (period: string, year: number, month: number) => {
-    if (!user?.center_id) return;
+  const selectSalesList = async (period: string, year: number, month: number, centerIdOverride?: string | number | null) => {
+    const centerId = getEffectiveCenterId(centerIdOverride);
     
     try {
       setSalesLoading(true);
@@ -103,7 +132,7 @@ const Dashboard: React.FC = () => {
           period,
           year,
           month,
-          center_id: user.center_id,
+          center_id: centerId,
         }
       );
       
@@ -145,15 +174,16 @@ const Dashboard: React.FC = () => {
   };
 
   // 결제 수단 건수 조회 API
-  const selectPaymentMethodList = async () => {
-    if (!user?.center_id) return;
+  const selectPaymentMethodList = async (centerIdOverride?: string | number | null) => {
+    const centerId = getEffectiveCenterId(centerIdOverride);
+    if (!centerId) return;
     
     try {
       setPaymentMethodLoading(true);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectPaymentMethodList`,
         {
-          center_id: user.center_id,
+          center_id: centerId,
         }
       );
       
@@ -177,15 +207,16 @@ const Dashboard: React.FC = () => {
   };
 
   // 카테고리 별 매출 조회 API
-  const selectCategorySalesList = async () => {
-    if (!user?.center_id) return;
+  const selectCategorySalesList = async (centerIdOverride?: string | number | null) => {
+    const centerId = getEffectiveCenterId(centerIdOverride);
+    if (!centerId) return;
     
     try {
       setCategoryLoading(true);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectCategorySalesList`,
         {
-          center_id: user.center_id,
+          center_id: centerId,
         }
       );
       
@@ -205,15 +236,16 @@ const Dashboard: React.FC = () => {
   };
 
   // 시간대별 주문 현황 조회 API
-  const selectHourlySalesList = async () => {
-    if (!user?.center_id) return;
+  const selectHourlySalesList = async (centerIdOverride?: string | number | null) => {
+    const centerId = getEffectiveCenterId(centerIdOverride);
+    if (!centerId) return;
     
     try {
       setHourlyLoading(true);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectHourlySalesList`,
         {
-          center_id: user.center_id,
+          center_id: centerId,
         }
       );
       
@@ -235,19 +267,22 @@ const Dashboard: React.FC = () => {
   // 기간 변경 핸들러
   const handlePeriodChange = (period: string) => {
     setSalesPeriod(period);
-    selectSalesList(period, selectedYear, selectedMonth);
+    selectSalesList(period, selectedYear, selectedMonth, selectedCenterId);
+    selectPaymentAnalysisList(selectedCenterId);
   };
 
   // 연도 변경 핸들러
   const handleYearChange = (year: number) => {
     setSelectedYear(year);
-    selectSalesList(salesPeriod, year, selectedMonth);
+    selectSalesList(salesPeriod, year, selectedMonth, selectedCenterId);
+    selectPaymentAnalysisList(selectedCenterId);
   };
 
   // 월 변경 핸들러
   const handleMonthChange = (month: number) => {
     setSelectedMonth(month);
-    selectSalesList(salesPeriod, selectedYear, month);
+    selectSalesList(salesPeriod, selectedYear, month, selectedCenterId);
+    selectPaymentAnalysisList(selectedCenterId);
   };
 
   // 주 변경 핸들러 제거됨 - 사용되지 않음
@@ -275,12 +310,13 @@ const Dashboard: React.FC = () => {
   const monthlyChartData = convertMonthlyData();
 
   // 사용자 통계 개요 조회
-  const selectMemberCount = async () => {
+  const selectMemberCount = async (centerIdOverride?: string | number | null) => {
     try {
+      const centerId = getEffectiveCenterId(centerIdOverride);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectMemberCount`,
         {
-          center_id: user.center_id,
+          center_id: centerId,
         }
       );
       
@@ -302,12 +338,13 @@ const Dashboard: React.FC = () => {
   };
 
   // 월별 가입 된 회원수 조회
-  const selectMonthlyMemberList = async () => {
+  const selectMonthlyMemberList = async (centerIdOverride?: string | number | null) => {
     try {
+      const centerId = getEffectiveCenterId(centerIdOverride);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectMonthlyMemberList`,
         {
-          center_id: user.center_id,
+          center_id: centerId,
         }
       );
       
@@ -319,12 +356,13 @@ const Dashboard: React.FC = () => {
   };
 
   // 결제 분석 조회
-  const selectPaymentAnalysisList = async () => {
+  const selectPaymentAnalysisList = async (centerIdOverride?: string | number | null) => {
     try {
+      const centerId = getEffectiveCenterId(centerIdOverride);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectPaymentAnalysisList`,
         {
-          center_id: user.center_id,
+          center_id: centerId,
         }
       );
 
@@ -364,21 +402,62 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if(user) {
-      selectMemberCount();
-      selectMonthlyMemberList();
-      selectSalesList(salesPeriod, selectedYear, selectedMonth);
-      selectPaymentMethodList();
-      selectCategorySalesList();
-      selectHourlySalesList();
+      selectCenterList();
+      selectMemberCount(selectedCenterId);
+      selectMonthlyMemberList(selectedCenterId);
+      selectSalesList(salesPeriod, selectedYear, selectedMonth, selectedCenterId);
+      selectPaymentMethodList(selectedCenterId);
+      selectCategorySalesList(selectedCenterId);
+      selectHourlySalesList(selectedCenterId);
       selectNoticesAppList();
       selectUpdateLogAppList();
-      selectPaymentAnalysisList();
+      selectPaymentAnalysisList(selectedCenterId);
     }
   }, [user]);
+
+  // 쇼핑 결제 분석: 센터/기간 변경 시 즉시 재조회
+  useEffect(() => {
+    if (!user) return;
+    selectPaymentAnalysisList(selectedCenterId);
+  }, [selectedCenterId, salesPeriod, selectedYear, selectedMonth]);
+
+  // 매출/주문 추이: 센터/기간 변경 시 즉시 재조회
+  useEffect(() => {
+    if (!user) return;
+    selectSalesList(salesPeriod, selectedYear, selectedMonth, selectedCenterId);
+  }, [selectedCenterId, salesPeriod, selectedYear, selectedMonth]);
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h1 className="text-2xl font-bold mb-6 text-gray-800">관리자 대시보드</h1>
+      
+      {user?.usr_role === 'admin' && (
+        <div className="mb-4 flex items-center gap-2">
+          <p>매장 선택(관리자용) : </p> 
+          <select
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={selectedCenterId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedCenterId(val);
+              setTimeout(() => {
+                selectMemberCount(val);
+                selectMonthlyMemberList(val);
+                selectSalesList(salesPeriod, selectedYear, selectedMonth, val);
+                selectPaymentMethodList(val);
+                selectCategorySalesList(val);
+                selectHourlySalesList(val);
+                selectPaymentAnalysisList(val);
+              }, 0);
+            }}
+          >
+            <option value="">전체</option>
+            {centerList.map((c) => (
+              <option key={c.center_id} value={String(c.center_id)}>{c.center_name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* 1. 사용자 통계 개요 */}
       <section className="mb-8">

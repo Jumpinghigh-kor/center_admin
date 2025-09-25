@@ -4,6 +4,14 @@ const db = require("../../../db");
 exports.selectMemberCount = (req, res) => {
   const { center_id } = req.body;
 
+  let addConditions = '';
+  let params = [];
+
+  if(center_id) {
+    addConditions = `WHERE m.center_id = ?`;
+    params.push(center_id);
+  }
+
   const query = `
     WITH statuses AS (
       SELECT 'ACTIVE' AS status
@@ -27,11 +35,11 @@ exports.selectMemberCount = (req, res) => {
             END) AS reg_cnt
     FROM		    statuses s
     LEFT JOIN 	members m	ON m.mem_app_status = s.status
-    AND         m.center_id = ?
+    ${addConditions}
     GROUP BY    s.status
   `;
 
-  db.query(query, [center_id], (err, result) => {
+  db.query(query, params, (err, result) => {
     if (err) {
       res.status(500).json(err);
     }
@@ -95,6 +103,14 @@ exports.selectMemberList = (req, res) => {
 exports.selectMonthlyMemberList = (req, res) => {
   const { center_id } = req.body;
 
+  let addConditions = '';
+  let params = [];
+
+  if(center_id) {
+    addConditions = `AND m.center_id = ?`;
+    params.push(center_id);
+  }
+
   const query = `
     WITH month_nums AS (
       SELECT 1  AS mn 		UNION ALL SELECT 2 	UNION ALL SELECT 3
@@ -115,12 +131,12 @@ exports.selectMonthlyMemberList = (req, res) => {
                               )
     AND 		    m.mem_status = 1
     AND 		    m.mem_app_status IS NOT NULL
-    AND 		    m.center_id = ?
+    ${addConditions}
     GROUP BY 	  month_num
     ORDER BY 	  month_num
   `;
 
-  db.query(query, [center_id], (err, result) => {
+  db.query(query, params, (err, result) => {
     if (err) {
       res.status(500).json(err);
     }
@@ -131,8 +147,12 @@ exports.selectMonthlyMemberList = (req, res) => {
 // 매출 조회
 exports.selectSalesList = (req, res) => {
   const { center_id, period, year, month } = req.body;
-  
   let query = '';
+
+  let addConditions = '';
+  if(center_id) {
+    addConditions = `AND m.center_id = ?`;
+  }
 
   if(period === "day") {
     query = `
@@ -154,14 +174,23 @@ exports.selectSalesList = (req, res) => {
                     ) AS days
               WHERE DATE_ADD(DATE(CONCAT(?, '-', ?, '-01')), INTERVAL daynum DAY) <= LAST_DAY(CONCAT(?, '-', ?, '-01'))
             ) AS cal
-      LEFT JOIN member_order_app AS moa ON moa.order_dt >= cal.calendar_date
-      AND       moa.order_dt <  cal.calendar_date + INTERVAL 1 DAY
-      AND       moa.del_yn = 'N'
-      LEFT JOIN members AS m  ON m.mem_id = moa.mem_id
-      AND m.center_id = ?
       LEFT JOIN (
-                  SELECT order_app_id, SUM(payment_amount) AS paid_amount
-                  FROM member_payment_app
+                  SELECT
+                    moa.order_app_id
+                    , moa.mem_id
+                    , moa.order_dt
+                  FROM        member_order_app moa
+                  INNER JOIN  members m ON m.mem_id = moa.mem_id
+                  ${addConditions}
+                  WHERE       moa.del_yn = 'N'
+                ) AS moa
+      ON moa.order_dt >= cal.calendar_date
+      AND moa.order_dt <  cal.calendar_date + INTERVAL 1 DAY
+      LEFT JOIN (
+                  SELECT
+                    order_app_id
+                    , SUM(payment_amount) AS paid_amount
+                  FROM  member_payment_app
                   WHERE payment_status = 'PAYMENT_COMPLETE'
                   GROUP BY order_app_id
                 ) AS paid
@@ -195,14 +224,23 @@ exports.selectSalesList = (req, res) => {
                     ) AS days
               WHERE DATE_ADD(DATE(CONCAT(?, '-', ?, '-01')), INTERVAL daynum DAY) <= LAST_DAY(CONCAT(?, '-', ?, '-01'))
             ) AS weekinfo
-      LEFT JOIN member_order_app AS moa ON moa.order_dt >= weekinfo.calendar_date
-      AND       moa.order_dt <  weekinfo.calendar_date + INTERVAL 1 DAY
-      AND       moa.del_yn = 'N'
-      LEFT JOIN members AS m  ON m.mem_id = moa.mem_id
-      AND m.center_id = ?
       LEFT JOIN (
-                  SELECT order_app_id, SUM(payment_amount) AS paid_amount
-                  FROM member_payment_app
+                  SELECT
+                    moa.order_app_id
+                    , moa.mem_id
+                    , moa.order_dt
+                  FROM        member_order_app moa
+                  INNER JOIN  members m ON m.mem_id = moa.mem_id
+                  ${addConditions}
+                  WHERE       moa.del_yn = 'N'
+                ) AS moa
+      ON moa.order_dt >= weekinfo.calendar_date
+      AND moa.order_dt <  weekinfo.calendar_date + INTERVAL 1 DAY
+      LEFT JOIN (
+                  SELECT
+                    order_app_id
+                    , SUM(payment_amount) AS paid_amount
+                  FROM  member_payment_app
                   WHERE payment_status = 'PAYMENT_COMPLETE'
                   GROUP BY order_app_id
                 ) AS paid
@@ -232,11 +270,18 @@ exports.selectSalesList = (req, res) => {
                       SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
                     ) AS mm
             ) AS mon
-      LEFT JOIN member_order_app AS moa ON moa.order_dt >= mon.month_start
-      AND       moa.order_dt <  mon.month_end
-      AND       moa.del_yn = 'N'
-      LEFT JOIN members AS mem ON mem.mem_id = moa.mem_id
-      AND       mem.center_id = ?
+      LEFT JOIN (
+                  SELECT
+                    moa.order_app_id
+                    , moa.mem_id
+                    , moa.order_dt
+                  FROM        member_order_app moa
+                  INNER JOIN  members m ON m.mem_id = moa.mem_id
+                  ${addConditions}
+                  WHERE       moa.del_yn = 'N'
+                ) AS moa
+      ON  moa.order_dt >= mon.month_start
+      AND moa.order_dt <  mon.month_end
       LEFT JOIN (
                   SELECT order_app_id, SUM(payment_amount) AS paid_amount
                   FROM member_payment_app
@@ -265,11 +310,18 @@ exports.selectSalesList = (req, res) => {
                 END
               ) AS order_count
       FROM      year_list AS yl
-      LEFT JOIN member_order_app AS moa ON moa.order_dt >= STR_TO_DATE(CONCAT(yl.year, '-01-01'), '%Y-%m-%d')
-      AND       moa.order_dt <  DATE_ADD(STR_TO_DATE(CONCAT(yl.year, '-01-01'), '%Y-%m-%d'), INTERVAL 1 YEAR)
-      AND       moa.del_yn = 'N'
-      LEFT JOIN members AS mem ON mem.mem_id = moa.mem_id
-      AND       mem.center_id = ?
+      LEFT JOIN (
+        SELECT
+          moa.order_app_id
+          , moa.mem_id
+          , moa.order_dt
+        FROM        member_order_app moa
+        INNER JOIN  members m  ON m.mem_id = moa.mem_id
+        ${addConditions}
+        WHERE       moa.del_yn = 'N'
+      ) AS moa
+      ON moa.order_dt >= STR_TO_DATE(CONCAT(yl.year, '-01-01'), '%Y-%m-%d')
+        AND moa.order_dt <  DATE_ADD(STR_TO_DATE(CONCAT(yl.year, '-01-01'), '%Y-%m-%d'), INTERVAL 1 YEAR)
       LEFT JOIN (
                   SELECT order_app_id, SUM(payment_amount) AS paid_amount
                   FROM member_payment_app
@@ -285,14 +337,14 @@ exports.selectSalesList = (req, res) => {
   let params = [];
   
   if(period === "day") {
-    params = [year, month, year, month, year, month, year, month, center_id];
+    params = [year, month, year, month, year, month, center_id];
   } else if(period === "week"){
     params = [year, month, year, month, year, month, year, month, year, month, center_id];
   } else if(period === "month"){
     params = [year, year, center_id];
   } else {
     params = [center_id];
-  } 
+  }
 
   db.query(query, params, (err, result) => {
     if (err) {
@@ -306,6 +358,19 @@ exports.selectSalesList = (req, res) => {
 // 결제 분석 조회
 exports.selectPaymentAnalysisList = (req, res) => {
   const { center_id } = req.body;
+
+  let addConditions = '';
+  let addSubConditions = '';
+  let addSubParams = [];
+
+  if(center_id) {
+    addSubConditions = `AND sm.center_id = ?`;
+    addSubParams.push(center_id);
+  }
+
+  if(center_id) {
+    addConditions = `AND m.center_id = ?`;
+  }
 
   const query = `
     SELECT
@@ -328,7 +393,7 @@ exports.selectPaymentAnalysisList = (req, res) => {
                 INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
                 WHERE 		  smoa.del_yn = 'N'
                 AND 		    smpa.payment_status = 'PAYMENT_COMPLETE'
-                AND 		    sm.center_id = ?
+                ${addSubConditions}
               )
               / NULLIF(
                         (
@@ -339,7 +404,7 @@ exports.selectPaymentAnalysisList = (req, res) => {
                           INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
                           WHERE		    smoa.del_yn = 'N'
                           AND 		    smpa.payment_status = 'PAYMENT_COMPLETE'
-                          AND 		    sm.center_id = ?
+                          ${addSubConditions}
                         ), 0), 0
       ) AS avg_order_amount
       , ROUND(
@@ -351,7 +416,8 @@ exports.selectPaymentAnalysisList = (req, res) => {
                 INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
                 WHERE 		  smoa.del_yn = 'N'
                 AND			    smpa.payment_status = 'PAYMENT_REFUND'
-                AND 		    sm.center_id = ?)
+                ${addSubConditions}
+                )
               / NULLIF(
                         (
                           SELECT
@@ -360,17 +426,17 @@ exports.selectPaymentAnalysisList = (req, res) => {
                           INNER JOIN 	member_payment_app smpa   ON smoa.order_app_id = smpa.order_app_id
                           INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
                           WHERE 		  smoa.del_yn = 'N'
-                          AND 		    sm.center_id = ?
+                          ${addSubConditions}
                         ), 0) * 100, 1
         ) AS refund_rate_percent
     FROM 		    member_order_app moa
     INNER JOIN 	member_payment_app mpa  ON moa.order_app_id = mpa.order_app_id
     INNER JOIN 	members m				        ON m.mem_id = moa.mem_id
     WHERE		    moa.del_yn = 'N'
-    AND		      m.center_id = ?;
+    ${addConditions};
   `;
 
-  db.query(query, [center_id, center_id, center_id, center_id, center_id], (err, result) => {
+  db.query(query, [addSubParams, addSubParams, addSubParams, addSubParams, addConditions], (err, result) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json(err);

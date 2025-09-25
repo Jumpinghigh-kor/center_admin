@@ -104,7 +104,7 @@ exports.updateMemberReturnApp = (req, res) => {
     const setClause = [
       "return_reason_type = ?",
       "reason = ?",
-      "quantity = ?"
+      "quantity = ?",
     ];
     const params = [return_reason_type, reason, quantity];
 
@@ -306,7 +306,7 @@ exports.updateExchangeCompanyTrackingInfo = (req, res) => {
 };
 
 // 반품/교환/취소 삭제
-exports.deleteMemberReturnAppApproval = (req, res) => {
+exports.deleteMemberReturnApp = (req, res) => {
   try {
     const { order_detail_app_id, userId } = req.body;
 

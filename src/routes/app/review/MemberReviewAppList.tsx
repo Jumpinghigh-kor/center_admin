@@ -12,7 +12,7 @@ interface Review {
   title: string;
   content: string;
   star_point: number;
-  delYn: "Y" | "N";
+  del_yn: "Y" | "N";
   admin_del_yn: "Y" | "N";
   reg_dt: string;
   product_title: string;
@@ -96,10 +96,20 @@ const MemberReviewApp: React.FC = () => {
       .map((checked, index) => (checked ? reviewList[index] : null))
       .filter((review): review is Review => review !== null)
       .map(review => review.review_app_id);
+    const selectedReviewObjs = checkedItems
+      .map((checked, index) => (checked ? reviewList[index] : null))
+      .filter((review): review is Review => review !== null);
 
     if (selectedReview.length === 0) {
        alert("삭제할 리뷰를 선택해주세요.");
        return;
+    }
+
+    // 이미 삭제(작성자/관리자)된 리뷰가 포함된 경우 안내 후 중단
+    const hasAlreadyDeleted = selectedReviewObjs.some((rv: any) => String(rv?.del_yn) === 'Y' || String(rv?.admin_del_yn) === 'Y');
+    if (hasAlreadyDeleted) {
+      alert('이미 삭제된 리뷰입니다.');
+      return;
     }
 
     const confirm = window.confirm("정말 삭제하시겠습니까?");
@@ -115,6 +125,37 @@ const MemberReviewApp: React.FC = () => {
           user_id: user?.index
         }
       );
+      // 관리자 삭제 성공 시 작성자에게 안내 우편 발송
+      try {
+        const calls = (selectedReviewObjs || []).map(async (rv: any) => {
+          const memId = rv?.mem_id;
+          const productName = String(rv?.product_title || '').trim();
+          if (!memId || !productName) return;
+          const title = '리뷰가 운영정책 위반으로 삭제되었습니다.';
+          const content = `주문하신 ${productName} 상품에 등록하신 리뷰가 운영정책(부적절한 표현/홍보성 내용/개인정보 노출 등) 위반으로 삭제되었습니다. 자세한 문의는 고객센터로 연락 부탁드립니다.`;
+          const postRes = await axios.post(
+            `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+            {
+              post_type: 'SHOPPING',
+              title,
+              content,
+              all_send_yn: 'N',
+              push_send_yn: 'Y',
+              userId: user?.index,
+              mem_id: String(memId),
+            }
+          );
+          const postAppId = postRes.data?.postAppId;
+          if (postAppId) {
+            await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+              post_app_id: postAppId,
+              mem_id: memId,
+              userId: user?.index,
+            });
+          }
+        });
+        await Promise.allSettled(calls);
+      } catch (_) {}
 
       selectMemberReviewAppList();
     } catch (err) {
@@ -133,7 +174,9 @@ const MemberReviewApp: React.FC = () => {
       title: "",
       content: "",
       min_star_point: "",
-      max_star_point: ""
+      max_star_point: "",
+      del_yn: "",
+      admin_del_yn: ""
     }
   });
 
@@ -274,6 +317,78 @@ const MemberReviewApp: React.FC = () => {
                      </div>
                  </td>
               </tr>
+              <tr>
+                 <td className="border border-gray-300 text-center bg-gray-200 font-medium w-1/6">작성자 삭제 여부</td>
+                 <td className="border border-gray-300 p-3 w-2/6">
+                     <div className="flex items-center space-x-4">
+                       <label className="text-sm flex items-center gap-1 cursor-pointer">
+                         <input
+                           type="radio"
+                           name="del_yn"
+                           value=""
+                           checked={searchData.del_yn === ""}
+                           onChange={(e) => setSearchData({ ...searchData, del_yn: e.target.value })}
+                         />
+                         <span>전체</span>
+                       </label>
+                       <label className="text-sm flex items-center gap-1 cursor-pointer">
+                         <input
+                           type="radio"
+                           name="del_yn"
+                           value="Y"
+                           checked={searchData.del_yn === "Y"}
+                           onChange={(e) => setSearchData({ ...searchData, del_yn: e.target.value })}
+                         />
+                         <span>네</span>
+                       </label>
+                       <label className="text-sm flex items-center gap-1 cursor-pointer">
+                         <input
+                           type="radio"
+                           name="del_yn"
+                           value="N"
+                           checked={searchData.del_yn === "N"}
+                           onChange={(e) => setSearchData({ ...searchData, del_yn: e.target.value })}
+                         />
+                         <span>아니오</span>
+                       </label>
+                     </div>
+                 </td>
+                 <td className="border border-gray-300 text-center bg-gray-200 font-medium w-1/6">관리자 삭제 여부</td>
+                 <td className="border border-gray-300 p-3 w-2/6">
+                     <div className="flex items-center space-x-4">
+                       <label className="text-sm flex items-center gap-1 cursor-pointer">
+                         <input
+                           type="radio"
+                           name="admin_del_yn"
+                           value=""
+                           checked={searchData.admin_del_yn === ""}
+                           onChange={(e) => setSearchData({ ...searchData, admin_del_yn: e.target.value })}
+                         />
+                         <span>전체</span>
+                       </label>
+                       <label className="text-sm flex items-center gap-1 cursor-pointer">
+                         <input
+                           type="radio"
+                           name="admin_del_yn"
+                           value="Y"
+                           checked={searchData.admin_del_yn === "Y"}
+                           onChange={(e) => setSearchData({ ...searchData, admin_del_yn: e.target.value })}
+                         />
+                         <span>네</span>
+                       </label>
+                       <label className="text-sm flex items-center gap-1 cursor-pointer">
+                         <input
+                           type="radio"
+                           name="admin_del_yn"
+                           value="N"
+                           checked={searchData.admin_del_yn === "N"}
+                           onChange={(e) => setSearchData({ ...searchData, admin_del_yn: e.target.value })}
+                         />
+                         <span>아니오</span>
+                       </label>
+                     </div>
+                 </td>
+              </tr>
             </tbody>
           </table>
 
@@ -302,6 +417,7 @@ const MemberReviewApp: React.FC = () => {
           <>
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-semibold">총 {reviewList.length}건</p>
+              <p className="text-sm">선정적이거나 폭력적인 리뷰 또는 부적절한 사진을 남긴 경우, 관리자가 해당 리뷰을 삭제할 수 있습니다.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">
@@ -320,13 +436,10 @@ const MemberReviewApp: React.FC = () => {
                     <th className="text-center whitespace-nowrap">브랜드이름</th>
                     <th className="text-center whitespace-nowrap">상품이름</th>
                     <th className="text-center whitespace-nowrap">제목</th>
-                    <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      내용
-                    </th>
+                    <th className="text-center whitespace-nowrap">내용</th>
                     <th className="text-center whitespace-nowrap">별점</th>
-                    <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      회원 삭제여부
-                    </th>
+                    <th className="text-center whitespace-nowrap">작성자 삭제 여부</th>
+                    <th className="text-center whitespace-nowrap">관리자 삭제 여부</th>
                     <th className="text-center whitespace-nowrap">등록일</th>
                     <th className="text-center whitespace-nowrap">사진</th>
                   </tr>
@@ -335,7 +448,8 @@ const MemberReviewApp: React.FC = () => {
                   {currentReviewList.map((review, index) => (
                     <tr
                       key={review.review_app_id}
-                      className="h-16 border-b border-gray-200 hover:bg-gray-50"
+                      className="h-16 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleIndividualCheck(index, !checkedItems[index])}
                     >
                       <td
                         className="px-4 text-center"
@@ -413,14 +527,18 @@ const MemberReviewApp: React.FC = () => {
                         {review.star_point}
                       </td>
                       <td className="text-center hidden md:table-cell">
-                        {review.delYn === "Y" ? "네" : "아니오"}
+                        {review.del_yn === "Y" ? "네" : "아니오"}
+                      </td>
+                      <td className="text-center hidden md:table-cell">
+                        {review.admin_del_yn === "Y" ? "네" : "아니오"}
                       </td>
                       <td className="text-center hidden md:table-cell">
                         {review.reg_dt}
                       </td>
                       <td className="text-center hidden md:table-cell">
                         <button
-                          onClick={() => { 
+                          onClick={(e) => { 
+                            e.stopPropagation();
                             selectMemberReviewAppImgList(review.review_app_id);
                             setShowImagePopup(true);
                           }}

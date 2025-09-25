@@ -41,16 +41,28 @@ const MemberOrderAppReturn: React.FC = () => {
   const [pointDeductionAmount, setPointDeductionAmount] = useState<number>(0);
   const isRefundCalcMode = startStep === 3 && step === 3;
   const [latestPointAmount, setLatestPointAmount] = useState<number | null>(null);
+  const hasReturnApplySelected = useMemo(() => {
+    try {
+      return (orderDetail.products || []).some((item: any, idx: number) => {
+        const qty = quantityByIndex[idx] ?? 0;
+        if (qty <= 0) return false;
+        const s = String(item?.order_status || '').trim().toUpperCase();
+        return s === 'RETURN_APPLY';
+      });
+    } catch (_) {
+      return false;
+    }
+  }, [orderDetail?.products, quantityByIndex]);
   // 취소완료 알림 발송
   const sendCancelCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
     try {
       if (!memId || !memName || !productName) return;
-      const title = `${memName}고객님께서 주문하신 ${productName}상품이 취소 완료되었습니다.`;
+      const title = `${memName}고객님께서 주문하신 ${productName} 상품이 취소 완료되었습니다.`;
       const content = '고객님의 주문이 취소 처리되었습니다. 환불 및 상세 정보는 취소•반품•교환 내역에서 확인하실 수 있습니다.';
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
-          post_type: 'JUMPING',
+          post_type: 'SHOPPING',
           title,
           content,
           all_send_yn: 'N',
@@ -81,7 +93,7 @@ const MemberOrderAppReturn: React.FC = () => {
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
-          post_type: 'JUMPING',
+          post_type: 'SHOPPING',
           title,
           content,
           all_send_yn: 'N',
@@ -294,6 +306,116 @@ const MemberOrderAppReturn: React.FC = () => {
           userId: user?.index,
         });
       } else {
+        // 반품 접수: RETURN_APPLY는 굿스플로 서비스ID만 업데이트 처리
+        try {
+          const selectedReturnApplyItems = (orderDetail?.products || [])
+            .map((item: any, idx: number) => ({ item, idx }))
+            .filter(({ idx }: { idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
+            .filter(({ item }: { item: any }) => String(item?.order_status || '').trim().toUpperCase() === 'RETURN_APPLY');
+          if (selectedReturnApplyItems.length > 0 && isAutoPickup) {
+            const orderDateStr = (() => {
+              const s = String(orderDetail?.order_dt || '');
+              if (s && s.length >= 12) {
+                return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+              }
+              return new Date().toISOString().slice(0,16).replace('T',' ');
+            })();
+            const nowId = `${Date.now()}`;
+            const pickupDateStr = (() => {
+              const d = new Date();
+              d.setDate(d.getDate() + 1);
+              return d.toISOString().slice(0,10);
+            })();
+            const firstItem = selectedReturnApplyItems[0]?.item || {};
+            const body = {
+              requestId: `RET-${orderDetail?.order_app_id}-${nowId}`,
+              contractType: 'USER',
+              items: [
+                {
+                  centerCode: '1000011886',
+                  uniqueId: `RET-${orderDetail?.order_app_id}-${nowId}`,
+                  boxSize: 'B10',
+                  transporter: 'KOREX',
+                  fromName: orderDetail?.receiver_name,
+                  fromPhoneNo: orderDetail?.receiver_phone,
+                  fromAddress1: orderDetail?.address,
+                  fromAddress2: orderDetail?.address_detail,
+                  fromZipcode: orderDetail?.zip_code,
+                  toName: '점핑하이',
+                  toPhoneNo: '07050554754',
+                  toAddress1: '서울 강서구 마곡서로 133',
+                  toAddress2: '704동 2층',
+                  toZipcode: '07798',
+                  pickupRequestDate: pickupDateStr,
+                  deliveryMessage: pickupDeliveryRequest || '',
+                  consumerName: orderDetail?.receiver_name,
+                  consumerPhoneNo: orderDetail?.receiver_phone,
+                  deliveryPaymentMethod: 'RECEIVER_PAY',
+                  originalInvoiceNo: String(firstItem?.tracking_number || ''),
+                  originalTransporterCode: firstItem?.order_courier_code == 'CJ' ? 'KOREX' : firstItem?.order_courier_code || '',
+                  deliveryItems: selectedReturnApplyItems.map(({ item, idx }: { item: any; idx: number }) => ({
+                    orderNo: String(orderDetail?.order_app_id || ''),
+                    orderDate: orderDateStr,
+                    name: String(item?.product_name || ''),
+                    quantity: Number(quantityByIndex[idx] ?? 0) || 1,
+                    price: Number(item?.price || 0),
+                    code: String(item?.product_detail_app_id || ''),
+                    option: String(item?.option_unit || ''),
+                  })),
+                }
+              ]
+            } as any;
+            const gfRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/shipping/return/deliveryItems`, body);
+            console.log('gfRes', gfRes);
+            try {
+              const serviceId =
+                gfRes?.data?.data?.items?.[0]?.data?.serviceId ||
+                gfRes?.data?.data?.serviceId ||
+                gfRes?.data?.serviceId || '';
+              const detailIdsForUpdate: number[] = Array.from(new Set(
+                selectedReturnApplyItems.map(({ item }: any) => item?.order_detail_app_id).filter((v: any) => v != null)
+              ));
+              if (serviceId && detailIdsForUpdate.length > 0) {
+                await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+                  order_detail_app_id: detailIdsForUpdate,
+                  return_goodsflow_id: serviceId,
+                  userId: user?.index,
+                });
+                try {
+                  const memId = (orderDetail as any)?.mem_id;
+                  const memName = (orderDetail as any)?.mem_name;
+                  for (const { item } of selectedReturnApplyItems) {
+                    const title = '반품 신청이 접수되었습니다.';
+                    const content = `주문하신 ${String(item?.product_name || '')} 상품의 반품 신청이 정상적으로 접수되었습니다. 곧 기사님이 방문하여 상품을 수거할 예정입니다.`;
+                    const postRes = await axios.post(
+                      `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+                      {
+                        post_type: 'SHOPPING',
+                        title,
+                        content,
+                        all_send_yn: 'N',
+                        push_send_yn: 'Y',
+                        userId: user?.index,
+                        mem_id: String(memId),
+                      }
+                    );
+                    const postAppId = postRes.data?.postAppId;
+                    if (postAppId) {
+                      await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                        post_app_id: postAppId,
+                        mem_id: memId,
+                        userId: user?.index,
+                      });
+                    }
+                  }
+                } catch (_) {}
+              }
+            } catch (_) {}
+          }
+        } catch (e) {
+          console.error('[RETURN_APPLY_ONLY] goodsflow/updateReturnGoodsflowId error', e);
+        }
+
         // 반품 접수: 선택 품목 인서트 후 상태 RETURN_APPLY로 변경
         const selectedItems = (orderDetail?.products || [])
           .map((item: any, idx: number) => ({ item, idx }))
@@ -326,6 +448,52 @@ const MemberOrderAppReturn: React.FC = () => {
               const enter_way = isPickupDefaultAddress ? (orderDetail?.enter_way || null) : (pickupEnterWay || null);
               const enter_memo = isPickupDefaultAddress ? (orderDetail?.enter_memo || null) : (pickupEnterMemo || null);
               const delivery_request = isPickupDefaultAddress ? (orderDetail?.delivery_request || null) : (pickupDeliveryRequest || null);
+              const statusCode = String(item?.order_status || '').trim().toUpperCase();
+
+              // EXCHANGE_SHIPPING_COMPLETE: 기존 반품 레코드 삭제 후 신규 인서트
+              if (statusCode === 'EXCHANGE_SHIPPING_COMPLETE') {
+                if (orderDetail?.shipping_address_id) {
+                  try {
+                    await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/deleteMemberOrderAddress`, {
+                      order_address_id: orderDetail?.shipping_address_id,
+                      userId: user?.index,
+                    });
+                  } catch (e) {
+                    // proceed even if delete fails
+                  }
+                }
+                const addressRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
+                  order_detail_app_id: item.order_detail_app_id,
+                  order_address_type: 'RETURN',
+                  mem_id: orderDetail?.mem_id,
+                  receiver_name,
+                  receiver_phone,
+                  address,
+                  address_detail,
+                  zip_code,
+                  enter_way,
+                  enter_memo,
+                  delivery_request,
+                  use_yn: 'Y',
+                });
+                const newOrderAddressId = addressRes?.data?.order_address_id;
+
+                try {
+                  await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/deleteMemberReturnApp`, {
+                    order_detail_app_id: [item.order_detail_app_id],
+                    userId: user?.index,
+                  });
+                } catch (_) {}
+
+                return axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/insertMemberReturnApp`, {
+                  order_detail_app_id: item.order_detail_app_id,
+                  order_address_id: newOrderAddressId,
+                  mem_id: orderDetail?.mem_id,
+                  return_reason_type: selectedReturnReasonType || null,
+                  reason: detailReason || null,
+                  quantity: quantityByIndex[idx] ?? 0,
+                });
+              }
 
               // 기존 접수 존재 시: 반환 정보만 업데이트 (주소는 변경하지 않음)
               if (item?.return_app_id) {
@@ -362,7 +530,7 @@ const MemberOrderAppReturn: React.FC = () => {
                   reason: detailReason || null,
                   quantity: quantityByIndex[idx] ?? 0,
                   order_address_id: newOrderAddressIdForUpdate,
-                  approval_yn: 'N',
+                  approval_yn: null,
                   cancel_yn: 'N',
                   userId: user?.index,
                 });
@@ -500,6 +668,34 @@ const MemberOrderAppReturn: React.FC = () => {
             order_status: 'RETURN_APPLY',
             userId: user?.index,
           });
+          try {
+            const memId = (orderDetail as any)?.mem_id;
+            const memName = (orderDetail as any)?.mem_name;
+            for (const si of selectedItems) {
+              const title = '반품 신청이 접수되었습니다.';
+              const content = `주문하신 ${String(si.item?.product_name || '')} 상품의 반품 신청이 정상적으로 접수되었습니다. 곧 기사님이 방문하여 상품을 수거할 예정입니다.`;
+              const postRes = await axios.post(
+                `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+                {
+                  post_type: 'SHOPPING',
+                  title,
+                  content,
+                  all_send_yn: 'N',
+                  push_send_yn: 'Y',
+                  userId: user?.index,
+                  mem_id: String(memId),
+                }
+              );
+              const postAppId = postRes.data?.postAppId;
+              if (postAppId) {
+                await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                  post_app_id: postAppId,
+                  mem_id: memId,
+                  userId: user?.index,
+                });
+              }
+            }
+          } catch (_) {}
           
         }
       }
@@ -588,7 +784,7 @@ const MemberOrderAppReturn: React.FC = () => {
         userId: user?.index,
       });
 
-      // 취소완료 알림 발송 (취소 플로우에 한해)
+      // 취소완료/반품승인 알림 발송
       try {
         if (actionType !== 'return') {
           const memId = (orderDetail as any)?.mem_id;
@@ -599,14 +795,35 @@ const MemberOrderAppReturn: React.FC = () => {
               sendCancelCompleteNotification(memId, memName, p?.product_name);
             });
         } else {
-          // 반품완료 알림 발송 (반품 플로우)
+          // 반품승인 알림 발송 (반품 플로우)
           const memId = (orderDetail as any)?.mem_id;
           const memName = (orderDetail as any)?.mem_name;
-          (orderDetail?.products || [])
-            .filter((p: any) => orderDetailAppIds.includes(p?.order_detail_app_id))
-            .forEach((p: any) => {
-              sendReturnCompleteNotification(memId, memName, p?.product_name);
-            });
+          for (const p of (orderDetail?.products || []).filter((pp: any) => orderDetailAppIds.includes(pp?.order_detail_app_id))) {
+            try {
+              const title = `${memName} 님꼐서 주문하신 ${String(p?.product_name || '')} 상품의 반품이 승인 되었습니다.`;
+              const content = '반품 신청이 승인되었습니다. 항상 저희 서비스를 이용해 주셔서 감사드리며, 앞으로도 더 나은 서비스를 제공할 수 있도록 최선을 다하겠습니다.';
+              const postRes = await axios.post(
+                `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+                {
+                  post_type: 'SHOPPING',
+                  title,
+                  content,
+                  all_send_yn: 'N',
+                  push_send_yn: 'Y',
+                  userId: user?.index,
+                  mem_id: String(memId),
+                }
+              );
+              const postAppId = postRes.data?.postAppId;
+              if (postAppId) {
+                await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                  post_app_id: postAppId,
+                  mem_id: memId,
+                  userId: user?.index,
+                });
+              }
+            } catch (_) {}
+          }
         }
       } catch {}
 
@@ -637,7 +854,10 @@ const MemberOrderAppReturn: React.FC = () => {
       const status = String(item?.order_status || '').trim().toUpperCase();
       const qty = quantityByIndex[idx] ?? 0;
       const price = Number(item?.price || 0);
-      if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+      if (
+        actionType === 'return' &&
+        !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY')
+      ) return sum;
       return sum + (price * qty);
     }, 0);
     // 쿠폰 차감액 (주문 전체 기준)
@@ -738,7 +958,7 @@ const MemberOrderAppReturn: React.FC = () => {
                 .filter(({ item }: { item: any }) => {
                   const s = String(item?.order_status || '').trim().toUpperCase();
                   if (actionType === 'return') {
-                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE';
+                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE' || s === 'RETURN_APPLY';
                   }
                   if (s.indexOf('CANCEL') >= 0) return false;
                   return s === 'PAYMENT_COMPLETE' || s === 'HOLD';
@@ -761,7 +981,13 @@ const MemberOrderAppReturn: React.FC = () => {
                           if (actionType === 'cancel') {
                             code = codes.includes('HOLD') ? 'HOLD' : 'PAYMENT_COMPLETE';
                           } else {
-                            code = codes.includes('SHIPPING_COMPLETE') ? 'SHIPPING_COMPLETE' : 'SHIPPINGING';
+                            if (codes.includes('EXCHANGE_SHIPPING_COMPLETE')) {
+                              code = 'EXCHANGE_SHIPPING_COMPLETE';
+                            } else if (codes.includes('SHIPPING_COMPLETE')) {
+                              code = 'SHIPPING_COMPLETE';
+                            } else {
+                              code = 'SHIPPINGING';
+                            }
                           }
                           return (
                             orderStatusCodeList.find((c: any) => c.common_code === code)?.common_code_name || ''
@@ -777,7 +1003,7 @@ const MemberOrderAppReturn: React.FC = () => {
                               list.forEach(({ item, idx }: { item: any; idx: number }) => {
                                 const status = String(item?.order_status || '').trim().toUpperCase();
                                 if (actionType === 'return') {
-                                  if (status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE') {
+                                  if (status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY') {
                                     updates[idx] = Number(item.order_quantity) || 0;
                                   }
                                 } else {
@@ -850,14 +1076,14 @@ const MemberOrderAppReturn: React.FC = () => {
                 (orderDetail.products || []).some((item: any, idx: number) => {
                   const status = String(item?.order_status || '').trim().toUpperCase();
                   const qty = quantityByIndex[idx] ?? 0;
-                  return (actionType !== 'return' || status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE') && qty > 0;
+                  return (actionType !== 'return' || status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY') && qty > 0;
                 }) &&
                 (
                   orderDetail.free_shipping_amount >= (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
                     const status = String(item?.order_status || '').trim().toUpperCase();
                     const qty = quantityByIndex[idx] ?? 0;
                     const price = item.price ?? 0;
-                    if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+                    if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY')) return sum;
                     return sum + qty * price;
                   }, 0)
                 ) && (
@@ -875,7 +1101,7 @@ const MemberOrderAppReturn: React.FC = () => {
                         const status = String(item?.order_status || '').trim().toUpperCase();
                         const qty = quantityByIndex[idx] ?? 0;
                         const price = item.price ?? 0;
-                        if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE')) return sum;
+                        if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY')) return sum;
                         return sum + qty * price;
                       }, 0);
                       return selectedTotal?.toLocaleString();
@@ -1260,7 +1486,7 @@ const MemberOrderAppReturn: React.FC = () => {
                   })}
                 </div>
               </div>
-              {actionType === 'return' && (
+              {actionType === 'return' && !hasReturnApplySelected && (
                 <div className="mt-10">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-m font-semibold">수거정보</p>
@@ -1399,6 +1625,7 @@ const MemberOrderAppReturn: React.FC = () => {
                   </div>
                 </div>
               )}
+              {!hasReturnApplySelected && (
               <div className="mt-10 flex items-center w-full">
                 <p className="text-m font-semibold w-1/3">사유</p>
                 <select className="w-2/3 border border-gray-300 rounded px-3 py-2" value={selectedReturnReasonType} onChange={(e) => setSelectedReturnReasonType(e.target.value)}>
@@ -1410,6 +1637,8 @@ const MemberOrderAppReturn: React.FC = () => {
                   ))}
                 </select>
               </div>
+              )}
+              {!hasReturnApplySelected && (
               <div className="mt-10 flex items-center w-full">
                 <p className="text-m font-semibold w-1/3"></p>
                 <textarea
@@ -1427,6 +1656,7 @@ const MemberOrderAppReturn: React.FC = () => {
                   onChange={(e) => setDetailReason(e.target.value)}
                 />
               </div>
+              )}
             </div>
           </div>
           <div className="w-1/3 ml-10 bg-white p-10 rounded-lg shadow-md">
@@ -1499,11 +1729,13 @@ const MemberOrderAppReturn: React.FC = () => {
                 <button
                   className="w-full bg-black text-white px-4 py-3 rounded-md"
                   onClick={() => {
-                    if (!selectedReturnReasonType) {
-                      setToastVariant('warning');
-                      setToastMessage('사유를 골라주세요');
-                      setIsToastVisible(true);
-                      return;
+                    if (!hasReturnApplySelected) {
+                      if (!selectedReturnReasonType) {
+                        setToastVariant('warning');
+                        setToastMessage('사유를 골라주세요');
+                        setIsToastVisible(true);
+                        return;
+                      }
                     }
                     if (actionType === 'return' && !isPickupDefaultAddress) {
                       const hasReceiver = String(pickupReceiverName || '').trim().length > 0;
@@ -1518,15 +1750,32 @@ const MemberOrderAppReturn: React.FC = () => {
                         return;
                       }
                     }
-                    const selectedReason = (returnReasonList || []).find((r: any) => String(r?.common_code) === String(selectedReturnReasonType));
-                    const reasonName = String(selectedReason?.common_code_name || '');
-                    const reasonCodeUpper = String(selectedReturnReasonType || '').trim().toUpperCase();
-                    const isOtherReason = reasonName.includes('기타') || reasonCodeUpper === 'OTHER' || reasonCodeUpper === 'ETC';
-                    if (isOtherReason && String(detailReason || '').trim().length === 0) {
-                      setToastVariant('warning');
-                      setToastMessage('상세 사유를 입력해주세요');
-                      setIsToastVisible(true);
-                      return;
+                    if (!hasReturnApplySelected) {
+                      const selectedReason = (returnReasonList || []).find((r: any) => String(r?.common_code) === String(selectedReturnReasonType));
+                      const reasonName = String(selectedReason?.common_code_name || '');
+                      const reasonCodeUpper = String(selectedReturnReasonType || '').trim().toUpperCase();
+                      const isOtherReason = reasonName.includes('기타') || reasonCodeUpper === 'OTHER' || reasonCodeUpper === 'ETC';
+                      if (isOtherReason && String(detailReason || '').trim().length === 0) {
+                        setToastVariant('warning');
+                        setToastMessage('상세 사유를 입력해주세요');
+                        setIsToastVisible(true);
+                        return;
+                      }
+                    }
+                    // 자동수거 선택 시 굿스플로 출고 이력이 없는(수동 등록) 상품은 자동수거 불가
+                    if (actionType === 'return' && isAutoPickup) {
+                      const selectedForAutoPickup = (orderDetail.products || [])
+                        .map((item: any, idx: number) => ({ item, idx }))
+                        .filter(({ idx }: { idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
+                        .filter(({ item }: { item: any }) => {
+                          const statusCode = String(item?.order_status || '').trim().toUpperCase();
+                          return statusCode === 'SHIPPINGING' || statusCode === 'SHIPPING_COMPLETE' || statusCode === 'EXCHANGE_SHIPPING_COMPLETE';
+                        });
+                      const hasManualRegistered = selectedForAutoPickup.some(({ item }: { item: any }) => !item?.goodsflow_id);
+                      if (hasManualRegistered) {
+                        alert('수동 입력으로 등록된 상품은 자동수거가 불가능 합니다');
+                        return;
+                      }
                     }
                     setIsConfirmOpen(true);
                   }}

@@ -842,7 +842,7 @@ const MemberOrderAppList: React.FC = () => {
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
-          post_type: 'JUMPING',
+          post_type: 'SHOPPING',
           title,
           content,
           all_send_yn: 'N',
@@ -873,7 +873,7 @@ const MemberOrderAppList: React.FC = () => {
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
-          post_type: 'JUMPING',
+          post_type: 'SHOPPING',
           title,
           content,
           all_send_yn: 'N',
@@ -1959,7 +1959,36 @@ const MemberOrderAppList: React.FC = () => {
           setIsGoodsflowModalOpen(false);
           setSelectedOrdersForGoodsflow([]);
         }}
-        onSuccess={() => fn_memberOrderAppListInternal(false)}
+        onSuccess={async () => {
+          try {
+            // 1) 상태 SHIPPINGING으로 변경
+            const detailIds: number[] = [];
+            (selectedOrdersForGoodsflow || []).forEach((order: any) => {
+              if (Array.isArray(order?.products) && order.products.length > 0) {
+                order.products.forEach((p: any) => {
+                  if (typeof p?.order_detail_app_id === 'number') detailIds.push(p.order_detail_app_id);
+                });
+              } else if (typeof order?.order_detail_app_id === 'number') {
+                detailIds.push(order.order_detail_app_id);
+              }
+            });
+            for (const id of detailIds) {
+              await fn_updateOrderStatus(id, 'SHIPPINGING');
+            }
+
+            // 2) 배송중 알림 발송
+            for (const order of selectedOrdersForGoodsflow) {
+              if ((order as any)?.products && Array.isArray((order as any).products)) {
+                for (const p of (order as any).products) {
+                  await sendShippingNotification((order as any).mem_id, (order as any).mem_name, p?.product_name);
+                }
+              } else {
+                await sendShippingNotification((order as any).mem_id, (order as any).mem_name, (order as any).product_name);
+              }
+            }
+          } catch {}
+          fn_memberOrderAppListInternal(false);
+        }}
       />
 
       <CustomToastModal

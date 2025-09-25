@@ -158,7 +158,7 @@ const MemberOrderAppDetail: React.FC = () => {
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
-          post_type: 'JUMPING',
+          post_type: 'SHOPPING',
           title,
           content,
           all_send_yn: 'N',
@@ -189,7 +189,7 @@ const MemberOrderAppDetail: React.FC = () => {
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
-          post_type: 'JUMPING',
+          post_type: 'SHOPPING',
           title,
           content,
           all_send_yn: 'N',
@@ -412,7 +412,7 @@ const MemberOrderAppDetail: React.FC = () => {
           `${process.env.REACT_APP_API_URL}/app/goodsflow/shipping/deliveries/${goodsflowIds.join(',')}`,
           { params: { idType: 'serviceId' } }
         );
-
+        
         const deliveries = gfRes?.data?.data || [];
         if (!Array.isArray(deliveries) || deliveries.length === 0) return;
 
@@ -474,7 +474,7 @@ const MemberOrderAppDetail: React.FC = () => {
               );
             });
           });
-
+          
         if (updateCalls.length > 0) {
           await Promise.allSettled(updateCalls);
           // 로컬 상태 즉시 반영
@@ -774,6 +774,14 @@ const MemberOrderAppDetail: React.FC = () => {
       if (response.data.success) {
         // 주문 정보 업데이트 (그룹/개별 대상 제품 상태 즉시 반영)
         const idsToUpdate: number[] = Array.isArray(orderDetailAppId) ? (orderDetailAppId as number[]) : [orderDetailAppId as number];
+        // 반품거절 컨텍스트(RETURN_APPLY → SHIPPING_COMPLETE)에서는 배송완료 알림을 보내지 않음
+        const isReturnRejectContext = (() => {
+          try {
+            const list: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
+            return String(orderStatus || '').toUpperCase() === 'SHIPPING_COMPLETE' &&
+              list.some((p: any) => idsToUpdate.includes(p?.order_detail_app_id) && String(p?.order_status || '').trim().toUpperCase() === 'RETURN_APPLY');
+          } catch (_) { return false; }
+        })();
         setOrderDetail(prev => {
           if (!prev) return prev;
           const updatedProducts = (prev.products || []).map((p: any) =>
@@ -806,10 +814,10 @@ const MemberOrderAppDetail: React.FC = () => {
             replace: true
           });
         }
-        // 배송완료 알림 발송 (교환 배송완료 포함)
+        // 배송완료 알림 발송 (교환 배송완료 포함) - 반품거절 컨텍스트는 제외
         try {
           const upperStatus = String(orderStatus || '').toUpperCase();
-          if ((upperStatus === 'SHIPPING_COMPLETE' || upperStatus === 'EXCHANGE_SHIPPING_COMPLETE') && orderDetail) {
+          if ((upperStatus === 'SHIPPING_COMPLETE' || upperStatus === 'EXCHANGE_SHIPPING_COMPLETE') && orderDetail && !isReturnRejectContext) {
             const memId = (orderDetail as any)?.mem_id;
             const memName = (orderDetail as any)?.mem_name;
             const list: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
@@ -989,6 +997,36 @@ const MemberOrderAppDetail: React.FC = () => {
         cancel_yn: 'N',
         userId: user?.index,
       });
+      // 취소거절 알림 발송
+      try {
+        const memId = (orderDetail as any)?.mem_id;
+        const memName = (orderDetail as any)?.mem_name;
+        const list: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
+        const targets = list.filter((p: any) => orderDetailAppIds.includes(p?.order_detail_app_id));
+        const calls = targets.map((p: any) => {
+          const title = '취소 접수가 거절되었습니다.';
+          const content = `주문하신 ${String(p?.product_name || '')} 상품의 접수 최소가 거절되었습니다. 혹시 문의 사항이 있으시면 고객센터로 연락 부탁드립니다.`;
+          return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`, {
+            post_type: 'SHOPPING',
+            title,
+            content,
+            all_send_yn: 'N',
+            push_send_yn: 'Y',
+            userId: user?.index,
+            mem_id: String(memId),
+          }).then((postRes) => {
+            const postAppId = postRes.data?.postAppId;
+            if (postAppId) {
+              return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                post_app_id: postAppId,
+                mem_id: memId,
+                userId: user?.index,
+              });
+            }
+          });
+        });
+        await Promise.allSettled(calls);
+      } catch {}
     } catch (e) {
       console.error('취소거절 승인 취소 처리 오류:', e);
     }
@@ -1210,6 +1248,7 @@ const MemberOrderAppDetail: React.FC = () => {
                 const list: any[] = Array.isArray(orderDetail?.products) ? orderDetail!.products : [];
                 const isCancelable = (status: any) => {
                   const statusCode = String(status ?? '').trim().toUpperCase();
+                  if (statusCode === 'CANCEL_APPLY') return false;
                   if (statusCode.includes('RETURN') || statusCode.includes('EXCHANGE')) return false;
                   return !(statusCode === 'SHIPPINGING' || statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM' || statusCode === 'CANCEL_COMPLETE' || statusCode.startsWith('EXCHANGE_'));
                 };
@@ -1980,7 +2019,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                                 const postRes = await axios.post(
                                                   `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
                                                   {
-                                                    post_type: 'JUMPING',
+                                                    post_type: 'SHOPPING',
                                                     title,
                                                     content,
                                                     all_send_yn: 'N',
@@ -2046,6 +2085,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                             };
                                             
                                             const res = await axios.delete(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/cancel`, { data: payload });
+                                            console.log('res::', res);
                                           }
                                         } catch (gfErr) {
                                           console.error('굿스플로 반품취소 호출 오류:', gfErr);
@@ -2102,22 +2142,67 @@ const MemberOrderAppDetail: React.FC = () => {
                                         console.error('반품 거절 후 주소 인서트 오류:', e);
                                       }
                                       await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPING_COMPLETE');
+                                      // 반품거절 안내 메시지 발송
+                                      try {
+                                        const memId = (orderDetail as any)?.mem_id;
+                                        const memName = (orderDetail as any)?.mem_name;
+                                        const calls = items.map(({ product }: any) => {
+                                          const title = `${memName}님께서 주문하신 ${String(product?.product_name || '')} 상품의 반품 접수가 취소 되었습니다.`;
+                                          const content = '반품 접수가 취소되었습니다. 혹시 문의 사항이 있으시면 고객센터로 연락 부탁드립니다.';
+                                          return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`, {
+                                            post_type: 'SHOPPING',
+                                            title,
+                                            content,
+                                            all_send_yn: 'N',
+                                            push_send_yn: 'Y',
+                                            userId: user?.index,
+                                            mem_id: String(memId),
+                                          }).then((postRes) => {
+                                            const postAppId = postRes.data?.postAppId;
+                                            if (postAppId) {
+                                              return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                                                post_app_id: postAppId,
+                                                mem_id: memId,
+                                                userId: user?.index,
+                                              });
+                                            }
+                                          });
+                                        });
+                                        await Promise.allSettled(calls);
+                                      } catch (notifErr) {}
                                     }}
                                   >
                                     반품거절
                                   </button>
-                                  <button
-                                    className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
-                                    onClick={async () => {
-                                      try {
-                                        await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'RETURN_GET');
-                                      } catch (e) {
-                                        console.error('수거완료 처리 오류:', e);
-                                      }
-                                    }}
-                                  >
-                                    수거완료
-                                  </button>
+                                  {groupHasReturnGoodsflowId ? (
+                                    <button
+                                      className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
+                                      onClick={async () => {
+                                        try {
+                                          await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'RETURN_GET');
+                                        } catch (e) {
+                                          console.error('수거완료 처리 오류:', e);
+                                        }
+                                      }}
+                                    >
+                                      수거완료
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
+                                      onClick={() => {
+                                        const enhancedOrderDetail = buildEnhancedOrderDetail(orderDetail);
+                                        navigate('/app/memberOrderAppReturn', {
+                                          state: {
+                                            orderDetail: enhancedOrderDetail,
+                                            actionType: 'return',
+                                          }
+                                        });
+                                      }}
+                                    >
+                                      수거 정보 등록
+                                    </button>
+                                  )}
                                 </div>
                                 <p className="text-xs mt-2">수거가 완료되면 위의 버튼을 눌러주세요.</p>
                               </div>
@@ -2198,7 +2283,68 @@ const MemberOrderAppDetail: React.FC = () => {
                                     } catch (e) {
                                       console.error('반품취소 후 주소 인서트 오류:', e);
                                     }
-                                    await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPING_COMPLETE');
+                                    try {
+                                      await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateOrderStatus`, {
+                                        order_detail_app_id: groupOrderDetailAppIds,
+                                        order_status: 'SHIPPING_COMPLETE',
+                                        userId: user?.index
+                                      });
+                                      // 로컬 상태 즉시 반영 (알림 전송 없음)
+                                      setOrderDetail(prev => {
+                                        if (!prev) return prev;
+                                        const updatedProducts = (prev.products || []).map((p: any) =>
+                                          groupOrderDetailAppIds.includes(p?.order_detail_app_id)
+                                            ? { ...p, order_status: 'SHIPPING_COMPLETE' }
+                                            : p
+                                        );
+                                        return { ...prev, order_status: 'SHIPPING_COMPLETE', products: updatedProducts } as any;
+                                      });
+                                      if (location.state?.orderDetail) {
+                                        const updatedProducts = (location.state.orderDetail.products || []).map((p: any) =>
+                                          groupOrderDetailAppIds.includes(p?.order_detail_app_id)
+                                            ? { ...p, order_status: 'SHIPPING_COMPLETE' }
+                                            : p
+                                        );
+                                        navigate(location.pathname, {
+                                          state: {
+                                            ...location.state,
+                                            orderDetail: {
+                                              ...location.state.orderDetail,
+                                              order_status: 'SHIPPING_COMPLETE',
+                                              products: updatedProducts
+                                            }
+                                          },
+                                          replace: true
+                                        });
+                                      }
+                                    } catch (stateErr) {}
+                                      try {
+                                        const memId = (orderDetail as any)?.mem_id;
+                                        const memName = (orderDetail as any)?.mem_name;
+                                        const calls = items.map(({ product }: any) => {
+                                          const title = `${memName}님께서 주문하신 ${String(product?.product_name || '')} 상품의 반품이 취소 되었습니다.`;
+                                          const content = '반품이 취소되었습니다. 혹시 문의 사항이 있으시면 고객센터로 연락 부탁드립니다.';
+                                          return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`, {
+                                            post_type: 'SHOPPING',
+                                            title,
+                                            content,
+                                            all_send_yn: 'N',
+                                            push_send_yn: 'Y',
+                                            userId: user?.index,
+                                            mem_id: String(memId),
+                                          }).then((postRes) => {
+                                            const postAppId = postRes.data?.postAppId;
+                                            if (postAppId) {
+                                              return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                                                post_app_id: postAppId,
+                                                mem_id: memId,
+                                                userId: user?.index,
+                                              });
+                                            }
+                                          });
+                                        });
+                                        await Promise.allSettled(calls);
+                                      } catch (notifErr) {}
                                   }}
                                 >
                                   반품취소
@@ -2221,6 +2367,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                         selectedOrderAppIds: groupOrderDetailAppIds
                                       }
                                     });
+                                      // 승인 시에는 메시지 발송 없음 (환불 완료 단계에서 발송)
                                   }}
                                 >
                                   반품승인

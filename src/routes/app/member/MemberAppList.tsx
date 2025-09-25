@@ -310,7 +310,7 @@ const MemberList: React.FC = () => {
                         onChange={(e) => setSearchData({ ...searchData, center_id: e.target.value })}
                         className="w-full px-2 py-1 border border-gray-300 rounded"
                       >
-                        <option value="">선택</option>
+                        <option value="">전체</option>
                         {centerList.map((center) => (
                           <option key={center.center_id} value={center.center_id}>{center.center_name}</option>
                         ))}

@@ -193,9 +193,9 @@ exports.selectMemberOrderAppList = (req, res) => {
       LEFT JOIN	  member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id
       LEFT JOIN   product_detail_app pda      	ON moda.product_detail_app_id = pda.product_detail_app_id
       LEFT JOIN   product_app pa              	ON pda.product_app_id = pa.product_app_id
-      LEFT JOIN	  member_return_app mra			    ON moda.order_detail_app_id = mra.order_detail_app_id
+      LEFT JOIN	  member_return_app mra			    ON moda.order_detail_app_id = mra.order_detail_app_id AND mra.del_yn = 'N'
       WHERE       moa.del_yn = 'N'
-      AND         m.center_id = ?
+      AND         pa.consignment_yn = 'N'
       ${filter}
       ORDER BY moa.order_dt DESC
     ;`;
@@ -239,8 +239,10 @@ exports.selectMemberOrderAppCount = (req, res) => {
       FROM        members m
       INNER JOIN  member_order_app moa          ON m.mem_id = moa.mem_id
       LEFT JOIN   member_order_detail_app moda  ON moda.order_app_id = moa.order_app_id
-      WHERE       m.center_id = ?
-      AND         moa.del_yn = 'N'
+      LEFT JOIN   product_detail_app pda      	ON moda.product_detail_app_id = pda.product_detail_app_id
+      LEFT JOIN   product_app pa              	ON pda.product_app_id = pa.product_app_id
+      WHERE       moa.del_yn = 'N'
+      AND         pa.consignment_yn = 'N'
     ;`;
     
   db.query(query, [center_id], (err, result) => {

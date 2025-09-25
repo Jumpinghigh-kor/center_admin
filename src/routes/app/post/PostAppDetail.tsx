@@ -115,7 +115,7 @@ const PostAppDetail: React.FC = () => {
     <>
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold">우편함 수정</h2>
+          <h2 className="text-xl font-semibold">우편함 상세</h2>
         </div>
 
         <form className="space-y-6">

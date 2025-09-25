@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { insertMemberReturnApp, updateMemberReturnAppApproval, updateMemberReturnApp, updateReturnGoodsflowId, updateReturnCustomerTrackingNumber, updateExchangeCompanyTrackingInfo, deleteMemberReturnAppApproval } = require("../../controllers/app/memberReturnApp");
+const { insertMemberReturnApp, updateMemberReturnAppApproval, updateMemberReturnApp, updateReturnGoodsflowId, updateReturnCustomerTrackingNumber, updateExchangeCompanyTrackingInfo, deleteMemberReturnApp } = require("../../controllers/app/memberReturnApp");
 
 // 회원 취소/반품/교환 접수
 router.post("/insertMemberReturnApp", insertMemberReturnApp);     
@@ -21,6 +21,6 @@ router.post("/updateReturnCustomerTrackingNumber", updateReturnCustomerTrackingN
 router.post("/updateExchangeCompanyTrackingInfo", updateExchangeCompanyTrackingInfo);
 
 // 반품/교환/취소 삭제
-router.post("/deleteMemberReturnAppApproval", deleteMemberReturnAppApproval);
+router.post("/deleteMemberReturnApp", deleteMemberReturnApp);
 
 module.exports = router;

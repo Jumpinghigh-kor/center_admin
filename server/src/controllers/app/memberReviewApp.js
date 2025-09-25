@@ -12,7 +12,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // 리뷰 목록 조회
 exports.selectMemberReviewAppList = (req, res) => {
-  const { mem_name, brand_name, product_title, title, content, min_star_point, max_star_point } = req.body;
+  const { mem_name, brand_name, product_title, title, content, min_star_point, max_star_point, del_yn, admin_del_yn } = req.body;
 
   let addCondition = '';
   let params = [];
@@ -53,6 +53,16 @@ exports.selectMemberReviewAppList = (req, res) => {
     params.push(content);
   }
 
+  if(del_yn) {
+    addCondition += ` AND mra.del_yn = ?`;
+    params.push(del_yn);
+  }
+
+  if(admin_del_yn) {
+    addCondition += ` AND mra.admin_del_yn = ?`;
+    params.push(admin_del_yn);
+  }
+
   const query = `
     SELECT
       m.mem_id
@@ -69,8 +79,7 @@ exports.selectMemberReviewAppList = (req, res) => {
     FROM		    members m
     INNER JOIN	member_review_app mra   ON m.mem_id = mra.mem_id
     LEFT JOIN	  product_app pa	        ON mra.product_app_id = pa.product_app_id
-    WHERE		    mra.del_yn = 'N'
-    AND			    mra.admin_del_yn = 'N'
+    WHERE       1=1
     ${addCondition}
     ORDER BY    mra.review_app_id DESC
   `;

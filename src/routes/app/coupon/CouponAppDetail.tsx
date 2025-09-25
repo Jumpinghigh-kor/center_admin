@@ -405,6 +405,8 @@ const CouponAppDetail: React.FC = () => {
               <tr>
                 <td className="bg-gray-100 px-4 py-3 w-1/6 font-semibold">
                   쿠폰 이용약관 <span className="text-red-500">*</span>
+                  <br />
+                  <span className="text-sm">(줄바꿈 필요)</span>
                 </td>
                 <td className="px-4 py-3 w-2/6">
                   <textarea
