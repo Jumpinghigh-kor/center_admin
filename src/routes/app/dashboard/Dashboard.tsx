@@ -105,6 +105,8 @@ const Dashboard: React.FC = () => {
 
   // 센터 목록 불러오기
   const selectCenterList = async () => {
+    if(user?.usr_role !== 'admin') return;
+
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/center/list`,
@@ -122,8 +124,8 @@ const Dashboard: React.FC = () => {
 
   // 매출 데이터 조회 API
   const selectSalesList = async (period: string, year: number, month: number, centerIdOverride?: string | number | null) => {
-    const centerId = getEffectiveCenterId(centerIdOverride);
-    
+    const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
+
     try {
       setSalesLoading(true);
       const response = await axios.post(
@@ -175,9 +177,8 @@ const Dashboard: React.FC = () => {
 
   // 결제 수단 건수 조회 API
   const selectPaymentMethodList = async (centerIdOverride?: string | number | null) => {
-    const centerId = getEffectiveCenterId(centerIdOverride);
-    if (!centerId) return;
-    
+    const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
+
     try {
       setPaymentMethodLoading(true);
       const response = await axios.post(
@@ -208,9 +209,8 @@ const Dashboard: React.FC = () => {
 
   // 카테고리 별 매출 조회 API
   const selectCategorySalesList = async (centerIdOverride?: string | number | null) => {
-    const centerId = getEffectiveCenterId(centerIdOverride);
-    if (!centerId) return;
-    
+    const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
+
     try {
       setCategoryLoading(true);
       const response = await axios.post(
@@ -237,9 +237,8 @@ const Dashboard: React.FC = () => {
 
   // 시간대별 주문 현황 조회 API
   const selectHourlySalesList = async (centerIdOverride?: string | number | null) => {
-    const centerId = getEffectiveCenterId(centerIdOverride);
-    if (!centerId) return;
-    
+    const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
+
     try {
       setHourlyLoading(true);
       const response = await axios.post(
@@ -312,7 +311,7 @@ const Dashboard: React.FC = () => {
   // 사용자 통계 개요 조회
   const selectMemberCount = async (centerIdOverride?: string | number | null) => {
     try {
-      const centerId = getEffectiveCenterId(centerIdOverride);
+      const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectMemberCount`,
         {
@@ -339,8 +338,9 @@ const Dashboard: React.FC = () => {
 
   // 월별 가입 된 회원수 조회
   const selectMonthlyMemberList = async (centerIdOverride?: string | number | null) => {
+
     try {
-      const centerId = getEffectiveCenterId(centerIdOverride);
+      const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectMonthlyMemberList`,
         {
@@ -357,8 +357,9 @@ const Dashboard: React.FC = () => {
 
   // 결제 분석 조회
   const selectPaymentAnalysisList = async (centerIdOverride?: string | number | null) => {
+
     try {
-      const centerId = getEffectiveCenterId(centerIdOverride);
+      const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectPaymentAnalysisList`,
         {

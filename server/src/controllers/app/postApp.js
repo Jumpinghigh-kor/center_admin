@@ -85,7 +85,7 @@ exports.selectMemberPostAppList = (req, res) => {
 exports.insertPostApp = (req, res) => {
   try {
     const { post_type, title, content, all_send_yn, userId, push_send_yn, mem_id } = req.body;
-    console.log('insertPostApp', req.body);
+    
     // 현재 날짜 형식화
     const now = dayjs();
     const reg_dt = now.format("YYYYMMDDHHmmss");

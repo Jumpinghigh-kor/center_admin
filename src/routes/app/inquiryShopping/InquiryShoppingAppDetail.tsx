@@ -4,6 +4,7 @@ import { useUserStore } from "../../../store/store";
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface InquiryShoppingApp {
+  mem_id: number;
   inquiry_shopping_app_id: number;
   title: string;
   content: string;
@@ -47,6 +48,37 @@ const InquiryShoppingAppDetail: React.FC = () => {
           user_id: user.index,
         }
       );
+
+      // 우편 메시지 발송 (베스트 에포트)
+      try {
+        const memId = selectedInquiry?.mem_id;
+        if (memId) {
+          const title = '쇼핑몰 문의 답변이 도착했습니다.';
+          const content = '고객님께서 남겨주신 문의에 대한 답변이 도착했습니다.\n[쇼핑 -> 마이페이지 -> 우측 상단 메시지 아이콘]에서 확인하실 수 있습니다.';
+          const postRes = await axios.post(
+            `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+            {
+              post_type: 'ALL',
+              title,
+              content,
+              all_send_yn: 'N',
+              push_send_yn: 'Y',
+              userId: user?.index,
+              mem_id: String(memId),
+            }
+          );
+          const postAppId = postRes?.data?.postAppId;
+          if (postAppId) {
+            await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+              post_app_id: postAppId,
+              mem_id: memId,
+              userId: user?.index,
+            });
+          }
+        }
+      } catch (postErr) {
+        console.error('우편 메시지 발송 오류:', postErr);
+      }
 
       alert("답변이 성공적으로 등록되었습니다.");
       navigate(-1);

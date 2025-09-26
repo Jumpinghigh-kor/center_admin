@@ -66,6 +66,23 @@ const NoticesAppRegister: React.FC = () => {
         }
       );
 
+      // 공지 등록 성공 시 우편 메시지 발송 (베스트 에포트)
+      try {
+        await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+          {
+            post_type: 'ALL',
+            title: '새로운 공지사항이 도착했습니다.',
+            content: '자세한 내용은 [마이페이지-> 고객센터-> 공지사항]에서 확인하실 수 있습니다.',
+            all_send_yn: 'Y',
+            push_send_yn: 'Y',
+            userId: user.index.toString(),
+          }
+        );
+      } catch (postErr) {
+        console.error('공지 우편 발송 오류:', postErr);
+      }
+
       alert("공지 사항이 성공적으로 등록되었습니다.");
       navigate("/app/noticesAppList");
     } catch (error) {

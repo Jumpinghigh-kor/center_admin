@@ -27,6 +27,7 @@ exports.selectInquiryAppList = (req, res) => {
   const query = `
     SELECT
       ia.inquiry_app_id
+      , m.mem_id
       , m.mem_name
       , CASE
           WHEN m.mem_app_status = 'ACTIVE' THEN '활동 회원'

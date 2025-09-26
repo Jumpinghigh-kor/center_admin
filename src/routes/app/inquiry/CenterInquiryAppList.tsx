@@ -207,7 +207,7 @@ const CenterInquiryAppList: React.FC = () => {
           <>
             <div className="mt-4 mb-4 flex justify-between items-center">
               <p className="text-sm font-bold">총 {inquiryList.length}건</p>
-              <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
+              <p>아래 목록 클릭 시 상세 페이지로 이동하며 답변을 남길 수 있습니다.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white">

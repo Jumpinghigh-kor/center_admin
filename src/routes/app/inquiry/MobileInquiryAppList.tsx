@@ -12,6 +12,7 @@ interface InquiryApp {
   content: string;
   answer: string;
   answer_dt: string;
+  mem_id: number;
   mem_name: string;
   mem_app_status: string;
   reg_dt: string;

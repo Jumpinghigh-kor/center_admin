@@ -217,6 +217,37 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         }
       );
 
+      // 계정 생성 시 환영 우편 발송 (베스트 에포트)
+      if (effectiveMode === "create") {
+        try {
+          const memId = selectedMember?.mem_id;
+          if (memId) {
+            const postRes = await axios.post(
+              `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
+              {
+                post_type: 'JUMPING',
+                title: '회원 가입을 진심으로 환영합니다! 🎉',
+                content: '회원님께 더 큰 만족을 드릴 수 있도록 항상 노력하겠습니다.',
+                all_send_yn: 'N',
+                push_send_yn: 'Y',
+                userId: user?.index,
+                mem_id: String(memId),
+              }
+            );
+            const postAppId = (postRes as any)?.data?.postAppId;
+            if (postAppId) {
+              await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
+                post_app_id: postAppId,
+                mem_id: memId,
+                userId: user?.index,
+              });
+            }
+          }
+        } catch (postErr) {
+          console.error('환영 우편 발송 오류:', postErr);
+        }
+      }
+
       alert(successMessage);
       onSuccess();
       onClose();

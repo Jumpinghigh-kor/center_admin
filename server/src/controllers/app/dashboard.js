@@ -448,6 +448,11 @@ exports.selectPaymentAnalysisList = (req, res) => {
 // 결제 수단 조회
 exports.selectPaymentMethodList = (req, res) => {
   const { center_id } = req.body;
+  
+  let addConditions = '';
+  if(center_id) {
+    addConditions = `AND m.center_id = ?`;
+  }
 
   const query = `
     SELECT
@@ -461,7 +466,7 @@ exports.selectPaymentMethodList = (req, res) => {
     LEFT JOIN	member_payment_app mpa 	ON moa.order_app_id = mpa.order_app_id
     WHERE		  moa.del_yn = 'N'
     AND			  mpa.payment_status = 'PAYMENT_COMPLETE'
-    AND			  m.center_id = ?
+    ${addConditions}
     GROUP BY  mpa.card_name
     ORDER BY  card_count DESC;
   `;
@@ -479,6 +484,11 @@ exports.selectPaymentMethodList = (req, res) => {
 exports.selectCategorySalesList = (req, res) => {
   const { center_id } = req.body;
 
+  let addConditions = '';
+  if(center_id) {
+    addConditions = `AND m.center_id = ?`;
+  }
+
   const query = `
     SELECT
       cc.common_code_name AS category_name
@@ -492,7 +502,7 @@ exports.selectCategorySalesList = (req, res) => {
     LEFT JOIN	common_code cc			          ON pa.big_category = cc.common_code
     WHERE		  moa.del_yn = 'N'
     AND			  mpa.payment_status = 'PAYMENT_COMPLETE'
-    AND			  m.center_id = ?
+    ${addConditions}
     GROUP BY 	pa.big_category
     ORDER BY 	cc.common_code_name DESC;
   `;
@@ -509,6 +519,11 @@ exports.selectCategorySalesList = (req, res) => {
 // 시간대별 매출 조회
 exports.selectHourlySalesList = (req, res) => {
   const { center_id } = req.body;
+
+  let addConditions = '';
+  if(center_id) {
+    addConditions = `AND m.center_id = ?`;
+  }
 
   const query = `
     SELECT
@@ -544,10 +559,15 @@ exports.selectHourlySalesList = (req, res) => {
             SELECT 22 UNION ALL
             SELECT 23
           ) AS t
-    LEFT JOIN member_order_app AS moa ON HOUR(moa.order_dt) = t.start_hour
-    AND       moa.del_yn = 'N'
-    LEFT JOIN members AS m ON m.mem_id = moa.mem_id
-    AND m.center_id = ?
+      LEFT JOIN (
+                  SELECT o.order_app_id, o.order_dt
+                  FROM member_order_app AS o
+                  INNER JOIN members AS m
+                  ON m.mem_id = o.mem_id
+                  ${addConditions}
+                  WHERE o.del_yn = 'N'
+                ) AS moa
+    ON HOUR(moa.order_dt) = t.start_hour
     LEFT JOIN (
                 SELECT
                   DISTINCT order_app_id
