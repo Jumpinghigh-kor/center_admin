@@ -110,6 +110,7 @@ exports.selectProductAppList = (req, res) => {
       , sell_end_dt
       , courier_code
       , delivery_fee
+      , return_delivery_fee
       , remote_delivery_fee
       , free_shipping_amount
       , inquiry_phone_number
@@ -154,6 +155,7 @@ exports.selectProductAppDetail = (req, res) => {
       , DATE_FORMAT(sell_end_dt, '%Y-%m-%d %H:%i:%s') as sell_end_dt
       , courier_code
       , delivery_fee
+      , return_delivery_fee
       , remote_delivery_fee
       , free_shipping_amount
       , inquiry_phone_number
@@ -502,6 +504,7 @@ exports.insertProductApp = async (req, res) => {
         , sell_end_dt
         , courier_code
         , delivery_fee
+        , return_delivery_fee
         , remote_delivery_fee
         , free_shipping_amount
         , inquiry_phone_number
@@ -517,6 +520,7 @@ exports.insertProductApp = async (req, res) => {
         , mod_id
       ) VALUES (
         ?
+        , ?
         , ?
         , ?
         , ?
@@ -562,6 +566,7 @@ exports.insertProductApp = async (req, res) => {
           productApp.sell_end_dt ? productApp.sell_dt_type === "unlimited" ? "29991230235959" : productApp.sell_end_dt.replace(/[-:]/g, '').replace(/T/g, '').replace(/\s/g, '') + '00' : null,
           productApp.courier_code,
           productApp.delivery_fee,
+          productApp.return_delivery_fee,
           productApp.remote_delivery_fee,
           productApp.free_shipping_amount,
           productApp.inquiry_phone_number,
@@ -815,6 +820,7 @@ exports.updateProductApp = async (req, res) => {
         , sell_end_dt = ?
         , courier_code = ?
         , delivery_fee = ?
+        , return_delivery_fee = ?
         , remote_delivery_fee = ?
         , free_shipping_amount = ?
         , inquiry_phone_number = ?
@@ -842,6 +848,7 @@ exports.updateProductApp = async (req, res) => {
       normalized_sell_end_dt,
       productApp.courier_code,
       productApp.delivery_fee,
+      productApp.return_delivery_fee,
       productApp.remote_delivery_fee,
       productApp.free_shipping_amount,
       productApp.inquiry_phone_number,

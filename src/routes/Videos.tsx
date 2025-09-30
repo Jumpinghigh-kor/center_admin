@@ -24,7 +24,9 @@ const Videos: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/video`);
+        const res = await axios.post(`${process.env.REACT_APP_API_URL}/video`, {
+          pl_type: "EMERGENCY",
+        });
         const playlist = res.data.result[0].pl_url;
         const response = await axios.get(
           `https://www.googleapis.com/youtube/v3/playlistItems`,

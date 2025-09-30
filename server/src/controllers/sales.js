@@ -85,7 +85,7 @@ exports.getYearlySales = (req, res) => {
             , YEAR(member_orders.memo_purchase_date) AS sales_year
           FROM        member_orders
           INNER JOIN  products ON member_orders.memo_pro_id = products.pro_id
-          GROUP BY sales_date;`
+          GROUP BY    sales_year, sales_date;`
       : `
           SELECT
             CONCAT(YEAR(member_orders.memo_purchase_date), '-', LPAD(MONTH(member_orders.memo_purchase_date), 2, '0')) AS sales_date
@@ -99,7 +99,7 @@ exports.getYearlySales = (req, res) => {
           FROM        member_orders
           INNER JOIN  products  ON member_orders.memo_pro_id = products.pro_id 
           WHERE       products.center_id = ?
-          GROUP BY  sales_date;`;
+          GROUP BY    sales_year, sales_date;`;
   db.query(query, [center_id], (err, result) => {
     if (err) {
       return res.status(500).json(err);

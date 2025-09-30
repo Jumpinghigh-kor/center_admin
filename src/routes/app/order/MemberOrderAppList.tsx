@@ -1142,7 +1142,7 @@ const MemberOrderAppList: React.FC = () => {
                                     <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" shapeRendering="crispEdges">
                                       <path d="M12 3l9 16H3l9-16z" />
                                     </svg>
-                                    <span className="text-sm font-bold">취소 필요</span>
+                                    <span className="text-sm font-bold">취소필요</span>
                                   </div>
                                 )}
                                 {hasReturnStatus && (
@@ -1150,7 +1150,7 @@ const MemberOrderAppList: React.FC = () => {
                                     <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" shapeRendering="crispEdges">
                                       <path d="M12 3l9 16H3l9-16z" />
                                     </svg>
-                                    <span className="text-sm font-bold">반품 필요</span>
+                                    <span className="text-sm font-bold">반품필요</span>
                                   </div>
                                 )}
                                 {hasExchangeStatus && (
@@ -1158,7 +1158,7 @@ const MemberOrderAppList: React.FC = () => {
                                     <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" shapeRendering="crispEdges">
                                       <path d="M12 3l9 16H3l9-16z" />
                                     </svg>
-                                    <span className="text-sm font-bold">교환 필요</span>
+                                    <span className="text-sm font-bold">교환필요</span>
                                   </div>
                                 )}
 

@@ -14,6 +14,7 @@ const {
   insertMemberScheduleApp,
   updateMemberScheduleApp,
   updateMemberScheduleAppMemo,
+  getReservationMemberCnt,
 } = require("../controllers/schedule");
 
 //시간표 관리
@@ -24,6 +25,7 @@ router.post("/memberScheduleApp", getMemberScheduleAppList);
 router.post("/getReservationMemberList", getReservationMemberList);
 router.post("/getReservationMemberListByDate", getReservationMemberListByDate);
 router.post("/getRegisteredMemberList", getRegisteredMemberList);
+router.post("/getReservationMemberCnt", getReservationMemberCnt);
 router.post("/insertMemberScheduleApp", insertMemberScheduleApp);
 router.patch("/updateMemberScheduleApp", updateMemberScheduleApp);
 router.patch("/updateMemberScheduleAppMemo", updateMemberScheduleAppMemo);

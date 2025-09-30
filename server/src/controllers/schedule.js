@@ -489,7 +489,6 @@ exports.updateMemberScheduleApp = (req, res) => {
                  WHERE sch_app_id IN (?)`;
 
   db.query(query, [agree_yn, mem_id, sch_app_id], (err, result) => {
-    console.log(err);
     if (err) {
       return res.status(500).json(err);
     }
@@ -518,5 +517,27 @@ exports.updateMemberScheduleAppMemo = (req, res) => {
       message: "메모가 업데이트되었습니다.",
       result: result,
     });
+  });
+};
+
+// 예약 회원 리스트 보기
+exports.getReservationMemberCnt = (req, res) => {
+  const { center_id } = req.body;
+
+  const query = `
+    SELECT
+      COUNT(*) AS cnt
+    FROM		  members m
+    LEFT JOIN	member_schedule_app mca ON m.mem_id = mca.mem_id
+    WHERE		  mca.agree_yn IS NULL
+    AND			  DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= DATE_FORMAT(STR_TO_DATE(mca.sch_dt, '%Y%m%d'), '%Y%m%d%H%i%s')
+    AND			  m.center_id = ?
+  `;
+
+  db.query(query, [center_id], (err, result) => {
+    if (err) {
+      return res.status(500).json(err);
+    }
+    return res.status(200).json({ result: result });
   });
 };

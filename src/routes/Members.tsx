@@ -17,6 +17,7 @@ type ScheduleOmit = Omit<Schedule, "current_count">;
 interface Order {
   memo_id: number;
   memo_pro_name: string;
+  memo_pro_price: number;
   memo_remaining_counts: number | null;
   memo_start_date: string;
   memo_end_date: string;
@@ -24,6 +25,7 @@ interface Order {
   memo_history: string;
   pro_name: string;
   pro_type: string;
+  pro_price: number;
 }
 
 
@@ -46,6 +48,7 @@ const Members: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [popupToggle, setPopupToggle] = useState<boolean>(false);
   const [popupMode, setPopupMode] = useState<string>("");
+  const [priceInputs, setPriceInputs] = useState<Record<number, string>>({});
   
   const filteredMembers = searchTerm
   ? members.filter((member) =>
@@ -110,6 +113,15 @@ useEffect(() => {
     getSchedule();
   }, [user]);
 
+  // 주문 목록이 바뀌면 입력값 초기화
+  useEffect(() => {
+    const initial: Record<number, string> = {};
+    orders.forEach((o) => {
+      initial[o.memo_id] = String(o.memo_pro_price ?? "");
+    });
+    setPriceInputs(initial);
+  }, [orders]);
+
   const getMemberInfo = async (member: Member) => {
     try {
       setSelectedMember(member);
@@ -133,6 +145,31 @@ useEffect(() => {
     document.body.style.overflow = "auto";
   }
 
+  //결제 금액 수정
+  const updateMemberOrderPrice = async (id: number, price: number) => {
+    if(!window.confirm("기존의 결제 금액은 삭제되며 복구 불가능 합니다.\n정말로 결제 금액을 수정하겠습니까?")) {
+      return;
+    }
+
+    if(!price) {
+      alert("결제 금액을 입력해주세요.");
+      return;
+    }
+
+    try {
+      await axios.post(`${process.env.REACT_APP_API_URL}/member/orderPrice`, {
+        memo_id: id,
+        memo_pro_price: price,
+      });
+      
+      alert("결제 금액이 수정되었습니다.");
+      await fetchData();
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  //회원권 삭제
   const deleteOrder = async () => {
     const doDelete = window.confirm("회원권을 삭제하겠습니까?");
     if (!doDelete) return;
@@ -231,7 +268,7 @@ useEffect(() => {
             (<div className="flex justify-end">
               <div className="flex flex-col items-end">
                 <button
-                  className={`rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
+                  className={`hidden rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
                     selectedMember
                     ? "bg-blue-600 hover:bg-green-700 cursor-pointer"
                     : "bg-gray-400 cursor-not-allowed"
@@ -474,7 +511,7 @@ useEffect(() => {
                         <td className="text-base text-center p-2 bg-custom-C4C4C4 text-white"></td>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black"></td>
                       </tr>
-                      <tr className="border-b border-gray-200">
+                      <tr className="border-b border-gray-200 hidden">
                         <th
                           scope="row"
                           className="text-base text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
@@ -495,7 +532,7 @@ useEffect(() => {
                                                                         : selectedMember?.mem_app_status === 'EXIT' ? '탈퇴' : '-'}
                         </td>
                       </tr>
-                      <tr>
+                      <tr className="hidden">
                         <th
                           scope="row"
                           className="text-base text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
@@ -574,6 +611,18 @@ useEffect(() => {
                             scope="col"
                             className="text-base px-1 sm:px-2 lg:px-6 py-3 text-center"
                           >
+                            회원권 가격
+                          </th>
+                          <th
+                            scope="col"
+                            className="text-base px-1 sm:px-2 lg:px-6 py-3 text-center"
+                          >
+                            결제금액
+                          </th>
+                          <th
+                            scope="col"
+                            className="text-base px-1 sm:px-2 lg:px-6 py-3 text-center"
+                          >
                             구매일자
                           </th>
                           <th
@@ -620,6 +669,33 @@ useEffect(() => {
                           >
                             <td className="px-1 sm:px-2 lg:px-6 py-4 font-medium text-center text-black whitespace-nowrap">
                               {order.memo_pro_name}
+                            </td>
+                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
+                              {order.pro_price.toLocaleString()} 원
+                            </td>
+                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  className="border border-gray-300 rounded-md px-2 py-1 w-24 text-right"
+                                  value={priceInputs[order.memo_id] ?? ""}
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                                    setPriceInputs((prev) => ({ ...prev, [order.memo_id]: raw }));
+                                  }}
+                                  inputMode="numeric"
+                                />
+                                <p>원</p>
+                                <button
+                                  className="bg-blue-600 text-white px-4 py-2 rounded-md"
+                                  onClick={() => {
+                                    const newPrice = Number(priceInputs[order.memo_id] ?? order.memo_pro_price);
+                                    updateMemberOrderPrice(order.memo_id, newPrice);
+                                  }}
+                                >
+                                  수정
+                                </button>
+                              </div>
                             </td>
                             <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
                               {order.memo_purchase_date

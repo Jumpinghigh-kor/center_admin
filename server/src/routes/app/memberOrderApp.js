@@ -14,7 +14,8 @@ const {
     , deleteMemberOrderApp
     , insertMemberOrderApp
     , insertMemberOrderDetailApp
-    , selectCenterMemberOrderAppList } = require("../../controllers/app/memberOrderApp");
+    , selectCenterMemberOrderAppList
+    , selectMemberOrderAppCnt } = require("../../controllers/app/memberOrderApp");
 
 // 회원 주문 목록 조회
 router.post("/selectMemberOrderAppList", selectMemberOrderAppList);
@@ -57,5 +58,8 @@ router.post("/insertMemberOrderDetailApp", insertMemberOrderDetailApp);
 
 // 회원 주문 목록 조회
 router.post("/selectCenterMemberOrderAppList", selectCenterMemberOrderAppList);
+
+// 회원 주문 목록 갯수 조회
+router.post("/selectMemberOrderAppCnt", selectMemberOrderAppCnt);
 
 module.exports = router;

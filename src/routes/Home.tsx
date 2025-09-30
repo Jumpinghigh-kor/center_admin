@@ -31,6 +31,28 @@ const Home: React.FC = () => {
   const [updateLogs, setUpdateLogs] = useState<UpdateLog[]>([]);
   const [notices, setNotices] = useState<NoticeType[]>([]);
   const [guidelines, setGuidelines] = useState<GuidelineType[]>([]);
+  const [url, setUrl] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_URL}/video`,
+          {
+            pl_type: "GUIDE",
+          }
+        );
+
+        const playlist = res.data.result[0].pl_url;
+
+        setUrl(playlist);
+      } catch (e) {
+        console.log(e);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const MAX_PERCENTAGE = 100;
 
@@ -270,7 +292,7 @@ const Home: React.FC = () => {
         </NavLink>
         <NavLink
           target="_blank"
-          to="https://www.youtube.com/watch?v=CO7lbCT0gtg"
+          to={`https://youtu.be/${url}`}
         >
           <div className="h-auto p-6 bg-white border max-w-full flex items-center border-gray-200 rounded-sm shadow hover:bg-gray-100">
             <div className="flex">

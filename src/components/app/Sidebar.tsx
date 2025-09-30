@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useUserStore, useSidebarStore } from "../../store/store";
 import profileImage from "../../images/profile2.png";
 
@@ -10,10 +11,16 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useUserStore((state) => state.user);
   const sidebar = useSidebarStore((state) => state.sidebar);
   const [isVisible, setIsVisible] = useState<boolean>(true);
   const prevSidebar = useRef<boolean>(sidebar);
+  const [hasUnansweredCenterInquiry, setHasUnansweredCenterInquiry] = useState<boolean>(false);
+  const [hasUnansweredMobileInquiry, setHasUnansweredMobileInquiry] = useState<boolean>(false);
+  const [hasUnansweredShoppingInquiry, setHasUnansweredShoppingInquiry] = useState<boolean>(false);
+  const [hasPendingReservations, setHasPendingReservations] = useState<boolean>(false);
+  const [hasOrderAttention, setHasOrderAttention] = useState<boolean>(false);
   
   // 햄버거 메뉴(전역 sidebar)가 false -> true로 변할 때만 토글
   useEffect(() => {
@@ -54,7 +61,181 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
       headerContainer.style.marginLeft = "";
     }
   }, [isVisible]);
+
+  // 센터 문의 관리 배지(미답변 존재 여부) 체크
+  useEffect(() => {
+    let mounted = true;
+    const fetchUnanswered = async () => {
+      try {
+        if (!user || !user.center_id) return;
+        const { data } = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/inquiryApp/selectInquiryAppList`,
+          {
+            center_id: user.center_id,
+            inquiry_type: "FRANCHISE",
+            answer: "N",
+          }
+        );
+        if (!mounted) return;
+        const list = data?.result || [];
+        setHasUnansweredCenterInquiry(Array.isArray(list) && list.length > 0);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("center inquiry badge fetch error", e);
+      }
+    };
+    fetchUnanswered();
+    window.addEventListener("focus", fetchUnanswered);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", fetchUnanswered);
+    };
+  }, [user, location.pathname]);
   
+  // 어플 문의 관리 배지(미답변 존재 여부) 체크
+  useEffect(() => {
+    let mounted = true;
+    const fetchUnansweredMobile = async () => {
+      try {
+        if (!user || !user.center_id) return;
+        const { data } = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/inquiryApp/selectInquiryAppList`,
+          {
+            center_id: user.center_id,
+            inquiry_type: "APPLICATION",
+            answer: "N",
+          }
+        );
+        if (!mounted) return;
+        const list = data?.result || [];
+        setHasUnansweredMobileInquiry(Array.isArray(list) && list.length > 0);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("mobile inquiry badge fetch error", e);
+      }
+    };
+    fetchUnansweredMobile();
+    window.addEventListener("focus", fetchUnansweredMobile);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", fetchUnansweredMobile);
+    };
+  }, [user, location.pathname]);
+
+  // 쇼핑몰 문의 관리 배지(미답변 존재 여부) 체크
+  useEffect(() => {
+    let mounted = true;
+    const fetchUnansweredShopping = async () => {
+      try {
+        if (!user || !user.center_id) return;
+        const { data } = await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/inquiryShoppingApp/selectInquiryShoppingAppList`,
+          {
+            center_id: user.center_id,
+            answerStatus: "N",
+          }
+        );
+        if (!mounted) return;
+        const list = data?.result || [];
+        setHasUnansweredShoppingInquiry(Array.isArray(list) && list.length > 0);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("shopping inquiry badge fetch error", e);
+      }
+    };
+    fetchUnansweredShopping();
+    window.addEventListener("focus", fetchUnansweredShopping);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", fetchUnansweredShopping);
+    };
+  }, [user, location.pathname]);
+
+  // 예약 관리 배지(향후 예약 중 동의 미확인 존재 여부) 체크
+  useEffect(() => {
+    let mounted = true;
+    const fetchPendingReservations = async () => {
+      try {
+        if (!user || !user.center_id) return;
+        const { data } = await axios.post(`${process.env.REACT_APP_API_URL}/schedule/getReservationMemberCnt`, {
+          center_id: user.center_id,
+        });
+        
+        if (!mounted) return;
+        const hasPendingReservations = data?.result[0]?.cnt > 0;
+        setHasPendingReservations(hasPendingReservations);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('reservation badge fetch error', e);
+      }
+    };
+    fetchPendingReservations();
+    window.addEventListener('focus', fetchPendingReservations);
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', fetchPendingReservations);
+    };
+  }, [user, location.pathname]);
+
+  // 주문 관리 배지(처리 필요 주문 존재 여부) 체크
+  useEffect(() => {
+    let mounted = true;
+    const fetchOrderCnt = async () => {
+      try {
+        if (!user || !user.center_id) return;
+        const { data } = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectMemberOrderAppCnt`, {
+          center_id: user.center_id,
+        });
+        if (!mounted) return;
+        const cnt = Number((data && data[0] && data[0].cnt) || 0);
+        setHasOrderAttention(cnt > 0);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('order badge fetch error', e);
+      }
+    };
+    fetchOrderCnt();
+    window.addEventListener('focus', fetchOrderCnt);
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', fetchOrderCnt);
+    };
+  }, [user, location.pathname]);
+
+  // 주문 상태 변경 등 관련 API 성공 시 즉시 배지 갱신 (전역 axios 인터셉터)
+  useEffect(() => {
+    const interceptorId = axios.interceptors.response.use(
+      (response) => {
+        try {
+          const url = String(response?.config?.url || '');
+          const shouldRefresh = (
+            url.includes('/app/memberOrderApp/updateOrderStatus') ||
+            url.includes('/app/memberOrderApp/deleteTrackingNumber') ||
+            url.includes('/app/memberOrderApp/updateTrackingNumber') ||
+            url.includes('/app/memberOrderApp/updateOrderGroup') ||
+            url.includes('/app/memberOrderApp/updateNewMemberOrderApp')
+          );
+          if (shouldRefresh && user && user.center_id) {
+            axios
+              .post(`${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectMemberOrderAppCnt`, {
+                center_id: user.center_id,
+              })
+              .then(({ data }) => {
+                const cnt = Number((data && data[0] && data[0].cnt) || 0);
+                setHasOrderAttention(cnt > 0);
+              })
+              .catch(() => {});
+          }
+        } catch {}
+        return response;
+      },
+      (error) => Promise.reject(error)
+    );
+    return () => {
+      axios.interceptors.response.eject(interceptorId);
+    };
+  }, [user]);
+
   const handleNavigation = (path: string, tab: string) => {
     setActiveTab(tab);
     navigate(path);
@@ -159,10 +340,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth="2"
-                  d="M0 18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8H0v10Zm14-7.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm-5-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm-5-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v2h20V4Z"
+                  d="M0 18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8H0v10Zm14-7.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm-5-4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v2h20V4Z"
                 />
               </svg>
               <span className="hidden md:inline">예약 관리</span>
+              {hasPendingReservations && (
+                <span className="ml-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+              )}
             </button>
           </li>
 
@@ -244,6 +428,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 7.5l-3-3" />
               </svg>
               <span className="hidden md:inline">센터 문의 관리</span>
+              {hasUnansweredCenterInquiry && (
+                <span className="ml-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+              )}
             </button>
           </li>
 
@@ -388,6 +575,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 7.5l-3-3" />
                   </svg>
                   <span className="hidden md:inline">어플 문의 관리</span>
+                  {hasUnansweredMobileInquiry && (
+                    <span className="ml-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+                  )}
                 </button>
               </li>
 
@@ -423,6 +613,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     />
                   </svg>
                   <span className="hidden md:inline">주문 관리</span>
+                  {hasOrderAttention && (
+                    <span className="ml-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+                  )}
                 </button>
               </li>
 
@@ -472,6 +665,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 7.5l-3-3" />
                   </svg>
                   <span className="hidden md:inline">쇼핑몰 문의 관리</span>
+                  {hasUnansweredShoppingInquiry && (
+                    <span className="ml-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+                  )}
                 </button>
               </li>
 

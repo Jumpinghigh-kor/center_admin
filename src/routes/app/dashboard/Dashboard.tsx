@@ -434,7 +434,7 @@ const Dashboard: React.FC = () => {
       
       {user?.usr_role === 'admin' && (
         <div className="mb-4 flex items-center gap-2">
-          <p>매장 선택(관리자용) : </p> 
+          <p>매장 선택(관리자만 노출) : </p> 
           <select
             className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={selectedCenterId}

@@ -284,6 +284,33 @@ exports.selectProductAppImg = (req, res) => {
   });
 };
 
+
+// 상품 이미지 조회
+exports.selectMemberOrderAppCnt = (req, res) => {
+  const { center_id } = req.body;
+
+  const query = `
+      SELECT
+        COUNT(*) AS cnt
+      FROM		    members m
+      LEFT JOIN	  member_order_app moa 			    ON m.mem_id = moa.mem_id
+      LEFT JOIN	  member_order_detail_app moda 	ON moa.order_app_id = moda.order_app_id
+      WHERE		    m.center_id = ?
+      AND			    moa.del_yn = 'N'
+      AND			    moda.order_status 
+                  IN ('PAYMENT_COMPLETE', 'CANCEL_APPLY', 'EXCHANGE_APPLY'
+                      , 'EXCHANGE_GET', 'EXCHANGE_PAYMENT_COMPLETE', 'HOLD'
+                      , 'RETURN_APPLY' , 'RETURN_GET');
+  `;
+
+  db.query(query, [center_id], (err, result) => {
+    if (err) {
+      console.error("회원 주문 목록 갯수 조회 오류:", err);
+    }
+    res.status(200).json(result);
+  });
+};
+
 // 회원 주문 등록
 exports.insertMemberOrderApp = (req, res) => {
   try {

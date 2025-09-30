@@ -54,6 +54,7 @@ const ProductAppDetail: React.FC = () => {
     delivery_fee: "",
     free_shipping_amount: "",
     remote_delivery_fee: "",
+    return_delivery_fee: "",
     inquiry_phone_number: "",
     today_send_yn: "Y",
     today_send_time: "",
@@ -553,6 +554,7 @@ const ProductAppDetail: React.FC = () => {
         courier_code: formData.courier_code,
         delivery_fee: parseInt(formData.delivery_fee) || 0,
         remote_delivery_fee: parseInt(formData.remote_delivery_fee) || 0,
+        return_delivery_fee: parseInt(formData.return_delivery_fee) || 0,
         free_shipping_amount: parseInt(formData.free_shipping_amount) || 0,
         inquiry_phone_number: formData.inquiry_phone_number,
         today_send_yn: formData.today_send_yn,
@@ -1056,6 +1058,24 @@ const ProductAppDetail: React.FC = () => {
                     placeholder="고객문의 전화번호 (예: 010-1234-5678)"
                   />
                 </td>
+              </tr>
+              <tr className="border-b border-gray-200">
+                <td className="bg-gray-100 px-4 py-3 font-semibold">
+                  반품 배송비
+                </td>
+                <td className="px-4 py-3">
+                  <input
+                    type="number"
+                    name="return_delivery_fee"
+                    value={formData.return_delivery_fee}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="반품 배송비 (원)"
+                    min="0"
+                  />
+                </td>
+                <td className="bg-gray-100 px-4 py-3 font-semibold"></td>
+                <td className="px-4 py-3"></td>
               </tr>
 
               {/* 오늘 발송 여부 & 주문 마감 시간 / 발송 일수 */}

@@ -81,6 +81,25 @@ exports.getMember = (req, res) => {
         ) AS memo_remaining_counts
         , (
             SELECT
+              smo.memo_pro_price
+            FROM	member_orders smo
+            WHERE	m.mem_id = smo.memo_mem_id
+            AND		smo.memo_status = 1
+            ORDER BY smo.memo_purchase_date DESC
+            LIMIT 1
+        ) AS memo_pro_price
+        , (
+          SELECT
+            sp.pro_price
+          FROM	    member_orders smo
+          LEFT JOIN	products sp ON smo.memo_pro_id = sp.pro_id
+          WHERE	    m.mem_id = smo.memo_mem_id
+          AND		    smo.memo_status = 1
+          ORDER BY smo.memo_purchase_date DESC
+          LIMIT 1
+        ) AS pro_price
+        , (
+            SELECT
 			        GROUP_CONCAT(
 							              CASE sbl.locker_type
 								              WHEN 'SHOES' 	  THEN '신발장'
@@ -725,5 +744,21 @@ exports.getAllMemberList = (req, res) => {
       return res.status(500).json(err);
     }
     return res.status(200).json({ result: result });
+  });
+};
+
+//회원 결제 금액 수정
+exports.updateMemberOrderPrice = (req, res) => {
+  const { memo_id, memo_pro_price } = req.body;
+  const query = `
+    UPDATE member_orders SET
+      memo_pro_price = ?
+    WHERE memo_id = ?
+    `;
+  db.query(query, [memo_pro_price, memo_id], (err, result) => {
+    if (err) {
+      res.status(500).json(err);
+    }
+    res.json({ message: "Updated the member order price.", result: result });
   });
 };
