@@ -355,7 +355,21 @@ const MemberList: React.FC = () => {
                     <th className="text-center pl-4">선택</th>
                     <th className="text-center pl-4">번호</th>
                     <th className="text-center">이름</th>
-                    <th className="text-center">회원 상태</th>
+                    <th className="text-center">
+                      <span className="inline-flex items-center justify-center">
+                        회원 어플 상태
+                        <span className="relative group ml-1 inline-flex items-center">
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-400 text-white text-[10px] font-bold cursor-pointer">?</span>
+                          <div className="absolute left-1/2 -translate-x-1/2 top-5 z-10 w-56 px-2 py-3 text-xs text-white bg-gray-900 rounded shadow opacity-0 invisible group-hover:opacity-100 group-hover:visible">
+                            <div className="space-y-1 text-left">
+                              <p>활동 회원 : 계정 생성 후 로그인을 한 회원</p>
+                              <p>가입 진행중 회원 : 계정만 생성한 회원</p>
+                              <p>미가입 회원 : 계정을 생성하지 않은 회원</p>
+                            </div>
+                          </div>
+                        </span>
+                      </span>
+                    </th>
                     <th className="text-center">성별</th>
                     <th className="text-center">전화번호</th>
                     <th className="text-center">최근 로그인일시</th>

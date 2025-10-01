@@ -92,7 +92,7 @@ const Login: React.FC = () => {
                 <button
                   type="button"
                   // className="hidden text-gray-900  bg-whit hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center me-2"
-                  className="text-gray-900 hidden bg-whit hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center me-2"
+                  className="text-gray-900 bg-whit hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center me-2"
                   onClick={() => handleShowModal("/app")}
                 >
                   <svg

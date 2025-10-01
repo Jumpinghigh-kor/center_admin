@@ -26,6 +26,7 @@ export interface Member {
   memo_end_date: string;
   memo_remaining_counts: string;
   memo_pro_name: string;
+  memo_status: number;
   order_seq: number;
 }
 

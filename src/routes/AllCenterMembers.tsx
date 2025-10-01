@@ -13,6 +13,7 @@ const AllCenterMembers: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGender, setSelectedGender] = useState("");
+  const [selectedMemStatus, setSelectedMemStatus] = useState("");
   const [selectedCenter, setSelectedCenter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -47,6 +48,7 @@ const AllCenterMembers: React.FC = () => {
             center_id: selectedCenter,
             mem_name: searchTerm,
             mem_gender: selectedGender,
+            mem_status: selectedMemStatus,
           },
         }
       );
@@ -54,7 +56,7 @@ const AllCenterMembers: React.FC = () => {
     } catch (err) {
       console.log(err);
     }
-  }, [selectedCenter, selectedGender, searchTerm]);
+  }, [selectedCenter, selectedGender, searchTerm, selectedMemStatus]);
 
   useEffect(() => {
     const getData = async () => {
@@ -170,6 +172,46 @@ const AllCenterMembers: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </td>
+              <td className="px-4 py-3 bg-custom-C4C4C4 border-r border-gray-300 font-medium text-gray-700 w-24">
+                회원 상태
+              </td>
+              <td className="px-4 py-3" colSpan={1}>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="mem_status"
+                      value=""
+                      checked={selectedMemStatus === ""}
+                      onChange={(e) => setSelectedMemStatus(e.target.value)}
+                      className="mr-2"
+                    />
+                    전체
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="mem_status"
+                      value="ACTIVE"
+                      checked={selectedMemStatus === "ACTIVE"}
+                      onChange={(e) => setSelectedMemStatus(e.target.value)}
+                      className="mr-2"
+                    />
+                    활동 회원
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="mem_status"
+                      value="INACTIVE"
+                      checked={selectedMemStatus === "INACTIVE"}
+                      onChange={(e) => setSelectedMemStatus(e.target.value)}
+                      className="mr-2"
+                    />
+                    비활동 회원
+                  </label>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -219,6 +261,12 @@ const AllCenterMembers: React.FC = () => {
                 scope="col"
                 className="px-1 sm:px-2 lg:px-6 py-3 text-center text-base"
               >
+                회원 상태
+              </th>
+              <th
+                scope="col"
+                className="px-1 sm:px-2 lg:px-6 py-3 text-center text-base"
+              >
                 등록 센터명
               </th>
               <th
@@ -259,6 +307,9 @@ const AllCenterMembers: React.FC = () => {
                   </td>
                   <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center text-base">
                     {member.mem_phone ? member.mem_phone : "-"}
+                  </td>
+                  <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center text-base">
+                    {!member.memo_status ? "비활동 회원" : "활동 회원"}
                   </td>
                   <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center text-base">
                     {member.center_name ? member.center_name : "-"}

@@ -268,7 +268,7 @@ useEffect(() => {
             (<div className="flex justify-end">
               <div className="flex flex-col items-end">
                 <button
-                  className={`hidden rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
+                  className={`rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
                     selectedMember
                     ? "bg-blue-600 hover:bg-green-700 cursor-pointer"
                     : "bg-gray-400 cursor-not-allowed"
@@ -511,7 +511,7 @@ useEffect(() => {
                         <td className="text-base text-center p-2 bg-custom-C4C4C4 text-white"></td>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black"></td>
                       </tr>
-                      <tr className="border-b border-gray-200 hidden">
+                      <tr className="border-b border-gray-200">
                         <th
                           scope="row"
                           className="text-base text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
@@ -532,7 +532,7 @@ useEffect(() => {
                                                                         : selectedMember?.mem_app_status === 'EXIT' ? '탈퇴' : '-'}
                         </td>
                       </tr>
-                      <tr className="hidden">
+                      <tr>
                         <th
                           scope="row"
                           className="text-base text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
@@ -658,7 +658,7 @@ useEffect(() => {
                               selectedOrder?.memo_id === order.memo_id
                                 ? "bg-gray-100"
                                 : "bg-white"
-                            } border-b hover:bg-gray-50`}
+                            } border-b hover:bg-gray-50 cursor-pointer`}
                             key={order.memo_id}
                             onClick={() => {
                               setSelectedOrder(order);
@@ -717,7 +717,7 @@ useEffect(() => {
                                 ? order.memo_remaining_counts
                                 : "-"}
                             </td>
-                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
+                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center max-w-[190px]">
                               {order.memo_history
                                 ? order.memo_history
                                 : "-"}

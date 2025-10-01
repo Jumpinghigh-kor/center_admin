@@ -699,7 +699,7 @@ exports.updateBulkMemoEndDt = (req, res) => {
 exports.getAllMemberList = (req, res) => {
   let baseQuery = "";
   let orderClause = "";
-
+  
   baseQuery = `
     SELECT
       m.mem_id
@@ -715,6 +715,14 @@ exports.getAllMemberList = (req, res) => {
       , c.center_id
       , c.center_name
       , sch_time
+      , (
+          SELECT
+            COUNT(*)
+          FROM	member_orders smo
+          WHERE	smo.memo_mem_id = m.mem_id
+          AND		(DATE_FORMAT(smo.memo_start_date, '%Y%m%d000001') <= DATE_FORMAT(NOW(), '%Y%m%d%H%m%s')
+                AND DATE_FORMAT(NOW(), '%Y%m%d%H%m%s') <= DATE_FORMAT(smo.memo_end_date, '%Y%m%d235959'))
+        ) AS memo_status
     FROM		members m
     INNER JOIN	centers c   ON m.center_id = c.center_id
     INNER JOIN  schedule s  ON s.sch_id = m.mem_sch_id 
@@ -731,6 +739,29 @@ exports.getAllMemberList = (req, res) => {
 
   if (req.body.params.mem_gender) {
     baseQuery += `AND m.mem_gender = '${req.body.params.mem_gender}'`;
+  }
+  
+  if (req.body.params.mem_status === "ACTIVE") {
+    baseQuery += `
+                  AND	0 < (
+                            SELECT
+                              COUNT(*)
+                            FROM	member_orders smo
+                            WHERE	smo.memo_mem_id = m.mem_id
+                            AND		(DATE_FORMAT(smo.memo_start_date, '%Y%m%d000001') <= DATE_FORMAT(NOW(), '%Y%m%d%H%m%s')
+                                  AND DATE_FORMAT(NOW(), '%Y%m%d%H%m%s') <= DATE_FORMAT(smo.memo_end_date, '%Y%m%d235959'))
+                          )`;
+  } else if (req.body.params.mem_status === "INACTIVE") {
+    baseQuery += `
+                  AND	0 = (
+                            SELECT
+                              COUNT(*)
+                            FROM	member_orders smo
+                            WHERE	smo.memo_mem_id = m.mem_id
+                            AND		(DATE_FORMAT(smo.memo_start_date, '%Y%m%d000001') <= DATE_FORMAT(NOW(), '%Y%m%d%H%m%s')
+                                  AND DATE_FORMAT(NOW(), '%Y%m%d%H%m%s') <= DATE_FORMAT(smo.memo_end_date, '%Y%m%d235959'))
+                          )
+                `;
   }
 
   orderClause = `

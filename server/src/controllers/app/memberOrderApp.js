@@ -130,7 +130,7 @@ exports.selectMemberOrderAppList = (req, res) => {
               SUM(smpa.payment_amount)
             FROM	member_payment_app	smpa
             WHERE	smpa.order_app_id = moa.order_app_id
-            AND		smpa.payment_type = 'DELIVER_FEE'
+            AND		smpa.payment_type = 'DELIVERY_FEE'
           ) AS delivery_fee_payment_amount
         , (
             SELECT
