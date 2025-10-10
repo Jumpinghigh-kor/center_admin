@@ -717,7 +717,7 @@ useEffect(() => {
                                 ? order.memo_remaining_counts
                                 : "-"}
                             </td>
-                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center max-w-[190px]">
+                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center max-w-[160px]">
                               {order.memo_history
                                 ? order.memo_history
                                 : "-"}

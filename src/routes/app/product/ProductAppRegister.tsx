@@ -216,10 +216,10 @@ const ProductAppRegister: React.FC = () => {
       ));
     }
 
-    // 상품 단위가 "없음"으로 변경되면 용량을 0으로 고정
-    if (field === 'option_unit' && value === 'NONE') {
+    // 상품 단위가 "없음"으로 변경되면 용량 입력을 비움
+    if (field === 'option_unit' && String(value).toUpperCase().includes('NONE')) {
       setProductDetails(prev => prev.map(item => 
-        item.id === id ? { ...item, option_amount: "0" } : item
+        item.id === id ? { ...item, option_amount: "" } : item
       ));
     }
   };
@@ -1069,12 +1069,12 @@ const ProductAppRegister: React.FC = () => {
                       <td className="px-4 py-3 w-1/3">
                         <input
                           type="number"
-                          value={detail.option_amount}
+                          value={String(detail.option_unit || '').toUpperCase().includes('NONE') ? '' : detail.option_amount}
                           onChange={(e) => handleProductDetailChange(detail.id, 'option_amount', e.target.value)}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${detail.option_unit === 'NONE' ? 'bg-gray-100' : ''}`}
-                          placeholder={detail.option_unit === 'NONE' ? "상품 단위가 없음일 때는 0으로 고정됩니다" : "상품 단위에 대한 용량을 입력하세요 (예: 5KG)"}
-                          min={detail.option_unit === 'NONE' ? "0" : "1"}
-                          disabled={detail.option_unit === 'NONE'}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${String(detail.option_unit || '').toUpperCase().includes('NONE') ? 'bg-gray-100' : ''}`}
+                          placeholder={String(detail.option_unit || '').toUpperCase().includes('NONE') ? "없음 선택 시 용량 입력 불필요" : "상품 단위에 대한 용량을 입력하세요 (예: 5KG)"}
+                          min={String(detail.option_unit || '').toUpperCase().includes('NONE') ? "0" : "1"}
+                          disabled={String(detail.option_unit || '').toUpperCase().includes('NONE')}
                         />
                       </td>
                     </tr>

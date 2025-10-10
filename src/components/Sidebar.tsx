@@ -683,6 +683,48 @@ const Sidebar: React.FC = () => {
             </li>
           ) : null}
 
+          <li>
+            <NavLink to="/app">
+              <div className="flex items-center p-2 text-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 group">
+                <svg
+                  className="w-5 h-5 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V6z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z"
+                  />
+                </svg>
+                <span className="flex-1 ms-3 whitespace-nowrap hidden sm:block">
+                  회원 어플 관리
+                </span>
+              </div>
+            </NavLink>
+          </li>
+
           <li onClick={onLogout}>
             <div className="flex items-center p-2 text-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 group">
               <svg

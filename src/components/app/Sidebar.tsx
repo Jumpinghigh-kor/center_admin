@@ -760,6 +760,51 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           <li className="border-t border-gray-500">
             <button
               onClick={() => {
+                window.location.href = "/";
+              }}
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === ""
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="점핑하이 관리"
+            >
+              <svg
+                className="w-6 h-6 md:mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 6a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V6z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 15a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3z"
+                />
+              </svg>
+              <span className="hidden md:inline">점핑하이 관리</span>
+            </button>
+            <button
+              onClick={() => {
                 localStorage.removeItem("token");
                 localStorage.removeItem("user");
                 window.location.href = "/login";
