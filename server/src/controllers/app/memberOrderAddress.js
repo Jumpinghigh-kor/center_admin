@@ -20,11 +20,11 @@ exports.selectMemberOrderAddress = (req, res) => {
         , moad.delivery_request
         , moad.use_yn
         , (
-          SELECT
-            zip_code
-          FROM	extra_shipping_area sesa
-          WHERE	sesa.zip_code = moad.zip_code
-       ) AS extra_zip_code
+            SELECT
+              zip_code
+            FROM	extra_shipping_area sesa
+            WHERE	sesa.zip_code = moad.zip_code
+        ) AS extra_zip_code
       FROM		  members m
       LEFT JOIN	member_order_app moa		      ON m.mem_id = moa.mem_id
       LEFT JOIN	member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id

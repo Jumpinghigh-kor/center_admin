@@ -96,6 +96,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
           { 
             center_id: user?.center_id
             , mem_app_status: 'ACTIVE'
+            , is_reservation: true
           }
         );
         setMembers(res.data?.result || []);

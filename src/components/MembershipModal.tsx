@@ -223,7 +223,7 @@ const MembershipModal: React.FC<ModalProps> = ({
                     scope="row"
                     className="text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
                   >
-                    수정사유
+                    메모
                   </th>
                   <td className="px-6 py-2 bg-white text-black">
                     <textarea

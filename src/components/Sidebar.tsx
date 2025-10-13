@@ -227,7 +227,7 @@ const Sidebar: React.FC = () => {
             </NavLink>
           </li>
 
-          <li>
+          {/* <li>
             <NavLink to="/members/reservation">
               <span className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group">
                 <svg
@@ -254,7 +254,7 @@ const Sidebar: React.FC = () => {
                 </span>
               </span>
             </NavLink>
-          </li>
+          </li> */}
 
           <li>
             <NavLink to="/client_call_log">
@@ -683,7 +683,7 @@ const Sidebar: React.FC = () => {
             </li>
           ) : null}
 
-          <li>
+          {/* <li>
             <NavLink to="/app">
               <div className="flex items-center p-2 text-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 group">
                 <svg
@@ -723,7 +723,7 @@ const Sidebar: React.FC = () => {
                 </span>
               </div>
             </NavLink>
-          </li>
+          </li> */}
 
           <li onClick={onLogout}>
             <div className="flex items-center p-2 text-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 group">

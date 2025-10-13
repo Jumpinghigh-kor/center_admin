@@ -49,6 +49,8 @@ const Members: React.FC = () => {
   const [popupToggle, setPopupToggle] = useState<boolean>(false);
   const [popupMode, setPopupMode] = useState<string>("");
   const [priceInputs, setPriceInputs] = useState<Record<number, string>>({});
+  const [memoPopupOpen, setMemoPopupOpen] = useState<boolean>(false);
+  const [memoContent, setMemoContent] = useState<string>("");
   
   const filteredMembers = searchTerm
   ? members.filter((member) =>
@@ -264,14 +266,14 @@ useEffect(() => {
             onDeleteClick={() => setDeleteModalToggle(true)}
           />
 
-          {(!selectedMember?.mem_app_status || selectedMember?.mem_app_status === 'EXIT') ?
+          {/* {(!selectedMember?.mem_app_status || selectedMember?.mem_app_status === 'EXIT') ?
             (<div className="flex justify-end">
               <div className="flex flex-col items-end">
                 <button
                   className={`rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
                     selectedMember
-                    ? "bg-blue-600 hover:bg-green-700 cursor-pointer"
-                    : "bg-gray-400 cursor-not-allowed"
+                    ? "cursor-pointer"
+                    : "cursor-not-allowed"
                   }`}
                   onClick={() => {
                     if (selectedMember) {
@@ -280,7 +282,8 @@ useEffect(() => {
                     }
                   }}
                   disabled={!selectedMember}
-                  >
+                  style={{ backgroundColor: !selectedMember ? '#ADB5BD' : '#6F7297' }}
+                >
                   어플 계정 생성
                 </button>
               </div>
@@ -291,8 +294,8 @@ useEffect(() => {
                 <button
                   className={`rounded-2xl mt-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 ${
                     selectedMember
-                    ? "bg-orange-600 hover:bg-orange-700 cursor-pointer"
-                    : "bg-gray-400 cursor-not-allowed"
+                    ? "cursor-pointer"
+                    : "cursor-not-allowed"
                   }`}
                   onClick={() => {
                     if (selectedMember) {
@@ -301,12 +304,13 @@ useEffect(() => {
                     }
                   }}
                   disabled={!selectedMember}
-                  >
+                  style={{ backgroundColor: !selectedMember ? '#ADB5BD' : '#5F9EA0' }}
+                >
                   어플 정보 변경
                 </button>
               </div>
             </div>
-          )}
+          )} */}
 
           {selectedMember ? (
             <>
@@ -511,7 +515,7 @@ useEffect(() => {
                         <td className="text-base text-center p-2 bg-custom-C4C4C4 text-white"></td>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black"></td>
                       </tr>
-                      <tr className="border-b border-gray-200">
+                      {/* <tr className="border-b border-gray-200">
                         <th
                           scope="row"
                           className="text-base text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
@@ -556,7 +560,7 @@ useEffect(() => {
                                                                         : selectedMember?.mem_role === 'FRANCHISEE' ? '가맹점주'
                                                                         : '-'}
                         </td>
-                      </tr>
+                      </tr> */}
                     </tbody>
                   </table>
                 </div>
@@ -566,7 +570,10 @@ useEffect(() => {
                     <>
                       <div className="flex justify-end my-4">
                         <NavLink to="/join" state={selectedMember}>
-                          <span className="block rounded-2xl mr-3 bg-green-600 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm hover:text-white hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600">
+                          <span
+                            className="block rounded-2xl hover:opacity-80 mr-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                            style={{ backgroundColor: '#03AFDE' }}
+                          >
                             회원권 등록
                           </span>
                         </NavLink>
@@ -574,26 +581,23 @@ useEffect(() => {
                           onClick={() => {
                             setMembershipModalToggle(true);
                           }}
-                          className={`${
-                            !selectedOrder
-                              ? "bg-gray-400"
-                              : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
-                          } block rounded-2xl mr-3 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600`}
+                          className={`block rounded-2xl mr-3 hover:opacity-80 px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600`}
                           disabled={!selectedOrder}
+                          style={{ backgroundColor: !selectedOrder ? '#ADB5BD' : '#82B2C0' }}
                         >
                           회원권 수정
                         </button>
                         <button
                           disabled={!selectedOrder}
-                          className={`${
-                            !selectedOrder
-                              ? "bg-gray-400"
-                              : "bg-red-600 cursor-pointer hover:bg-red-700"
-                          } block rounded-2xl px-4 py-1 text-center text-sm text-white font-extrabold shadow-sm hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600`}
+                          className={`block rounded-2xl px-4 py-1 hover:opacity-80 text-center text-sm text-white font-extrabold shadow-sm hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600`}
+                          style={{ backgroundColor: !selectedOrder ? '#ADB5BD' : '#FF746C' }}
                           onClick={deleteOrder}
                         >
                           회원권 삭제
                         </button>
+                      </div>
+                      <div className="flex justify-end mb-4">
+                        <p>아래의 회원권 목록을 더블클릭하면 회원권 정보를 수정할 수 있습니다.</p>
                       </div>
                     </>
                   )}
@@ -687,7 +691,8 @@ useEffect(() => {
                                 />
                                 <p>원</p>
                                 <button
-                                  className="bg-blue-600 text-white px-4 py-2 rounded-md"
+                                  className="text-white px-4 py-2 rounded-md"
+                                  style={{ backgroundColor: '#3065AC' }}
                                   onClick={() => {
                                     const newPrice = Number(priceInputs[order.memo_id] ?? order.memo_pro_price);
                                     updateMemberOrderPrice(order.memo_id, newPrice);
@@ -717,10 +722,18 @@ useEffect(() => {
                                 ? order.memo_remaining_counts
                                 : "-"}
                             </td>
-                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center max-w-[160px]">
-                              {order.memo_history
-                                ? order.memo_history
-                                : "-"}
+                            <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
+                              {order.memo_history &&
+                                <button
+                                  className="text-white px-4 py-2 rounded-md"
+                                  style={{ backgroundColor: '#779ECB' }}
+                                  onClick={() => {
+                                    setMemoContent(order.memo_history);
+                                  setMemoPopupOpen(true);
+                                }}>
+                                  보기
+                                </button>
+                                }
                             </td>
                           </tr>
                         ))}
@@ -770,6 +783,25 @@ useEffect(() => {
           selectedMember={selectedMember}
           mode={popupMode}
         />
+      ) : null}
+      {memoPopupOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-lg max-w-lg w-11/12 p-6">
+            <h3 className="text-lg font-semibold mb-4">메모</h3>
+            <div className="mb-4 max-h-80 overflow-auto whitespace-pre-wrap text-gray-800">
+              <p>{memoContent}</p>
+            </div>
+            <div className="flex justify-end mt-8">
+              <button
+                className="rounded-2xl px-4 py-1 text-center text-sm text-white font-extrabold hover:bg-red-700"
+                style={{ backgroundColor: '#FF746C' }}
+                onClick={() => setMemoPopupOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 
 // 어플 회원 목록 조회
 exports.selectMemberAppList = (req, res) => {
-    const { mem_name, center_id, mem_app_status, mem_gender, start_app_reg_dt, end_app_reg_dt, start_recent_dt, end_recent_dt } = req.body;
+    const { mem_name, center_id, mem_app_status, mem_gender, start_app_reg_dt, end_app_reg_dt, start_recent_dt, end_recent_dt, is_reservation } = req.body;
 
     let addCondition = '';
     let params = [];
@@ -57,6 +57,21 @@ exports.selectMemberAppList = (req, res) => {
     } else if(end_recent_dt) {
       addCondition += ` AND DATE_FORMAT(m.recent_dt, '%Y%m%d') <= ?`;
       params.push(formatDate(end_recent_dt));
+    }
+
+    if(is_reservation) {
+      addCondition += `                      
+                        AND 0 < (
+                                  SELECT
+                                    COUNT(*)
+                                  FROM      member_orders smo
+                                  LEFT JOIN products sp  ON smo.memo_pro_id = sp.pro_id
+                                  WHERE     smo.memo_mem_id = m.mem_id
+                                  AND       (DATE_FORMAT(smo.memo_start_date, '%Y%m%d000001') <= DATE_FORMAT(NOW(), '%Y%m%d%H%m%s')
+                                            AND DATE_FORMAT(NOW(), '%Y%m%d%H%m%s') <= DATE_FORMAT(smo.memo_end_date, '%Y%m%d235959'))
+                                  AND       (sp.pro_type    != '회차권' 
+                                            OR (sp.pro_type = '회차권' AND smo.memo_remaining_counts > 0))
+                                )`;
     }
 
     const query = `
