@@ -173,10 +173,10 @@ const Navbar: React.FC = () => {
               </div>
             </div>
 
-            {/* <NavLink to={target}> */}
-            <NavLink to="/">
+            <NavLink to={target}>
+            {/* <NavLink to="/"> */}
               <div className="flex items-center justify-center">
-                {/* <p className="text-white mr-4">[ {location.pathname.startsWith("/app") ? "점핑하이 관리로 이동" : "회원 어플 관리로 이동"}]</p> */}
+                <p className="text-white mr-4">[ {location.pathname.startsWith("/app") ? "점핑하이 관리로 이동" : "회원 어플 관리로 이동"}]</p>
                 <span className="text-white font-bold">JUMPING-HIGH</span>
               </div>
             </NavLink>

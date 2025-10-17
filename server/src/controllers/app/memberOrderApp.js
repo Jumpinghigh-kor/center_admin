@@ -7,7 +7,7 @@ exports.selectMemberOrderAppList = (req, res) => {
   
   let filter = '';
   if (order_status && order_status !== 'TOTAL_COUNT') {
-    filter = `AND moda.order_status = ?`
+    filter = `AND moda.order_status = ?`;
   }
 
   if (searchValue) {
@@ -70,7 +70,6 @@ exports.selectMemberOrderAppList = (req, res) => {
         , mra.approval_yn
         , mra.cancel_yn
         , mra.return_reason_type
-        , mra.quantity
         , mra.customer_tracking_number
         , mra.company_tracking_number
         , mra.customer_courier_code
@@ -188,6 +187,12 @@ exports.selectMemberOrderAppList = (req, res) => {
             WHERE	    mca.order_app_id = moa.order_app_id
             AND       mca.use_yn = 'Y'
         ) AS coupon_discount_type
+        , (
+            SELECT
+              SUM(smoda.order_quantity)
+            FROM  member_order_detail_app smoda
+            WHERE	smoda.order_app_id = moa.order_app_id
+        ) AS total_order_quantity
       FROM		    members m
       INNER JOIN	member_order_app moa			    ON m.mem_id = moa.mem_id
       LEFT JOIN	  member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id
@@ -196,6 +201,7 @@ exports.selectMemberOrderAppList = (req, res) => {
       LEFT JOIN	  member_return_app mra			    ON moda.order_detail_app_id = mra.order_detail_app_id AND mra.del_yn = 'N'
       WHERE       moa.del_yn = 'N'
       AND         pa.consignment_yn = 'N'
+      AND         m.center_id = ?
       ${filter}
       ORDER BY moa.order_dt DESC
     ;`;

@@ -472,7 +472,7 @@ const Dashboard: React.FC = () => {
                 <PieChart>
                   <Pie
                     data={[
-                      { name: "활성 회원", value: memberCount.find(item => item.mem_app_status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
+                      { name: "활동 회원", value: memberCount.find(item => item.mem_app_status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
                       { name: "가입중 회원", value: memberCount.find(item => item.mem_app_status === 'PROCEED')?.count || 0, color: "#00C49F", type: "PROCEED" },
                       { name: "탈퇴 회원", value: memberCount.find(item => item.mem_app_status === 'EXIT')?.count || 0, color: "#FFBB28", type: "EXIT" }
                     ]}
@@ -494,7 +494,7 @@ const Dashboard: React.FC = () => {
                     }}
                   >
                     {[
-                      { name: "활성 회원", value: memberCount.find(item => item.mem_app_status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
+                      { name: "활동 회원", value: memberCount.find(item => item.mem_app_status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
                       { name: "가입중 회원", value: memberCount.find(item => item.mem_app_status === 'PROCEED')?.count || 0, color: "#00C49F", type: "PROCEED" },
                       { name: "탈퇴 회원", value: memberCount.find(item => item.mem_app_status === 'EXIT')?.count || 0, color: "#FFBB28", type: "EXIT" }
                     ].map((entry, index) => (
@@ -545,6 +545,15 @@ const Dashboard: React.FC = () => {
               <p className="text-2xl font-bold text-purple-900">{monthRegCount}명</p>
             </div>
           </div>
+        </div>
+
+        <div className="flex">
+          <div className="bg-gray-50 pt-6 pb-6 p-4 w-1/2 border-radius-md mr-6">
+            <p>활동회원 - 계정생성 후 로그인을 한 회원</p>
+            <p>가입중회원 - 계정만 생성한 회원</p>
+            <p>탈퇴회원 - 활동회원에서 탈퇴를 한 회원</p>
+          </div>
+          <div className="w-1/2 border-radius-md"></div>
         </div>
       </section>
 

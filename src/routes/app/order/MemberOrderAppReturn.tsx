@@ -743,6 +743,24 @@ const MemberOrderAppReturn: React.FC = () => {
         return sum + (paymentAmount);
       }, 0);
       const amountToSave = Math.max(expectedBase - Number(refundDeductionAmount || 0), 0);
+      const refundAmountToSave = (() => {
+        if (actionType === 'cancel') {
+          const baseAmountProrated = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+            const status = String(item?.order_status || '').trim().toUpperCase();
+            if (["SHIPPINGING", "SHIPPING_COMPLETE", "PURCHASE_CONFIRM"].includes(status)) return sum;
+            const totalQty = Number(item?.total_order_quantity ?? item?.order_quantity ?? 0);
+            if (!totalQty) return sum;
+            const canceledQty = Number((quantityByIndex[idx] ?? item?.return_quantity ?? 0) || 0);
+            if (canceledQty <= 0) return sum;
+            const paymentAmount = Number(item?.payment_amount || 0);
+            const perUnit = paymentAmount / totalQty;
+            return sum + (perUnit * canceledQty);
+          }, 0);
+          const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmountProrated);
+          return Math.max(baseAmountProrated - safeDeduction, 0);
+        }
+        return amountToSave;
+      })();
 
       // 1) 결제 환불(결제 금액이 있을 때만)
       const paymentBalance = Number(orderDetail?.payment_amount || 0);
@@ -752,7 +770,23 @@ const MemberOrderAppReturn: React.FC = () => {
           const found = (returnReasonList || []).find((r: any) => String(r?.common_code) === code);
           return found?.common_code_name || '취소승인';
         })();
-        const refundAmountForPayment = Math.max(0, Number(amountToSave || 0));
+        let refundAmountForPayment = Math.max(0, Number(amountToSave || 0));
+        if (actionType === 'cancel') {
+          const baseAmountProrated = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+            const status = String(item?.order_status || '').trim().toUpperCase();
+            if (["SHIPPINGING", "SHIPPING_COMPLETE", "PURCHASE_CONFIRM"].includes(status)) return sum;
+            const totalQty = Number(item?.total_order_quantity ?? item?.order_quantity ?? 0);
+            if (!totalQty) return sum;
+            const canceledQty = Number((quantityByIndex[idx] ?? item?.return_quantity ?? 0) || 0);
+            if (canceledQty <= 0) return sum;
+            const paymentAmount = Number(item?.payment_amount || 0);
+            const perUnit = paymentAmount / totalQty;
+            return sum + (perUnit * canceledQty);
+          }, 0);
+          const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmountProrated);
+          const expectedAmount = Math.max(baseAmountProrated - safeDeduction, 0);
+          refundAmountForPayment = expectedAmount;
+        }
         await axios.post(`${process.env.REACT_APP_API_URL}/app/portone/requestPortOneRefund`, {
           imp_uid: orderDetail?.portone_imp_uid || null,
           merchant_uid: orderDetail?.portone_merchant_uid || null,
@@ -765,7 +799,7 @@ const MemberOrderAppReturn: React.FC = () => {
       await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPaymentApp/updateMemberPaymentApp`, {
         order_app_id: orderDetail?.order_app_id,
         payment_status: 'PAYMENT_REFUND',
-        refund_amount: amountToSave,
+        refund_amount: refundAmountToSave,
         userId: user?.index,
       });
 
@@ -958,7 +992,7 @@ const MemberOrderAppReturn: React.FC = () => {
                 .filter(({ item }: { item: any }) => {
                   const s = String(item?.order_status || '').trim().toUpperCase();
                   if (actionType === 'return') {
-                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE' || s === 'RETURN_APPLY';
+                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE';
                   }
                   if (s.indexOf('CANCEL') >= 0) return false;
                   return s === 'PAYMENT_COMPLETE' || s === 'HOLD';
@@ -1264,8 +1298,16 @@ const MemberOrderAppReturn: React.FC = () => {
               <div className="bg-white p-10 rounded-lg shadow-md mb-4">
                 {(() => {
                   const baseAmount = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                    const price = Number(item?.payment_amount || 0);
-                    return sum + (price);
+                    if (actionType !== 'cancel') return sum;
+                    const status = String(item?.order_status || '').trim().toUpperCase();
+                    if (["SHIPPINGING", "SHIPPING_COMPLETE", "PURCHASE_CONFIRM"].includes(status)) return sum;
+                    const totalQty = Number(item?.total_order_quantity ?? item?.order_quantity ?? 0);
+                    if (!totalQty) return sum;
+                    const canceledQty = Number((quantityByIndex[idx] ?? item?.return_quantity ?? 0) || 0);
+                    if (canceledQty <= 0) return sum;
+                    const paymentAmount = Number(item?.payment_amount || 0);
+                    const perUnit = paymentAmount / totalQty;
+                    return sum + (perUnit * canceledQty);
                   }, 0);
                   const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmount);
 
@@ -1347,19 +1389,28 @@ const MemberOrderAppReturn: React.FC = () => {
                 <p className="text-m font-medium">환불 정보</p>
               </div>
               {(() => {
-                const baseAmountForExpected = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                  const price = Number(item?.payment_amount || 0);
-                  return sum + (price);
+                const baseAmount = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                  if (actionType !== 'cancel') return sum;
+                  const status = String(item?.order_status || '').trim().toUpperCase();
+                  if (["SHIPPINGING", "SHIPPING_COMPLETE", "PURCHASE_CONFIRM"].includes(status)) return sum;
+                  const totalQty = Number(item?.total_order_quantity ?? item?.order_quantity ?? 0);
+                  if (!totalQty) return sum;
+                  const canceledQty = Number((quantityByIndex[idx] ?? item?.return_quantity ?? 0) || 0);
+                  if (canceledQty <= 0) return sum;
+                  const paymentAmount = Number(item?.payment_amount || 0);
+                  const perUnit = paymentAmount / totalQty;
+                  return sum + (perUnit * canceledQty);
                 }, 0);
+                const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmount);
 
-                const expectedAmountForDisplay = Math.max(baseAmountForExpected, 0);
-                const autoFinalForInput = Math.max(expectedAmountForDisplay - Math.min(Number(refundDeductionAmount || 0), expectedAmountForDisplay), 0);
+                const expectedAmount = Math.max(baseAmount - safeDeduction, 0);
+                
                 return (
                   <div className="mt-6 space-y-4">
                     <div>
                       <div className="flex items-center justify-between border-b border-gray-200 pb-2">
                         <p className="text-sm text-gray-500 font-medium">환불 금액</p>
-                        <p className="mt-2 text-gray-500 text-sm font-bold">{formatNumber(expectedAmountForDisplay)} 원</p>
+                        <p className="mt-2 text-gray-500 text-sm font-bold">{formatNumber(expectedAmount)} 원</p>
                       </div>
                     </div>
                     <div>
@@ -1374,11 +1425,11 @@ const MemberOrderAppReturn: React.FC = () => {
                         <input
                           type="text"
                           className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm text-right"
-                          value={isManualFinalRefundAmount ? formatNumber(manualFinalRefundAmount) : formatNumber(autoFinalForInput)}
+                          value={isManualFinalRefundAmount ? formatNumber(manualFinalRefundAmount) : formatNumber(expectedAmount)}
                           onChange={(e) => {
                             const raw = e.target.value.replace(/[^0-9]/g, '');
                             const next = Number(raw || 0);
-                            const limit = baseAmountForExpected;
+                            const limit = expectedAmount;
                             if (next > limit) {
                               setToastVariant('warning');
                               setToastMessage('입력할 수 없습니다');
@@ -1387,7 +1438,7 @@ const MemberOrderAppReturn: React.FC = () => {
                             }
                             setManualFinalRefundAmount(next);
                           }}
-                          placeholder={`${formatNumber(baseAmountForExpected)} 원`}
+                          placeholder={`${formatNumber(expectedAmount)} 원`}
                           disabled={!isManualFinalRefundAmount}
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">원</span>
@@ -1437,14 +1488,29 @@ const MemberOrderAppReturn: React.FC = () => {
               }}
             >
               {(() => {
+                if (actionType === 'cancel') {
+                  const baseAmount = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                    const status = String(item?.order_status || '').trim().toUpperCase();
+                    if (["SHIPPINGING", "SHIPPING_COMPLETE", "PURCHASE_CONFIRM"].includes(status)) return sum;
+                    const totalQty = Number(item?.total_order_quantity ?? item?.order_quantity ?? 0);
+                    if (!totalQty) return sum;
+                    const canceledQty = Number((quantityByIndex[idx] ?? item?.return_quantity ?? 0) || 0);
+                    if (canceledQty <= 0) return sum;
+                    const paymentAmount = Number(item?.payment_amount || 0);
+                    const perUnit = paymentAmount / totalQty;
+                    return sum + (perUnit * canceledQty);
+                  }, 0);
+                  const safeDeduction = Math.min(Number(refundDeductionAmount || 0), baseAmount);
+                  const expectedAmount = Math.max(baseAmount - safeDeduction, 0);
+                  return `${formatNumber(expectedAmount)}원 환불 처리`;
+                }
+
                 const base = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
                   const price = Number(item?.payment_amount || 0);
                   return sum + (price);
                 }, 0);
-
                 const expectedAmountForDisplay = Math.max(base, 0);
                 const autoFinalForInput = Math.max(expectedAmountForDisplay - Math.min(Number(refundDeductionAmount || 0), expectedAmountForDisplay), 0);
-
                 return `${formatNumber(autoFinalForInput)}원 환불 처리`;
               })()}
             </button>
@@ -1717,7 +1783,15 @@ const MemberOrderAppReturn: React.FC = () => {
                       return selectedTotal?.toLocaleString();
                     } else if (actionType === 'cancel') {
                       const cancelSelectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
-                        return Number(item?.payment_amount);
+                        const status = String(item?.order_status || '').trim().toUpperCase();
+                        if (["SHIPPINGING", "SHIPPING_COMPLETE", "PURCHASE_CONFIRM"].includes(status)) return sum;
+                        const totalQty = Number(item?.total_order_quantity ?? item?.order_quantity ?? 0);
+                        if (!totalQty) return sum;
+                        const canceledQty = Number((quantityByIndex[idx] ?? item?.return_quantity ?? 0) || 0);
+                        if (canceledQty <= 0) return sum;
+                        const paymentAmount = Number(item?.payment_amount || 0);
+                        const perUnit = paymentAmount / totalQty;
+                        return sum + (perUnit * canceledQty);
                       }, 0);
                       return cancelSelectedTotal?.toLocaleString();
                     }

@@ -723,7 +723,7 @@ useEffect(() => {
                                 : "-"}
                             </td>
                             <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center">
-                              {order.memo_history &&
+                              {order.memo_history ?
                                 <button
                                   className="text-white px-4 py-2 rounded-md"
                                   style={{ backgroundColor: '#779ECB' }}
@@ -733,7 +733,8 @@ useEffect(() => {
                                 }}>
                                   보기
                                 </button>
-                                }
+                                : '-'
+                              }
                             </td>
                           </tr>
                         ))}
