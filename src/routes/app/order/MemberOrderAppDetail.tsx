@@ -2188,23 +2188,117 @@ const MemberOrderAppDetail: React.FC = () => {
                                       수거완료
                                     </button>
                                   ) : (
-                                    <button
-                                      className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
-                                      onClick={() => {
-                                        const enhancedOrderDetail = buildEnhancedOrderDetail(orderDetail);
-                                        navigate('/app/memberOrderAppReturn', {
-                                          state: {
-                                            orderDetail: enhancedOrderDetail,
-                                            actionType: 'return',
-                                          }
-                                        });
-                                      }}
-                                    >
-                                      수거 정보 등록
-                                    </button>
+                                    <>
+                                      {groupApplicator === '구매자' && !groupHasReturnGoodsflowId && (
+                                        <button
+                                          className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold mr-2"
+                                          onClick={async () => {
+                                            try {
+                                              // 굿스플로 반품신청 API 호출
+                                              const nowId = `${Date.now()}`;
+                                              const pickupDateStr = (() => {
+                                                const d = new Date();
+                                                d.setDate(d.getDate() + 1);
+                                                return d.toISOString().slice(0,10);
+                                              })();
+                                              
+                                              // 그룹의 첫 상품을 기준으로 기본 정보 구성
+                                              const first = (items && items[0] && items[0].product) ? items[0].product : {} as any;
+                                              const orderDateStr = (() => {
+                                                const s = String(first?.order_dt || orderDetail?.order_dt || '');
+                                                if (s && s.length >= 12) {
+                                                  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+                                                }
+                                                return new Date().toISOString().slice(0,16).replace('T',' ');
+                                              })();
+                                              
+                                              const body: any = {
+                                                requestId: `RET-${orderDetail?.order_app_id}-${nowId}`,
+                                                contractType: 'USER',
+                                                items: [
+                                                  {
+                                                    centerCode: '1000011886',
+                                                    uniqueId: `RET-${orderDetail?.order_app_id}-${nowId}`,
+                                                    boxSize: 'B10',
+                                                    transporter: 'KOREX',
+                                                    fromName: orderDetail?.receiver_name,
+                                                    fromPhoneNo: orderDetail?.receiver_phone,
+                                                    fromAddress1: orderDetail?.address,
+                                                    fromAddress2: orderDetail?.address_detail,
+                                                    fromZipcode: orderDetail?.zip_code,
+                                                    toName: '점핑하이',
+                                                    toPhoneNo: '07050554754',
+                                                    toAddress1: '서울 강서구 마곡서로 133',
+                                                    toAddress2: '704동 2층',
+                                                    toZipcode: '07798',
+                                                    pickupRequestDate: pickupDateStr,
+                                                    deliveryMessage: orderDetail?.delivery_request || '',
+                                                    consumerName: orderDetail?.receiver_name,
+                                                    consumerPhoneNo: orderDetail?.receiver_phone,
+                                                    deliveryPaymentMethod: 'RECEIVER_PAY',
+                                                    originalInvoiceNo: String(first?.tracking_number || ''),
+                                                    originalTransporterCode: orderDetail?.order_courier_code == 'CJ' ? 'KOREX' : orderDetail?.order_courier_code,
+                                                    deliveryItems: (items || []).map(({ product }: any) => ({
+                                                      orderNo: String(product?.order_app_id || orderDetail?.order_app_id || ''),
+                                                      orderDate: orderDateStr,
+                                                      name: String(product?.product_name || ''),
+                                                      quantity: Number(product?.order_quantity || 1),
+                                                      price: Number(product?.price || 0),
+                                                      code: String(product?.product_detail_app_id || ''),
+                                                      option: String(product?.option_unit || ''),
+                                                    })),
+                                                  }
+                                                ]
+                                              };
+                                              
+                                              const gfRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/shipping/return/deliveryItems`, body);
+console.log('gfRes::', gfRes);
+                                              try {
+                                                const serviceId =
+                                                  gfRes?.data?.data?.items?.[0]?.data?.serviceId ||
+                                                  gfRes?.data?.data?.serviceId ||
+                                                  gfRes?.data?.serviceId || '';
+                                                if (serviceId) {
+                                                  await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
+                                                    order_detail_app_id: groupOrderDetailAppIds,
+                                                    return_goodsflow_id: serviceId,
+                                                    userId: user?.index,
+                                                  });
+                                                }
+                                              } catch (saveErr) {
+                                                console.error('[RETURN_FLOW] save return_goodsflow_id error', saveErr);
+                                              }
+                                            } catch (gfErr) {
+                                              console.error('반품 수거신청 굿스플로 호출 오류:', gfErr);
+                                            }
+                                            setExchangeRequestedGroups(prev => new Set([...Array.from(prev), groupNo]));
+                                          }}
+                                        >
+                                          수거 접수
+                                        </button>
+                                      )}
+                                      {!(groupApplicator === '구매자' && !groupHasReturnGoodsflowId) && (
+                                        <button
+                                          className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
+                                          onClick={() => {
+                                            const enhancedOrderDetail = buildEnhancedOrderDetail(orderDetail);
+                                            navigate('/app/memberOrderAppReturn', {
+                                              state: {
+                                                orderDetail: enhancedOrderDetail,
+                                                actionType: 'return',
+                                              }
+                                            });
+                                          }}
+                                        >
+                                          수거 정보 등록
+                                        </button>
+                                      )}
+                                    </>
                                   )}
                                 </div>
-                                <p className="text-xs mt-2">수거가 완료되면 위의 버튼을 눌러주세요.</p>
+                                {!(groupApplicator === '구매자' && !groupHasReturnGoodsflowId) && (
+                                  <p className="text-xs mt-2">수거가 완료되면 위의 버튼을 눌러주세요.</p>
+                                )}
                               </div>
                             ) : groupStatus === 'RETURN_GET' ? (
                               <div className="flex items-center gap-2">

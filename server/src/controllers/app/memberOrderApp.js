@@ -124,6 +124,20 @@ exports.selectMemberOrderAppList = (req, res) => {
             WHERE	smpa.order_app_id = moa.order_app_id
             AND		smpa.payment_type = 'PRODUCT_BUY'
           ) AS portone_merchant_uid
+          , (
+            SELECT
+              smpa.payment_status
+            FROM	member_payment_app	smpa
+            WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'DELIVERY_FEE'
+          ) AS delivery_fee_payment_status
+          , (
+            SELECT
+              smpa.payment_app_id
+            FROM	member_payment_app	smpa
+            WHERE	smpa.order_app_id = moa.order_app_id
+            AND		smpa.payment_type = 'DELIVERY_FEE'
+          ) AS delivery_fee_payment_app_id
         , (
             SELECT
               SUM(smpa.payment_amount)
@@ -131,13 +145,6 @@ exports.selectMemberOrderAppList = (req, res) => {
             WHERE	smpa.order_app_id = moa.order_app_id
             AND		smpa.payment_type = 'DELIVERY_FEE'
           ) AS delivery_fee_payment_amount
-        , (
-            SELECT
-              smpa.portone_imp_uid
-            FROM	member_payment_app	smpa
-            WHERE	smpa.order_app_id = moa.order_app_id
-            AND		smpa.payment_type = 'DELIVERY_FEE'
-          ) AS delivery_fee_portone_imp_uid
         , (
             SELECT
               smpa.portone_imp_uid
