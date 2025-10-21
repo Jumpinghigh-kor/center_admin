@@ -13,13 +13,6 @@ exports.selectMemberCount = (req, res) => {
   }
 
   const query = `
-    WITH statuses AS (
-      SELECT 'ACTIVE' AS status
-      UNION ALL
-      SELECT 'PROCEED'
-      UNION ALL
-      SELECT 'EXIT'
-    )
     SELECT 
       s.status AS mem_app_status
       , COUNT(m.mem_id) AS count
@@ -33,7 +26,13 @@ exports.selectMemberCount = (req, res) => {
               WHEN DATE_FORMAT(m.app_reg_dt, '%Y%m') = DATE_FORMAT(NOW(), '%Y%m') THEN 1 
               ELSE 0 
             END) AS reg_cnt
-    FROM		    statuses s
+    FROM (
+          SELECT 'ACTIVE' AS status
+          UNION ALL
+          SELECT 'PROCEED'
+          UNION ALL
+          SELECT 'EXIT'
+        ) s
     LEFT JOIN 	members m	ON m.mem_app_status = s.status
     ${addConditions}
     GROUP BY    s.status
@@ -41,7 +40,7 @@ exports.selectMemberCount = (req, res) => {
 
   db.query(query, params, (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -93,7 +92,7 @@ exports.selectMemberList = (req, res) => {
 
   db.query(query, [center_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -112,18 +111,17 @@ exports.selectMonthlyMemberList = (req, res) => {
   }
 
   const query = `
-    WITH month_nums AS (
-      SELECT 1  AS mn 		UNION ALL SELECT 2 	UNION ALL SELECT 3
-      UNION ALL SELECT 4 	UNION ALL SELECT 5 	UNION ALL SELECT 6
-      UNION ALL SELECT 7 	UNION ALL SELECT 8 	UNION ALL SELECT 9
-      UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
-    )
     SELECT 
       CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) AS month_num
       , COUNT(CASE WHEN m.mem_app_status = 'ACTIVE'   AND LEFT(m.app_reg_dt, 6)   = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS active_count
       , COUNT(CASE WHEN m.mem_app_status = 'PROCEED'  AND LEFT(m.app_reg_dt, 6)   = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS proceed_count
       , COUNT(CASE WHEN m.mem_app_status = 'EXIT'     AND LEFT(m.app_exit_dt, 6)  = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS exit_count
-    FROM		    month_nums mn
+    FROM (
+            SELECT 1  AS mn 		UNION ALL SELECT 2 	UNION ALL SELECT 3
+            UNION ALL SELECT 4 	UNION ALL SELECT 5 	UNION ALL SELECT 6
+            UNION ALL SELECT 7 	UNION ALL SELECT 8 	UNION ALL SELECT 9
+            UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+          ) mn
     LEFT JOIN 	members m ON (
                                 (LEFT(m.app_reg_dt, 6) = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) AND m.mem_app_status IN ('ACTIVE', 'PROCEED'))
                                 OR 
@@ -138,7 +136,7 @@ exports.selectMonthlyMemberList = (req, res) => {
 
   db.query(query, params, (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -294,13 +292,6 @@ exports.selectSalesList = (req, res) => {
     ;`
   } else {
     query = `
-      WITH year_list AS (
-                          SELECT (YEAR(CURDATE()) - 4) AS year
-                          UNION ALL SELECT (YEAR(CURDATE()) - 3)
-                          UNION ALL SELECT (YEAR(CURDATE()) - 2)
-                          UNION ALL SELECT (YEAR(CURDATE()) - 1)
-                          UNION ALL SELECT  YEAR(CURDATE())
-                        )
       SELECT
         yl.year AS year_label,
         COALESCE(SUM(paid.paid_amount), 0) AS total_amount,
@@ -309,7 +300,13 @@ exports.selectSalesList = (req, res) => {
                   WHEN paid.order_app_id IS NOT NULL THEN moa.order_app_id
                 END
               ) AS order_count
-      FROM      year_list AS yl
+      FROM (
+              SELECT (YEAR(CURDATE()) - 4) AS year
+              UNION ALL SELECT (YEAR(CURDATE()) - 3)
+              UNION ALL SELECT (YEAR(CURDATE()) - 2)
+              UNION ALL SELECT (YEAR(CURDATE()) - 1)
+              UNION ALL SELECT  YEAR(CURDATE())
+            ) AS yl
       LEFT JOIN (
         SELECT
           moa.order_app_id

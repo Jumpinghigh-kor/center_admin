@@ -80,7 +80,7 @@ exports.selectCommonCodeList = (req, res) => {
 
   db.query(query, [group_code, common_code_memo], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });

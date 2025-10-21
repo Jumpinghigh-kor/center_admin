@@ -129,7 +129,7 @@ exports.selectProductAppList = (req, res) => {
 
   db.query(query, params, (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -176,7 +176,7 @@ exports.selectProductAppDetail = (req, res) => {
 
   db.query(query, [product_app_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -204,7 +204,7 @@ exports.selectProductOptionAppDetail = (req, res) => {
 
   db.query(query, [product_app_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -291,7 +291,7 @@ exports.returnExchangePolicy = (req, res) => {
 
   db.query(query, [product_app_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });

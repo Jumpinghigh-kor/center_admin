@@ -46,7 +46,7 @@ exports.selectPostAppList = (req, res) => {
 
   db.query(query, params, (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -75,7 +75,7 @@ exports.selectMemberPostAppList = (req, res) => {
 
   db.query(query, [post_app_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });

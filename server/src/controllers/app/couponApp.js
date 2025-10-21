@@ -103,7 +103,7 @@ exports.selectCouponAppList = (req, res) => {
 
   db.query(query, params, (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -148,7 +148,7 @@ exports.selectCouponAppDetail = (req, res) => {
 
   db.query(query, [coupon_app_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -176,7 +176,7 @@ exports.selectMemberCouponAppList = (req, res) => {
 
   db.query(query, [coupon_app_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });

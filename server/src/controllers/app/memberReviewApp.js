@@ -86,7 +86,7 @@ exports.selectMemberReviewAppList = (req, res) => {
 
   db.query(query, params, (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -111,10 +111,7 @@ exports.selectMemberReviewAppImgList = (req, res) => {
 
   db.query(query, [review_app_id], (err, results) => {
     if (err) {
-      console.error("리뷰 목록 조회 오류:", err);
-      return res
-        .status(500)
-        .json({ error: "리뷰 목록을 조회하는 도중 오류가 발생했습니다." });
+      return res.status(500).json(err);
     }
 
     // 결과 포맷팅

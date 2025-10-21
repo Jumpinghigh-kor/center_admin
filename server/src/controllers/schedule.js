@@ -169,92 +169,97 @@ exports.getMemberScheduleAppList = (req, res) => {
   const { start_date, end_date, center_id } = req.body;
   
   const query = `
-    WITH
-      RECURSIVE cal AS (
-        SELECT ? AS start_dt
-          
-        UNION ALL
-          
-        SELECT start_dt + INTERVAL 1 DAY FROM cal WHERE start_dt < ?
-      ),
-      member_base AS (
-        SELECT
-          m.mem_id
-          , m.mem_sch_id
-          , m.center_id
-        FROM 	      members m
-        INNER JOIN 	member_orders mo ON mo.memo_mem_id = m.mem_id
-		    INNER JOIN 	products p ON p.pro_id = mo.memo_pro_id
-        WHERE 	    m.center_id = ?
-        AND 	      m.mem_status = 1
-		    AND 		    CURDATE() BETWEEN mo.memo_start_date AND mo.memo_end_date
-		    AND 		    (
-                      p.pro_type != '회차권'
-                      OR (p.pro_type = '회차권' AND mo.memo_remaining_counts > 0)
-                    )
-      ),
-      resv AS (
-        SELECT
-          msa.mem_id
-          , msa.reservation_sch_id
-          , msa.sch_dt
-        FROM	  member_schedule_app msa
-        WHERE 	msa.del_yn = 'N'
-        AND		  (msa.agree_yn = 'Y' OR msa.agree_yn IS NULL)
-        AND 	  msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d')	AND	DATE_FORMAT(?, '%Y%m%d')
-      ),
-      member_day AS (
-        SELECT
-          c.start_dt
-          , DATE_FORMAT(c.start_dt, '%Y%m%d') AS sch_dt_char
-          , mb.mem_id
-          , mb.mem_sch_id	AS original_sch_id
-          , COALESCE(r.reservation_sch_id, mb.mem_sch_id) AS final_sch_id
-        FROM 			  cal c
-        INNER JOIN 	member_base mb
-        LEFT JOIN 	resv r	ON r.mem_id = mb.mem_id
-        AND 			  r.sch_dt = DATE_FORMAT(c.start_dt, '%Y%m%d')
-      ),
-      counts AS (
-        SELECT
-          md.start_dt
-          , md.original_sch_id
-          , md.final_sch_id
-          , COUNT(*) AS member_cnt
-        FROM 		  member_day md
-        GROUP BY 	md.start_dt, md.original_sch_id, md.final_sch_id
-      ),
-      agree_cnt AS (
+    SELECT
+      dates.sch_dt
+      , s.sch_id
+      , s.sch_time
+      , s.sch_info
+      , s.sch_max_cap
+      , COALESCE(SUM(CASE WHEN cnt.original_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS registered_count
+      , COALESCE(SUM(CASE WHEN cnt.final_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS reserved_count
+      , s.sch_max_cap - COALESCE(SUM(CASE WHEN cnt.final_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS remaining
+      , COALESCE(ac.agree_yn_cnt, 0) AS agree_yn_cnt
+    FROM (
           SELECT
-            STR_TO_DATE(msa.sch_dt, '%Y%m%d') AS start_dt
-            , msa.reservation_sch_id AS sch_id
-            , COUNT(*) AS agree_yn_cnt
-          FROM  member_schedule_app msa
-          WHERE msa.del_yn = 'N'
-          AND   msa.agree_yn IS NOT NULL
-          AND   msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
-          GROUP BY STR_TO_DATE(msa.sch_dt, '%Y%m%d'), msa.reservation_sch_id
-      )
+            DATE_ADD(?, INTERVAL seq.seq DAY) AS sch_dt
+          FROM  (
+                  SELECT 0 AS seq UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15 UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18 UNION ALL SELECT 19 UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24 UNION ALL SELECT 25 UNION ALL SELECT 26 UNION ALL SELECT 27 UNION ALL SELECT 28 UNION ALL SELECT 29 UNION ALL SELECT 30
+                ) seq
+          WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= ?
+    ) dates
 
-      SELECT
-        c.start_dt	AS sch_dt
-        , s.sch_id
-        , s.sch_time
-        , s.sch_info
-        , s.sch_max_cap
-        , COALESCE(SUM(CASE WHEN cnt.original_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS registered_count
-        , COALESCE(SUM(CASE WHEN cnt.final_sch_id    = s.sch_id THEN cnt.member_cnt END), 0) AS reserved_count
-        , s.sch_max_cap - COALESCE(SUM(CASE WHEN cnt.final_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS remaining
-        , COALESCE(ac.agree_yn_cnt, 0) AS agree_yn_cnt
-      FROM cal c
-      INNER JOIN 	schedule s	  ON s.center_id = ?	AND s.sch_status = 1
-      LEFT JOIN 	counts cnt 	  ON cnt.start_dt = c.start_dt
-      LEFT JOIN 	agree_cnt ac 	ON ac.start_dt = c.start_dt AND ac.sch_id = s.sch_id
-      GROUP BY 	  c.start_dt, s.sch_id, s.sch_time, s.sch_max_cap, ac.agree_yn_cnt
-      ORDER BY  	c.start_dt, s.sch_time;
+    CROSS JOIN schedule s
+    
+    LEFT JOIN (
+                SELECT
+                  md.start_dt
+                  , md.original_sch_id
+                  , md.final_sch_id
+                  , COUNT(*) AS member_cnt
+                FROM  (
+                        SELECT
+                          c.start_dt
+                          , mb.mem_sch_id AS original_sch_id
+                          , COALESCE(r.reservation_sch_id, mb.mem_sch_id) AS final_sch_id
+                        FROM  (
+                                SELECT
+                                  DATE_ADD(?, INTERVAL seq.seq DAY) AS start_dt
+                                FROM  (
+                                        SELECT
+                                          0 AS seq
+                                          
+                                          UNION ALL
+                                          
+                                          SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15 UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18 UNION ALL SELECT 19 UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24 UNION ALL SELECT 25 UNION ALL SELECT 26 UNION ALL SELECT 27 UNION ALL SELECT 28 UNION ALL SELECT 29 UNION ALL SELECT 30
+                                      ) seq
+                                WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= ?
+                              ) c
+                INNER JOIN (
+                            SELECT
+                              m.mem_id
+                              , m.mem_sch_id
+                              , m.center_id
+                            FROM        members m
+                            INNER JOIN  member_orders mo  ON mo.memo_mem_id = m.mem_id
+                            INNER JOIN  products p        ON p.pro_id = mo.memo_pro_id
+                            WHERE       m.center_id = ?
+                            AND         m.mem_status = 1
+                            AND         CURDATE() BETWEEN mo.memo_start_date AND mo.memo_end_date
+                            AND         (p.pro_type != '회차권' OR (p.pro_type = '회차권' AND mo.memo_remaining_counts > 0))
+                          ) mb ON 1=1
+                LEFT JOIN (
+                            SELECT
+                              msa.mem_id
+                              , msa.reservation_sch_id
+                              , msa.sch_dt
+                            FROM    member_schedule_app msa
+                            WHERE   msa.del_yn = 'N'
+                            AND     (msa.agree_yn = 'Y' OR msa.agree_yn IS NULL)
+                            AND     msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
+                          ) r ON r.mem_id = mb.mem_id AND r.sch_dt = DATE_FORMAT(c.start_dt, '%Y%m%d')
+                        ) md
+                GROUP BY md.start_dt, md.original_sch_id, md.final_sch_id
+              ) cnt ON cnt.start_dt = dates.sch_dt
+    LEFT JOIN (
+                SELECT
+                  STR_TO_DATE(msa.sch_dt, '%Y%m%d') AS start_dt
+                  , msa.reservation_sch_id AS sch_id
+                  , COUNT(*) AS agree_yn_cnt
+                FROM  member_schedule_app msa
+                WHERE msa.del_yn = 'N'
+                AND   msa.agree_yn IS NOT NULL
+                AND   msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
+                GROUP BY STR_TO_DATE(msa.sch_dt, '%Y%m%d'), msa.reservation_sch_id
+              ) ac ON ac.start_dt = dates.sch_dt AND ac.sch_id = s.sch_id
+    WHERE   s.center_id = ?
+    AND     s.sch_status = 1
+    GROUP BY dates.sch_dt, s.sch_id, s.sch_time, s.sch_max_cap, ac.agree_yn_cnt
+    ORDER BY dates.sch_dt, s.sch_time
   `;
 
-  db.query(query, [start_date, end_date, center_id, start_date, end_date,  start_date, end_date, center_id], (err, result) => {
+  db.query(query, [
+    start_date, start_date, end_date, start_date, start_date, end_date, center_id, start_date, end_date, start_date, end_date, center_id
+  ], (err, result) => {
     if (err) {
       return res.status(500).json(err);
     }

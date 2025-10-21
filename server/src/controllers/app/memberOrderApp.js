@@ -292,6 +292,7 @@ exports.selectProductAppImg = (req, res) => {
   db.query(query, [product_app_id], (err, result) => {
     if (err) {
       console.error("상품 이미지 조회 오류:", err);
+      return res.status(500).json({ error: "상품 이미지를 조회하는 도중 오류가 발생했습니다." });
     }
     res.status(200).json(result);
   });
@@ -319,6 +320,7 @@ exports.selectMemberOrderAppCnt = (req, res) => {
   db.query(query, [center_id], (err, result) => {
     if (err) {
       console.error("회원 주문 목록 갯수 조회 오류:", err);
+      return res.status(500).json({ error: "회원 주문 목록 갯수를 조회하는 도중 오류가 발생했습니다." });
     }
     res.status(200).json(result);
   });
