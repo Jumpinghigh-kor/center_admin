@@ -119,8 +119,8 @@ const InquiryShoppingAppList: React.FC = () => {
         </div>
 
         <div className="mb-4 border border-gray-500 text-sm rounded-lg p-4">
-          <p>1. 해당 페이지는 고객님이 쇼핑 문의를 남겼을 경우 <strong>데이터 수집</strong>을 위한 페이지이다.</p>
-          <p>2. 답장은 따로 하지 않고 고객님이 직접 고객센터로 전화를 한다.</p>
+          <p>1. 해당 페이지는 고객님이 쇼핑 문의를 남겼을 경우 <strong>데이터 수집</strong>을 위한 페이지입니다.</p>
+          <p>2. 관리자가 답장은 따로 하지 않고 고객님이 직접 고객센터로 전화를 합니다.</p>
         </div>
 
         {shoppingInquiryList.length === 0 ? (
