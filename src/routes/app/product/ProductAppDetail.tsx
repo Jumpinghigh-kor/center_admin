@@ -1415,7 +1415,7 @@ const ProductAppDetail: React.FC = () => {
                         <input
                           type="text"
                           value={policy.title}
-                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, title: e.target.value } : item))}
+                          onChange={(e) => setPolicyDetails(prev => prev.map((item, i) => ((policy.return_exchange_id != null ? item.return_exchange_id === policy.return_exchange_id : i === index) ? { ...item, title: e.target.value } : item)))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="제목을 입력하세요"
                         />
@@ -1426,7 +1426,7 @@ const ProductAppDetail: React.FC = () => {
                       <td className="px-4 py-3 w-1/3">
                         <select
                           value={policy.direction || ""}
-                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, direction: e.target.value } : item))}
+                          onChange={(e) => setPolicyDetails(prev => prev.map((item, i) => ((policy.return_exchange_id != null ? item.return_exchange_id === policy.return_exchange_id : i === index) ? { ...item, direction: e.target.value } : item)))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택</option>
@@ -1442,9 +1442,9 @@ const ProductAppDetail: React.FC = () => {
                          내용 <span className="text-red-500">*</span>
                        </td>
                        <td className="px-4 py-3 w-1/2">
-                        <textarea
+                       <textarea
                           value={policy.content}
-                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, content: e.target.value } : item))}
+                          onChange={(e) => setPolicyDetails(prev => prev.map((item, i) => ((policy.return_exchange_id != null ? item.return_exchange_id === policy.return_exchange_id : i === index) ? { ...item, content: e.target.value } : item)))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="내용을 입력하세요"
                           rows={4}
@@ -1454,23 +1454,37 @@ const ProductAppDetail: React.FC = () => {
                          순서 <span className="text-red-500">*</span>
                        </td>
                        <td className="px-4 py-3 w-1/6">
-                        <select
-                          value={policy.order_seq || ""}
-                          onChange={(e) => setPolicyDetails(prev => prev.map(item => item.product_app_id === policy.product_app_id ? { ...item, order_seq: e.target.value } : item))}
+                       <select
+                          value={String(policy.order_seq ?? "")}
+                          onChange={(e) => setPolicyDetails(prev => {
+                            const newOrder = e.target.value;
+                            const next = prev.map(item => ({ ...item }));
+                            const currentIndex = (policy.return_exchange_id != null)
+                              ? next.findIndex(it => it.return_exchange_id === policy.return_exchange_id)
+                              : index;
+                            if (currentIndex < 0) return prev;
+                            const currentOrder = String(next[currentIndex].order_seq ?? "");
+                            // 찾기: 선택한 순서를 이미 사용 중인 다른 행
+                            const targetIndex = next.findIndex((p, pi) => pi !== currentIndex && (String(p.order_seq) === newOrder));
+                            if (targetIndex !== -1) {
+                              // 스왑: 상대는 현재 행의 기존 순서를 갖는다 (없으면 빈 값)
+                              next[targetIndex].order_seq = currentOrder;
+                            }
+                            // 현재 행에 새 순서 적용
+                            next[currentIndex].order_seq = newOrder;
+                            return next;
+                          })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                            <option value="">선택</option>
                            {Array.from({ length: policyDetails.length }, (_, i) => {
                              const orderNum = i + 1;
-                             const isUsed = policyDetails.some(p => p.product_app_id !== policy.product_app_id && p.order_seq === orderNum.toString());
                              return (
                                <option 
                                  key={orderNum} 
-                                 value={orderNum}
-                                 disabled={isUsed}
-                                 style={{ color: isUsed ? '#ccc' : 'inherit' }}
+                                 value={String(orderNum)}
                                >
-                                 {orderNum}{isUsed ? ' (사용중)' : ''}
+                                 {orderNum}
                                </option>
                              );
                            })}

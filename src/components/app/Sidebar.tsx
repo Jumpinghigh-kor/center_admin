@@ -18,7 +18,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const prevSidebar = useRef<boolean>(sidebar);
   const [hasUnansweredCenterInquiry, setHasUnansweredCenterInquiry] = useState<boolean>(false);
   const [hasUnansweredMobileInquiry, setHasUnansweredMobileInquiry] = useState<boolean>(false);
-  const [hasUnansweredShoppingInquiry, setHasUnansweredShoppingInquiry] = useState<boolean>(false);
   const [hasPendingReservations, setHasPendingReservations] = useState<boolean>(false);
   const [hasOrderAttention, setHasOrderAttention] = useState<boolean>(false);
   
@@ -119,35 +118,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     return () => {
       mounted = false;
       window.removeEventListener("focus", fetchUnansweredMobile);
-    };
-  }, [user, location.pathname]);
-
-  // 쇼핑몰 문의 관리 배지(미답변 존재 여부) 체크
-  useEffect(() => {
-    let mounted = true;
-    const fetchUnansweredShopping = async () => {
-      try {
-        if (!user || !user.center_id) return;
-        const { data } = await axios.post(
-          `${process.env.REACT_APP_API_URL}/app/inquiryShoppingApp/selectInquiryShoppingAppList`,
-          {
-            center_id: user.center_id,
-            answerStatus: "N",
-          }
-        );
-        if (!mounted) return;
-        const list = data?.result || [];
-        setHasUnansweredShoppingInquiry(Array.isArray(list) && list.length > 0);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error("shopping inquiry badge fetch error", e);
-      }
-    };
-    fetchUnansweredShopping();
-    window.addEventListener("focus", fetchUnansweredShopping);
-    return () => {
-      mounted = false;
-      window.removeEventListener("focus", fetchUnansweredShopping);
     };
   }, [user, location.pathname]);
 
@@ -665,9 +635,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.5 7.5l-3-3" />
                   </svg>
                   <span className="hidden md:inline">쇼핑몰 문의 관리</span>
-                  {hasUnansweredShoppingInquiry && (
-                    <span className="ml-1 inline-block h-2 w-2 rounded-full bg-red-500" />
-                  )}
                 </button>
               </li>
 

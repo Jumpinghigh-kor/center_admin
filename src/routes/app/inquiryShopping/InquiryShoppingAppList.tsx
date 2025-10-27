@@ -14,43 +14,22 @@ interface CommonCode {
 interface InquiryShoppingApp {
   mem_id: number;
   mem_name: string;
+  product_name: string;
+  inquiry_phone_number: string;
   inquiry_shopping_app_id: number;
-  inquiry_type: string;
-  title: string;
   content: string;
-  answer: string;
-  answer_dt: string;
   reg_dt: string;
 }
 
 const InquiryShoppingAppList: React.FC = () => {
   const navigate = useNavigate();
   const [shoppingInquiryList, setShoppingInquiryList] = useState<InquiryShoppingApp[]>([]);
-  const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
   const user = useUserStore((state) => state.user);
   const pagination = usePagination({
     totalItems: shoppingInquiryList.length,
     itemsPerPage: 10,
   });
   const currentInquiries = pagination.getCurrentPageData(shoppingInquiryList);
-
-
-  // 공통 코드 목록 불러오기
-  const selectCommonCodeList = async () => {
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/app/common/selectCommonCodeList`,
-        {
-          group_code: 'SHOPPING_INQUIRY_TYPE',
-        }
-      );
-
-      setCommonCodeList(response.data.result);
-    } catch (err) {
-      console.error("공통 코드 목록 로딩 오류:", err);
-    } finally {
-    }
-  };
 
   // 쇼핑몰 문의 목록 불러오기
   const selectInquiryShoppingAppList = async (searchParams?: any) => {
@@ -76,14 +55,12 @@ const InquiryShoppingAppList: React.FC = () => {
     onSearch: selectInquiryShoppingAppList,
     initialSearchData: {
       memName: "",
-      inquiryType: "",
-      answerStatus: ""
+      productName: "",
     }
   });
 
   useEffect(() => {
     if (user && user.index) {
-      selectCommonCodeList();
       selectInquiryShoppingAppList();
     }
   }, [user]);
@@ -91,7 +68,7 @@ const InquiryShoppingAppList: React.FC = () => {
   return (
     <>
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="mb-6">
           <h2 className="text-xl font-semibold">쇼핑몰 문의 관리</h2>
         </div>
 
@@ -108,62 +85,17 @@ const InquiryShoppingAppList: React.FC = () => {
                     onChange={(e) => setSearchData({ ...searchData, memName: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
                     placeholder="이름을 입력하세요"
-                  />
+                    />
                 </td>
-                <th className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">문의 유형</th>
+                <th className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">상품명</th>
                 <td className="border border-gray-300 p-2 w-2/6">
-                  <select
-                    value={searchData.inquiryType}
-                    onChange={(e) => setSearchData({ ...searchData, inquiryType: e.target.value })}
+                  <input
+                    type="text"
+                    value={searchData.productName}
+                    onChange={(e) => setSearchData({ ...searchData, productName: e.target.value })}
                     className="w-full px-2 py-1 border border-gray-300 rounded"
-                  >
-                    <option value="">전체</option>
-                    {commonCodeList.map((code) => (
-                      <option key={code.common_code} value={code.common_code}>
-                        {code.common_code_name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-              <tr>
-                <th className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">답변 여부</th>
-                <td className="border border-gray-300 p-2 w-2/6">
-                  <div className="flex items-center space-x-4 py-1">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="answerStatus"
-                        value=""
-                        checked={searchData.answerStatus === ''}
-                        onChange={(e) => setSearchData({ ...searchData, answerStatus: e.target.value })}
-                        className="mr-1"
-                      />
-                      <span className="text-sm">전체</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="answerStatus"
-                        value="Y"
-                        checked={searchData.answerStatus === 'Y'}
-                        onChange={(e) => setSearchData({ ...searchData, answerStatus: e.target.value })}
-                        className="mr-1"
-                      />
-                      <span className="text-sm">대답완료</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="answerStatus"
-                        value="N"
-                        checked={searchData.answerStatus === 'N'}
-                        onChange={(e) => setSearchData({ ...searchData, answerStatus: e.target.value })}
-                        className="mr-1"
-                      />
-                      <span className="text-sm">미대답</span>
-                    </label>
-                  </div>
+                    placeholder="상품명을 입력하세요"
+                    />
                 </td>
               </tr>
             </tbody>
@@ -174,16 +106,21 @@ const InquiryShoppingAppList: React.FC = () => {
             <button
               onClick={handleReset}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
-            >
+              >
               초기화
             </button>
             <button
               onClick={handleSearch}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded hover:bg-blue-700"
-            >
+              >
               검색
             </button>
           </div>
+        </div>
+
+        <div className="mb-4 border border-gray-500 text-sm rounded-lg p-4">
+          <p>1. 해당 페이지는 고객님이 쇼핑 문의를 남겼을 경우 <strong>데이터 수집</strong>을 위한 페이지이다.</p>
+          <p>2. 답장은 따로 하지 않고 고객님이 직접 고객센터로 전화를 한다.</p>
         </div>
 
         {shoppingInquiryList.length === 0 ? (
@@ -192,7 +129,7 @@ const InquiryShoppingAppList: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="mb-6 flex justify-between items-center">
+            <div className="flex justify-between items-center mb-6">
               <p className="text-sm font-bold">총 {shoppingInquiryList.length}건</p>
               <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
             </div>
@@ -203,16 +140,13 @@ const InquiryShoppingAppList: React.FC = () => {
                     <th className="text-center pl-4 whitespace-nowrap">번호</th>
                     <th className="text-center whitespace-nowrap">이름</th>
                     <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      문의 유형
+                      상품명
                     </th>
                     <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      제목
+                      고객센터 번호
                     </th>
                     <th className="text-center whitespace-nowrap hidden md:table-cell">
                       내용
-                    </th>
-                    <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      답변 여부
                     </th>
                     <th className="text-center whitespace-nowrap">등록일</th>
                   </tr>
@@ -233,21 +167,10 @@ const InquiryShoppingAppList: React.FC = () => {
                         {inquiry.mem_name}
                       </td>
                       <td className="text-center px-2 truncate">
-                        {inquiry.inquiry_type ? 
-                          (commonCodeList.find(code => code.common_code === inquiry.inquiry_type)?.common_code_name || inquiry.inquiry_type) 
-                          : '-'
-                        }
+                        {inquiry.product_name}
                       </td>
-                      <td className="text-center px-2 max-w-[70px] hidden md:table-cell">
-                        <div style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {inquiry.title}
-                        </div>
+                      <td className="text-center px-2 truncate">
+                        {inquiry.inquiry_phone_number}
                       </td>
                       <td className="text-center px-2 max-w-[70px] hidden md:table-cell">
                         <div style={{
@@ -259,9 +182,6 @@ const InquiryShoppingAppList: React.FC = () => {
                         }}>
                           {inquiry.content}
                         </div>
-                      </td>
-                      <td className="text-center px-2 truncate">
-                        {inquiry.answer ? '대답완료' : '미대답'}
                       </td>
                       <td className="text-center whitespace-nowrap">
                         {inquiry.reg_dt}

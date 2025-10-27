@@ -55,7 +55,7 @@ const CommonInquiryAppDetail: React.FC = () => {
         
         if (memId) {
           const title = '고객센터 문의 답변이 도착했습니다.';
-          const content = '고객님께서 남겨주신 문의에 대한 답변이 도착했습니다.\n[마이페이지 -> 고객센터 -> 우편함]에서 확인하실 수 있습니다.';
+          const content = '고객님께서 남겨주신 문의에 대한 답변이 도착했습니다.\n[마이페이지 -> 고객센터 -> 문의 -> 문의내역]에서 확인하실 수 있습니다.';
           const postRes = await axios.post(
             `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
             {
