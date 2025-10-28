@@ -88,7 +88,7 @@ const PostAppRegister: React.FC = () => {
       }
 
       alert("등록이 완료되었습니다.");
-      navigate("/app/postApp");
+      navigate("/app/postAppList");
     } catch (err) {
       console.error(err);
       alert("등록에 실패했습니다.");

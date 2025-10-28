@@ -97,7 +97,7 @@ const PostAppDetail: React.FC = () => {
       );
 
       alert("삭제가 완료되었습니다.");
-      navigate("/app/postApp");
+      navigate("/app/postAppList");
     } catch (err) {
       console.error(err);
       alert("삭제에 실패했습니다.");
