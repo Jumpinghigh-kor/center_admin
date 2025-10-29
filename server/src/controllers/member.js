@@ -31,7 +31,8 @@ exports.getMember = (req, res) => {
         , m.mem_role
         , m.push_yn
         , m.push_token
-        , m.app_reg_dt
+        , DATE_FORMAT(m.app_reg_dt, '%Y-%m-%d %H:%i:%s') AS app_reg_dt
+        , DATE_FORMAT(m.app_active_dt, '%Y-%m-%d %H:%i:%s') AS app_active_dt
         , m.center_id
         , m.mem_locker_number AS mem_locker_number_old
         , (

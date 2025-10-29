@@ -186,6 +186,10 @@ exports.selectMemberCouponAppList = (req, res) => {
 exports.insertCouponApp = (req, res) => {
   const { product_app_id, discount_type, discount_amount, min_order_amount, description, badge_text, start_dt, end_dt, coupon_notice, user_id } = req.body;
 
+  // Normalize product_app_id: 0 (전체상품) -> NULL
+  const numericProductAppId = Number(product_app_id);
+  const normalizedProductAppId = Number.isNaN(numericProductAppId) || numericProductAppId === 0 ? null : numericProductAppId;
+
   const now = dayjs();
   const reg_dt = now.format("YYYYMMDDHHmmss");
 
@@ -224,7 +228,7 @@ exports.insertCouponApp = (req, res) => {
   `;
 
   db.query(insertCouponQuery, [
-    product_app_id
+    normalizedProductAppId
     , discount_type
     , discount_amount
     , min_order_amount
@@ -251,6 +255,10 @@ exports.insertCouponApp = (req, res) => {
 exports.updateCouponApp = (req, res) => {
   try {
     const { coupon_app_id, user_id, product_app_id, discount_type, discount_amount, min_order_amount, description, badge_text, start_dt, end_dt, coupon_notice } = req.body;
+
+    // Normalize product_app_id: 0 (전체상품) -> NULL
+    const numericProductAppId = Number(product_app_id);
+    const normalizedProductAppId = Number.isNaN(numericProductAppId) || numericProductAppId === 0 ? null : numericProductAppId;
 
     let formatted_start_dt = '';
     let formatted_end_dt = '';
@@ -282,7 +290,7 @@ exports.updateCouponApp = (req, res) => {
       WHERE coupon_app_id = ?
     `;
 
-    db.query(updateCouponQuery, [product_app_id, discount_type, discount_amount, min_order_amount, description, badge_text, formatted_start_dt, formatted_end_dt, coupon_notice, mod_dt, user_id || null, coupon_app_id], (err, result) => {
+    db.query(updateCouponQuery, [normalizedProductAppId, discount_type, discount_amount, min_order_amount, description, badge_text, formatted_start_dt, formatted_end_dt, coupon_notice, mod_dt, user_id || null, coupon_app_id], (err, result) => {
         if (err) {
           console.error("쿠폰 수정 오류:", err.sqlMessage);
           return res

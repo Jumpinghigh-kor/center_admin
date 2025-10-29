@@ -38,6 +38,9 @@ import PostAppRegister from "./post/PostAppRegister";
 import InquiryShoppingAppDetail from "./inquiryShopping/InquiryShoppingAppDetail";
 import ReservationManagement from "../ReservationManagement";
 import MemberAppList from "./member/MemberAppList";
+import NoticesShoppingAppList from "./noticeShopping/NoticesShoppingAppList";
+import NoticesShoppingAppDetail from "./noticeShopping/NoticesShoppingAppDetail";
+import NoticesShoppingAppRegister from "./noticeShopping/NoticesShoppingAppRegister";
 
 const MemberApp: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -90,6 +93,8 @@ const MemberApp: React.FC = () => {
       setActiveTab("postAppList");
     } else if (location.pathname.includes("/memberAppList")) {
       setActiveTab("memberAppList");
+    } else if (location.pathname.includes("/noticesShoppingAppList")) {
+      setActiveTab("noticesShoppingAppList");
     }
 
     // 햄버거 메뉴 클릭 시 사이드바가 표시되는 것 방지
@@ -126,6 +131,9 @@ const MemberApp: React.FC = () => {
             <Route path="/noticesAppList" element={<NoticesAppList />} />
             <Route path="/notice/noticesAppRegister" element={<NoticesAppRegister />} />
             <Route path="/notice/noticesAppDetail" element={<NoticesAppDetail />} />
+            <Route path="/noticesShoppingAppList" element={<NoticesShoppingAppList />} />
+            <Route path="/noticeShopping/noticesShoppingAppDetail" element={<NoticesShoppingAppDetail />} />
+            <Route path="/noticeShopping/noticesShoppingAppRegister" element={<NoticesShoppingAppRegister />} />
             <Route path="/productApp" element={<ProductAppList />} />
             <Route path="/productApp/productAppDetail" element={<ProductAppDetail />} />
             <Route path="/productApp/productAppRegister" element={<ProductAppRegister />} />

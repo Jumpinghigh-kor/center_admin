@@ -210,7 +210,7 @@ const CouponAppDetail: React.FC = () => {
                 </td>
                 <td className="px-4 py-3 w-2/6">
                   <p>
-                    {formData.product_app_id === -1 ? '미선택' : formData.product_app_id === 0
+                    {formData.product_app_id === -1 ? '미선택' : !formData.product_app_id
                       ? '전체 상품'
                       : `브랜드명: ${formData.brand_name}`}
                   </p>
@@ -220,7 +220,7 @@ const CouponAppDetail: React.FC = () => {
                 </td>
                 <td className="px-4 py-3 w-2/6">
                   <p>
-                    {formData.product_app_id === -1 ? '미선택' : formData.product_app_id === 0
+                    {formData.product_app_id === -1 ? '미선택' : !formData.product_app_id
                       ? '전체 상품'
                       : `상품명: ${formData.product_name || '-'}`}
                   </p>

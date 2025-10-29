@@ -386,10 +386,10 @@ const MembercouponApp: React.FC = () => {
                       </td>
                       <td className="pl-4 text-center">{filteredList.length - globalIndex}</td>
                       <td className="text-center px-2 max-w-[100px] md:max-w-[200px]">
-                        {coupon.product_app_id === 0 ? '전체 상품' : coupon.brand_name}
+                        {!coupon.product_app_id ? '전체 상품' : coupon.brand_name}
                       </td>
                       <td className="text-center px-2 max-w-[100px] md:max-w-[200px]">
-                        {coupon.product_app_id === 0 ? '전체 상품' : coupon.title}
+                        {!coupon.product_app_id ? '전체 상품' : coupon.title}
                       </td>
                       <td className="text-center px-2 max-w-[100px] md:max-w-[200px]">
                         {coupon.discount_amount.toLocaleString()}

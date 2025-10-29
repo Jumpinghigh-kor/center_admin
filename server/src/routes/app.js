@@ -3,6 +3,7 @@ const router = express.Router();
 const bannerRouter = require("./app/banner");
 const commonController = require("../controllers/app/common");
 const noticesRouter = require("./app/noticesApp");
+const noticesShoppingAppRouter = require("./app/noticesShoppingApp");
 const productRouter = require("./app/productApp");
 const updateLogAppRouter = require("./app/updateLogApp");
 const memberOrderAppRouter = require("./app/memberOrderApp");
@@ -33,6 +34,9 @@ router.use("/exerciseApp", exerciseAppRouter);
 
 // 공지사항 라우트
 router.use("/noticesApp", noticesRouter);
+
+// 쇼핑몰 공지사항 라우트
+router.use("/noticesShoppingApp", noticesShoppingAppRouter);
 
 // 상품 라우트
 router.use("/productApp", productRouter);

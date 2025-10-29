@@ -266,7 +266,7 @@ useEffect(() => {
             onDeleteClick={() => setDeleteModalToggle(true)}
           />
 
-          {/* {(!selectedMember?.mem_app_status || selectedMember?.mem_app_status === 'EXIT') ?
+          {(!selectedMember?.mem_app_status || selectedMember?.mem_app_status === 'EXIT') ?
             (<div className="flex justify-end">
               <div className="flex flex-col items-end">
                 <button
@@ -310,7 +310,7 @@ useEffect(() => {
                 </button>
               </div>
             </div>
-          )} */}
+          )}
 
           {selectedMember ? (
             <>
@@ -515,7 +515,7 @@ useEffect(() => {
                         <td className="text-base text-center p-2 bg-custom-C4C4C4 text-white"></td>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black"></td>
                       </tr>
-                      {/* <tr className="border-b border-gray-200">
+                      <tr className="border-b border-gray-200">
                         <th
                           scope="row"
                           className="text-base text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
@@ -541,11 +541,11 @@ useEffect(() => {
                           scope="row"
                           className="text-base text-center p-2 font-medium text-white whitespace-nowrap bg-custom-C4C4C4"
                         >
-                          어플 등록일
+                          어플 가입일시
                         </th>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black max-w-52">
                           {selectedMember?.app_reg_dt
-                            ? convertDate(selectedMember?.app_reg_dt)
+                            ? selectedMember?.app_reg_dt
                             : "-"}
                         </td>
                         <th
@@ -560,7 +560,7 @@ useEffect(() => {
                                                                         : selectedMember?.mem_role === 'FRANCHISEE' ? '가맹점주'
                                                                         : '-'}
                         </td>
-                      </tr> */}
+                      </tr>
                     </tbody>
                   </table>
                 </div>

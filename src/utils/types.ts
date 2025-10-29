@@ -17,6 +17,7 @@ export interface Member {
   push_yn?: string;
   push_token?: string;
   app_reg_dt?: string;
+  app_active_dt?: string;
   center_id: number;
   center_name: string;
   sch_time: string;
