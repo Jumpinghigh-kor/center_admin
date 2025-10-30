@@ -143,10 +143,10 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         return false;
       }
 
-      // 최소 8자, 소문자 최소 1자, 특수문자 최소 1자
-      const passwordPolicyRegex = /^(?=.*[a-z])(?=.*[^A-Za-z0-9]).{8,}$/;
+      // 최소 8자, 대문자/소문자/숫자/특수문자 각 1자 이상 포함
+      const passwordPolicyRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
       if (!passwordPolicyRegex.test(formData.mem_app_password)) {
-        setErrorMessage("비밀번호는 8자 이상이며, 소문자 1자와 특수문자 1자를 포함해야 합니다.");
+        setErrorMessage("비밀번호는 8자 이상이며, 대문자, 소문자, 숫자, 특수문자를 각각 1자 이상 포함해야 합니다.");
         return false;
       }
 
@@ -398,8 +398,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
                   </div>
                   <div className="mt-2">
                     <p className="text-sm text-gray-600">- 8자 이상 입력해야 합니다.</p>
-                    <p className="text-sm text-gray-600">- 최소 소문자 1자를 포함해야 합니다.</p>
-                    <p className="text-sm text-gray-600">- 최소 특수문자 1자를 포함해야 합니다.</p>
+                    <p className="text-sm text-gray-600">- 대문자, 소문자, 숫자, 특수문자를 각각 1자 이상 포함해야 합니다.</p>
                   </div>
                 </div>
               )}
