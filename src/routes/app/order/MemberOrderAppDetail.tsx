@@ -20,6 +20,7 @@ interface OrderDetail {
   order_courier_code: string;
   tracking_number: string;
   goodsflow_id: string;
+  purchase_confirm_dt: string;
   order_dt: string;
   order_memo: string;
   order_memo_dt: string;
@@ -1273,14 +1274,36 @@ const MemberOrderAppDetail: React.FC = () => {
               }}
               disabled={(() => {
                 const list: any[] = Array.isArray(orderDetail?.products) ? orderDetail!.products : [];
-                const isReturnable = (status: any) => {
-                  const statusCode = String(status ?? '').trim().toUpperCase();
-                  return statusCode === 'SHIPPING_COMPLETE' || statusCode === 'PURCHASE_CONFIRM' || statusCode === 'EXCHANGE_SHIPPING_COMPLETE';
+                const isWithinDays = (dt: any, days: number) => {
+                  try {
+                    const raw = String(dt || '').trim();
+                    if (!raw) return false;
+                    const digits = raw.replace(/[^0-9]/g, '');
+                    if (digits.length < 8) return false;
+                    const y = Number(digits.slice(0, 4));
+                    const m = Number(digits.slice(4, 6)) - 1;
+                    const d = Number(digits.slice(6, 8));
+                    const hh = Number(digits.slice(8, 10) || '0');
+                    const mm = Number(digits.slice(10, 12) || '0');
+                    const ss = Number(digits.slice(12, 14) || '0');
+                    const when = new Date(y, m, d, hh, mm, ss);
+                    if (Number.isNaN(when.getTime())) return false;
+                    const now = new Date();
+                    const diff = now.getTime() - when.getTime();
+                    return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000;
+                  } catch (_) { return false; }
+                };
+                const isReturnable = (item: any) => {
+                  const statusCode = String(item?.order_status ?? '').trim().toUpperCase();
+                  if (statusCode === 'PURCHASE_CONFIRM') {
+                    return isWithinDays(item?.purchase_confirm_dt, 3);
+                  }
+                  return statusCode === 'SHIPPING_COMPLETE' || statusCode === 'EXCHANGE_SHIPPING_COMPLETE';
                 };
                 if (list.length > 0) {
-                  return !list.some(p => isReturnable(p?.order_status));
+                  return !list.some(p => isReturnable(p));
                 }
-                return !isReturnable(orderDetail?.order_status);
+                return !isReturnable(orderDetail);
               })()}
             >
               반품
@@ -2115,6 +2138,29 @@ const MemberOrderAppDetail: React.FC = () => {
                                           cancel_yn: 'Y',
                                           userId: user?.index,
                                         });
+                                        // 반품 거절 시 반품 배송비 환불(포트원)
+                                        try {
+                                          const feeAmount = Number((orderDetail as any)?.delivery_fee_payment_amount || 0);
+                                          const alreadyRefunded = String((orderDetail as any)?.delivery_fee_payment_status || '') === 'PAYMENT_REFUND';
+                                          if (feeAmount > 0 && !alreadyRefunded) {
+                                            await axios.post(`${process.env.REACT_APP_API_URL}/app/portone/requestPortOneRefund`, {
+                                              imp_uid: (orderDetail as any)?.delivery_fee_portone_imp_uid || null,
+                                              merchant_uid: (orderDetail as any)?.delivery_fee_portone_merchant_uid || null,
+                                              refundAmount: feeAmount,
+                                              reason: '반품 거절: 배송비 환불',
+                                            });
+                                            if ((orderDetail as any)?.delivery_fee_payment_app_id) {
+                                              await axios.post(`${process.env.REACT_APP_API_URL}/app/memberPaymentApp/updateMemberPaymentApp`, {
+                                                payment_app_id: (orderDetail as any)?.delivery_fee_payment_app_id,
+                                                payment_status: 'PAYMENT_REFUND',
+                                                refund_amount: feeAmount,
+                                                userId: user?.index,
+                                              });
+                                            }
+                                          }
+                                        } catch (refundErr) {
+                                          console.error('반품 배송비 환불 처리 오류:', refundErr);
+                                        }
                                       } catch (e) {
                                         console.error('반품접수 승인취소 처리 오류:', e);
                                       }
@@ -2141,7 +2187,11 @@ const MemberOrderAppDetail: React.FC = () => {
                                       } catch (e) {
                                         console.error('반품 거절 후 주소 인서트 오류:', e);
                                       }
-                                      await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPING_COMPLETE');
+                                      const hasPurchaseConfirm = (items || []).some(({ product }: any) => {
+                                        const v = String(product?.purchase_confirm_dt || '').trim();
+                                        return v !== '' && v !== 'null' && v !== 'undefined';
+                                      });
+                                      await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, hasPurchaseConfirm ? 'PURCHASE_CONFIRM' : 'SHIPPING_COMPLETE');
                                       // 반품거절 안내 메시지 발송
                                       try {
                                         const memId = (orderDetail as any)?.mem_id;

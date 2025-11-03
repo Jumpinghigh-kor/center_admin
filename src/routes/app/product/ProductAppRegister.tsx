@@ -323,7 +323,11 @@ const ProductAppRegister: React.FC = () => {
         alert(`${i + 1}번째 상품 상세에서 상품 단위를 선택해주세요.`);
         return;
       }
-      if (detail.option_unit !== "NONE" && (!detail.option_amount || parseFloat(detail.option_amount) <= 0)) {
+      if (
+        !String(detail.option_type || '').toUpperCase().includes('NONE') &&
+        !String(detail.option_unit || '').toUpperCase().includes('NONE') &&
+        (!detail.option_amount || parseFloat(detail.option_amount) <= 0)
+      ) {
         alert(`${i + 1}번째 상품 상세에서 용량을 올바르게 입력해주세요.`);
         return;
       }

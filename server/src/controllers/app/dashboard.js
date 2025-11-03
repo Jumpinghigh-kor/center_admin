@@ -386,8 +386,9 @@ exports.selectPaymentAnalysisList = (req, res) => {
                 SELECT
                   SUM(smpa.payment_amount)
                 FROM		    member_order_app smoa
-                INNER JOIN 	member_payment_app smpa	  ON smoa.order_app_id = smpa.order_app_id
-                INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
+                LEFT JOIN   member_order_detail_app smoda ON smoa.order_app_id = smoda.order_app_id
+                INNER JOIN 	member_payment_app smpa	      ON smoa.order_app_id = smpa.order_app_id
+                INNER JOIN 	members sm				            ON sm.mem_id = smoa.mem_id
                 WHERE 		  smoa.del_yn = 'N'
                 AND 		    smpa.payment_status = 'PAYMENT_COMPLETE'
                 ${addSubConditions}
@@ -397,8 +398,9 @@ exports.selectPaymentAnalysisList = (req, res) => {
                           SELECT
                             COUNT(*) 
                           FROM		    member_order_app smoa
-                          INNER JOIN 	member_payment_app smpa   ON smoa.order_app_id = smpa.order_app_id
-                          INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
+                          LEFT JOIN   member_order_detail_app smoda ON smoa.order_app_id = smoda.order_app_id
+                          INNER JOIN 	member_payment_app smpa	      ON smoa.order_app_id = smpa.order_app_id
+                          INNER JOIN 	members sm				            ON sm.mem_id = smoa.mem_id
                           WHERE		    smoa.del_yn = 'N'
                           AND 		    smpa.payment_status = 'PAYMENT_COMPLETE'
                           ${addSubConditions}

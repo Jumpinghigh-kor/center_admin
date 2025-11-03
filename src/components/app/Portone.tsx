@@ -98,7 +98,7 @@ const Portone: React.FC<PortoneProps> = ({
 
       {!!lastResult && (
         <pre className="mt-3 text-xs bg-gray-50 p-2 rounded border border-gray-200 overflow-auto">
-{JSON.stringify(lastResult, null, 2)}
+          {JSON.stringify(lastResult, null, 2)}
         </pre>
       )}
     </div>

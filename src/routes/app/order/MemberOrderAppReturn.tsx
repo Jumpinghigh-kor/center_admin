@@ -54,6 +54,32 @@ const MemberOrderAppReturn: React.FC = () => {
       return false;
     }
   }, [orderDetail?.products, quantityByIndex]);
+
+  const isWithinDays = (dt: any, days: number) => {
+    try {
+      const raw = String(dt || '').trim();
+      if (!raw) return false;
+      const digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length < 8) return false;
+      const y = Number(digits.slice(0, 4));
+      const m = Number(digits.slice(4, 6)) - 1;
+      const d = Number(digits.slice(6, 8));
+      const hh = Number(digits.slice(8, 10) || '0');
+      const mm = Number(digits.slice(10, 12) || '0');
+      const ss = Number(digits.slice(12, 14) || '0');
+      const when = new Date(y, m, d, hh, mm, ss);
+      if (Number.isNaN(when.getTime())) return false;
+      const now = new Date();
+      const diff = now.getTime() - when.getTime();
+      return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000;
+    } catch (_) { return false; }
+  };
+
+  const isPurchaseConfirmWithin3Days = (it: any) => {
+    const status = String(it?.order_status || '').trim().toUpperCase();
+    if (status !== 'PURCHASE_CONFIRM') return false;
+    return isWithinDays(it?.purchase_confirm_dt, 3);
+  };
   // 취소완료 알림 발송
   const sendCancelCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
     try {
@@ -993,7 +1019,12 @@ const MemberOrderAppReturn: React.FC = () => {
                 .filter(({ item }: { item: any }) => {
                   const s = String(item?.order_status || '').trim().toUpperCase();
                   if (actionType === 'return') {
-                    return s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE';
+                    return (
+                      s === 'SHIPPINGING' ||
+                      s === 'SHIPPING_COMPLETE' ||
+                      s === 'EXCHANGE_SHIPPING_COMPLETE' ||
+                      isPurchaseConfirmWithin3Days(item)
+                    );
                   }
                   if (s.indexOf('CANCEL') >= 0) return false;
                   return s === 'PAYMENT_COMPLETE' || s === 'HOLD';
@@ -1010,24 +1041,27 @@ const MemberOrderAppReturn: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-between">
                       <p className="text-xl font-medium">
-                        {(() => {
-                          const codes = list.map(({ item }: { item: any }) => String(item?.order_status || '').trim().toUpperCase());
-                          let code = '';
-                          if (actionType === 'cancel') {
-                            code = codes.includes('HOLD') ? 'HOLD' : 'PAYMENT_COMPLETE';
-                          } else {
-                            if (codes.includes('EXCHANGE_SHIPPING_COMPLETE')) {
-                              code = 'EXCHANGE_SHIPPING_COMPLETE';
-                            } else if (codes.includes('SHIPPING_COMPLETE')) {
-                              code = 'SHIPPING_COMPLETE';
+                          {(() => {
+                            const codes = list.map(({ item }: { item: any }) => String(item?.order_status || '').trim().toUpperCase());
+                            let code = '';
+                            if (actionType === 'cancel') {
+                              code = codes.includes('HOLD') ? 'HOLD' : 'PAYMENT_COMPLETE';
                             } else {
-                              code = 'SHIPPINGING';
+                              const hasPCWithin3d = list.some(({ item }: { item: any }) => isPurchaseConfirmWithin3Days(item));
+                              if (hasPCWithin3d) {
+                                code = 'PURCHASE_CONFIRM';
+                              } else if (codes.includes('EXCHANGE_SHIPPING_COMPLETE')) {
+                                code = 'EXCHANGE_SHIPPING_COMPLETE';
+                              } else if (codes.includes('SHIPPING_COMPLETE')) {
+                                code = 'SHIPPING_COMPLETE';
+                              } else {
+                                code = 'SHIPPINGING';
+                              }
                             }
-                          }
-                          return (
-                            orderStatusCodeList.find((c: any) => c.common_code === code)?.common_code_name || ''
-                          );
-                        })()}
+                            return (
+                              orderStatusCodeList.find((c: any) => c.common_code === code)?.common_code_name || ''
+                            );
+                          })()}
                       </p>
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-2">
@@ -1038,7 +1072,13 @@ const MemberOrderAppReturn: React.FC = () => {
                               list.forEach(({ item, idx }: { item: any; idx: number }) => {
                                 const status = String(item?.order_status || '').trim().toUpperCase();
                                 if (actionType === 'return') {
-                                  if (status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY') {
+                                  if (
+                                    status === 'SHIPPINGING' ||
+                                    status === 'SHIPPING_COMPLETE' ||
+                                    status === 'EXCHANGE_SHIPPING_COMPLETE' ||
+                                    status === 'RETURN_APPLY' ||
+                                    isPurchaseConfirmWithin3Days(item)
+                                  ) {
                                     updates[idx] = Number(item.order_quantity) || 0;
                                   }
                                 } else {
@@ -1111,7 +1151,8 @@ const MemberOrderAppReturn: React.FC = () => {
                 (orderDetail.products || []).some((item: any, idx: number) => {
                   const status = String(item?.order_status || '').trim().toUpperCase();
                   const qty = quantityByIndex[idx] ?? 0;
-                  return (actionType !== 'return' || status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY') && qty > 0;
+                  const allowReturn = status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY' || isPurchaseConfirmWithin3Days(item);
+                  return (actionType !== 'return' || allowReturn) && qty > 0;
                 }) &&
                 (
                   orderDetail.free_shipping_amount >= (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
@@ -1136,7 +1177,8 @@ const MemberOrderAppReturn: React.FC = () => {
                         const status = String(item?.order_status || '').trim().toUpperCase();
                         const qty = quantityByIndex[idx] ?? 0;
                         const price = item.price ?? 0;
-                        if (actionType === 'return' && !(status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY')) return sum;
+                        const allowReturn = status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY' || isPurchaseConfirmWithin3Days(item);
+                        if (actionType === 'return' && !allowReturn) return sum;
                         return sum + qty * price;
                       }, 0);
                       return selectedTotal?.toLocaleString();
@@ -1829,9 +1871,11 @@ const MemberOrderAppReturn: React.FC = () => {
                   <span className="text-xl font-bold">{(() => {
                     if (actionType === 'return') {
                       const selectedTotal = (orderDetail.products || []).reduce((sum: number, item: any, idx: number) => {
+                        const status = String(item?.order_status || '').trim().toUpperCase();
                         const qty = quantityByIndex[idx] ?? 0;
                         const price = item.price ?? 0;
-                        return sum + qty * price;
+                        const allowReturn = status === 'SHIPPINGING' || status === 'SHIPPING_COMPLETE' || status === 'EXCHANGE_SHIPPING_COMPLETE' || status === 'RETURN_APPLY' || isPurchaseConfirmWithin3Days(item);
+                        return (actionType === 'return' && !allowReturn) ? sum : (sum + qty * price);
                       }, 0);
                       return selectedTotal?.toLocaleString();
                     } else if (actionType === 'cancel') {
@@ -1896,7 +1940,7 @@ const MemberOrderAppReturn: React.FC = () => {
                         .filter(({ idx }: { idx: number }) => (quantityByIndex[idx] ?? 0) > 0)
                         .filter(({ item }: { item: any }) => {
                           const statusCode = String(item?.order_status || '').trim().toUpperCase();
-                          return statusCode === 'SHIPPINGING' || statusCode === 'SHIPPING_COMPLETE' || statusCode === 'EXCHANGE_SHIPPING_COMPLETE';
+                          return statusCode === 'SHIPPINGING' || statusCode === 'SHIPPING_COMPLETE' || statusCode === 'EXCHANGE_SHIPPING_COMPLETE' || isPurchaseConfirmWithin3Days(item);
                         });
                       const hasManualRegistered = selectedForAutoPickup.some(({ item }: { item: any }) => !item?.goodsflow_id);
                       if (hasManualRegistered) {
