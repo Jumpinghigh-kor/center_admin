@@ -167,7 +167,7 @@ exports.deleteSchedule = (req, res) => {
 //회원 스케줄 고정/예약 수 조회
 exports.getMemberScheduleAppList = (req, res) => {
   const { start_date, end_date, center_id } = req.body;
-  
+
   const query = `
     SELECT
       dates.sch_dt
@@ -195,10 +195,11 @@ exports.getMemberScheduleAppList = (req, res) => {
                   md.start_dt
                   , md.original_sch_id
                   , md.final_sch_id
-                  , COUNT(*) AS member_cnt
+                  , COUNT(DISTINCT md.mem_id) AS member_cnt
                 FROM  (
                         SELECT
                           c.start_dt
+                          , mb.mem_id
                           , mb.mem_sch_id AS original_sch_id
                           , COALESCE(r.reservation_sch_id, mb.mem_sch_id) AS final_sch_id
                         FROM  (
@@ -220,12 +221,17 @@ exports.getMemberScheduleAppList = (req, res) => {
                               , m.mem_sch_id
                               , m.center_id
                             FROM        members m
-                            INNER JOIN  member_orders mo  ON mo.memo_mem_id = m.mem_id
-                            INNER JOIN  products p        ON p.pro_id = mo.memo_pro_id
                             WHERE       m.center_id = ?
                             AND         m.mem_status = 1
-                            AND         CURDATE() BETWEEN mo.memo_start_date AND mo.memo_end_date
-                            AND         (p.pro_type != '회차권' OR (p.pro_type = '회차권' AND mo.memo_remaining_counts > 0))
+                            AND         EXISTS (
+                                                SELECT 
+                                                  1
+                                                FROM        member_orders mo
+                                                INNER JOIN  products p ON p.pro_id = mo.memo_pro_id
+                                                WHERE       mo.memo_mem_id = m.mem_id
+                                                AND         CURDATE() BETWEEN mo.memo_start_date AND mo.memo_end_date
+                                                AND         (p.pro_type != '회차권' OR (p.pro_type = '회차권' AND mo.memo_remaining_counts > 0))
+                                              )
                           ) mb ON 1=1
                 LEFT JOIN (
                             SELECT
@@ -380,15 +386,20 @@ exports.getRegisteredMemberList = (req, res) => {
       , s.sch_max_cap
     FROM		    members m
     INNER JOIN 	schedule s              ON s.sch_id = m.mem_sch_id
-    INNER JOIN 	member_orders mo        ON mo.memo_mem_id = m.mem_id
-    INNER JOIN 	products p              ON p.pro_id = mo.memo_pro_id
     WHERE 		  m.mem_status = 1
     AND 		    s.sch_status = 1
-    AND 		    CURDATE() BETWEEN mo.memo_start_date AND mo.memo_end_date
-    AND 		    (
-                  p.pro_type != '회차권'
-                  OR (p.pro_type = '회차권' AND mo.memo_remaining_counts > 0)
-                )
+    AND         EXISTS (
+                        SELECT
+                          1
+                        FROM        member_orders mo
+                        INNER JOIN  products p ON p.pro_id = mo.memo_pro_id
+                        WHERE       mo.memo_mem_id = m.mem_id
+                        AND         CURDATE() BETWEEN mo.memo_start_date AND mo.memo_end_date
+                        AND         (
+                                      p.pro_type != '회차권'
+                                      OR (p.pro_type = '회차권' AND mo.memo_remaining_counts > 0)
+                                    )
+                      )
     AND 		    s.sch_id = ?
     AND 		    m.mem_id NOT IN (
                                   SELECT

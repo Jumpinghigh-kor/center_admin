@@ -523,8 +523,8 @@ useEffect(() => {
                           어플 아이디
                         </th>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black max-w-52">
-                          {selectedMember?.mem_email_id
-                            ? selectedMember?.mem_email_id
+                          {selectedMember?.mem_app_id
+                            ? selectedMember?.mem_app_id
                             : "-"}
                         </td>
                         <td className="text-base text-center p-2 bg-custom-C4C4C4 text-white">

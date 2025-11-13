@@ -12,7 +12,7 @@ interface OrderDetail {
   mem_name: string;
   mem_birth: string;
   mem_phone: string;
-  mem_email_id: string;
+  mem_app_id: string;
   order_app_id: number;
   order_detail_app_id: number;
   order_status: string;
@@ -396,42 +396,26 @@ const MemberOrderAppDetail: React.FC = () => {
       // goodsflow_id 수집 및 중복 제거
       const goodsflowIds: string[] = Array.from(new Set(
         rows
-          .map((r: any) => r?.goodsflow_id)
-          .filter((id: any) => typeof id === 'string' && id.trim() !== '')
+          .map((r: any) => String(r?.goodsflow_id || '').trim())
+          .filter((id: string) => id !== '')
       ));
-
+      
       if (goodsflowIds.length === 0) return;
-      // 이미 송장번호가 모두 있는 경우는 스킵
-      const hasAllTracking = rows
-        .filter((r: any) => typeof r?.goodsflow_id === 'string' && r.goodsflow_id.trim() !== '')
-        .every((r: any) => !!r?.tracking_number && String(r.tracking_number).trim() !== '');
-
-      if (hasAllTracking) return;
-
+      // 항상 조회하여 동기화 시도 (리스트와 동일 동작)
       try {
         const gfRes = await axios.get(
           `${process.env.REACT_APP_API_URL}/app/goodsflow/shipping/deliveries/${goodsflowIds.join(',')}`,
-          { params: { idType: 'serviceId' } }
+          { params: { idType: 'serviceId', ts: Date.now() } }
         );
         
         const deliveries = gfRes?.data?.data || [];
         if (!Array.isArray(deliveries) || deliveries.length === 0) return;
 
-        // 디버그: 굿스플로 배송상태 콘솔 출력
-        try {
-          console.log('[GF_DELIVERIES]', (deliveries || []).map((d: any) => ({
-            id: d?.id,
-            status: d?.status || d?.deliveryStatus || d?.state,
-            invoiceNo: d?.invoiceNo,
-            transporter: d?.transporter || d?.transporterCode
-          })));
-        } catch (_) {}
-
         // serviceId -> order_detail_app_id[] 매핑
         const serviceIdToDetailIds = new Map<string, number[]>();
         rows.forEach((r: any) => {
-          const sid = r?.goodsflow_id;
-          if (typeof sid === 'string' && sid.trim() !== '' && typeof r?.order_detail_app_id === 'number') {
+          const sid = String(r?.goodsflow_id || '').trim();
+          if (sid !== '' && typeof r?.order_detail_app_id === 'number') {
             if (!serviceIdToDetailIds.has(sid)) serviceIdToDetailIds.set(sid, []);
             serviceIdToDetailIds.get(sid)!.push(r.order_detail_app_id);
           }
@@ -451,18 +435,18 @@ const MemberOrderAppDetail: React.FC = () => {
           if (t === 'KOREX') return 'CJ';
           return t;
         };
-
+        
         const updates: Array<{ orderId: number; invoiceNo: string; courierCode: string }> = [];
         const updateCalls = deliveries
-          .filter((d: any) => d?.invoiceNo && d?.id && serviceIdToDetailIds.has(d.id))
+          .filter((d: any) => d?.invoiceNo && d?.id && serviceIdToDetailIds.has(String(d.id)))
           .flatMap((d: any) => {
-            const targetDetailIds = serviceIdToDetailIds.get(d.id)!;
-            const courierCode = mapTransporterToCourierCode(d?.transporter || '');
+            const targetDetailIds = serviceIdToDetailIds.get(String(d.id))!;
+            const courierCode = mapTransporterToCourierCode(d?.transporter || d?.transporterCode || '');
             targetDetailIds.forEach((did) => {
               updates.push({ orderId: did, invoiceNo: String(d.invoiceNo), courierCode });
             });
             return targetDetailIds.map((detailId) => {
-              const currentStatus = detailIdToStatus.get(detailId) || '';
+              const currentStatus = detailIdToStatus.get(detailId) || 'PAYMENT_COMPLETE';
               return axios.post(
                 `${process.env.REACT_APP_API_URL}/app/memberOrderApp/updateTrackingNumber`,
                 {
@@ -518,7 +502,7 @@ const MemberOrderAppDetail: React.FC = () => {
 
         const gfRes2 = await axios.get(
           `${process.env.REACT_APP_API_URL}/app/goodsflow/shipping/deliveries/${returnIds.join(',')}`,
-          { params: { idType: 'serviceId' } }
+          { params: { idType: 'serviceId', ts: Date.now() } }
         );
         const deliveries2 = gfRes2?.data?.data || [];
         if (!Array.isArray(deliveries2) || deliveries2.length === 0) return;
@@ -544,9 +528,9 @@ const MemberOrderAppDetail: React.FC = () => {
         });
 
         const updateCalls2 = deliveries2
-          .filter((d: any) => d?.invoiceNo && d?.id && sidToDetailIds.has(d.id))
+          .filter((d: any) => d?.invoiceNo && d?.id && sidToDetailIds.has(String(d.id)))
           .flatMap((d: any) => {
-            const targetDetailIds = sidToDetailIds.get(d.id)!;
+            const targetDetailIds = sidToDetailIds.get(String(d.id))!;
             return targetDetailIds.map((detailId) => axios.post(
               `${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnCustomerTrackingNumber`,
               {
@@ -563,7 +547,7 @@ const MemberOrderAppDetail: React.FC = () => {
           setOrderDetail((prev) => {
             if (!prev) return prev;
             const updatedProducts = (prev.products || []).map((p: any) => {
-              const match = deliveries2.find((d: any) => d?.invoiceNo && sidToDetailIds.get(d.id || '')?.includes(p?.order_detail_app_id));
+              const match = deliveries2.find((d: any) => d?.invoiceNo && sidToDetailIds.get(String(d.id || ''))?.includes(p?.order_detail_app_id));
               if (!match) return p;
               return { ...p, customer_tracking_number: String(match.invoiceNo) };
             });
@@ -649,7 +633,7 @@ const MemberOrderAppDetail: React.FC = () => {
 
     syncDeliveryTracker();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.index, orderDetail?.order_app_id]);
+  }, [user?.index, orderDetail?.order_app_id, (orderDetail?.products || []).map((p: any) => String(p?.goodsflow_id || '').trim()).join('|')]);
 
   // 공통코드 조회: 택배사/주문상태/반품사유 코드 세팅
   const fn_selectCommonCodeList = async () => {
@@ -2831,7 +2815,7 @@ console.log('gfRes::', gfRes);
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="font-semibold mb-4">구매자 정보</h3>
               <div className="space-y-2">
-                <p className="text-sm font-semibold" style={{color: '#0090D4'}}>{orderDetail?.mem_email_id}</p>
+                <p className="text-sm font-semibold" style={{color: '#0090D4'}}>{orderDetail?.mem_app_id}</p>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">{orderDetail?.mem_name}</span>
                 </div>

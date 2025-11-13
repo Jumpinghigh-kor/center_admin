@@ -7,7 +7,7 @@ interface Member {
   mem_id: number;
   mem_name: string;
   mem_nickname: string;
-  mem_email_id: string;
+  mem_app_id: string;
   mem_phone: string;
   mem_app_status: string;
   mem_gender: string;
@@ -143,7 +143,7 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
                       {member.mem_nickname ? member.mem_nickname : "-"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
-                      {member.mem_email_id ? member.mem_email_id : "-"}
+                      {member.mem_app_id ? member.mem_app_id : "-"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
                       {member.mem_phone ? member.mem_phone : "-"}

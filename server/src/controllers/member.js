@@ -26,7 +26,7 @@ exports.getMember = (req, res) => {
         , m.mem_sch_id
         , m.mem_memo
         , m.mem_status
-        , m.mem_email_id
+        , m.mem_app_id
         , m.mem_app_status
         , m.mem_role
         , m.push_yn

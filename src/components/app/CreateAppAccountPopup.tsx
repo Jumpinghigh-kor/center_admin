@@ -7,7 +7,7 @@ interface Member {
   mem_name?: string;
   mem_phone?: string;
   mem_birth?: any;
-  mem_email_id?: string;
+  mem_app_id?: string;
   mem_gender?: boolean | number;
   mem_locker?: boolean | number;
   mem_locker_number?: string;
@@ -23,7 +23,7 @@ interface Member {
 }
 
 interface AppAccount {
-  mem_email_id: string;
+  mem_app_id: string;
   mem_app_password: string;
   confirmPassword: string;
   mem_role: string;
@@ -50,7 +50,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
   const [activeTab, setActiveTab] = useState<"info" | "password">("info");
   
   const [formData, setFormData] = useState<AppAccount>({
-    mem_email_id: selectedMember?.mem_email_id || "",
+    mem_app_id: selectedMember?.mem_app_id || "",
     mem_app_password: "",
     confirmPassword: "",
     mem_role: selectedMember?.mem_role || "USER",
@@ -96,7 +96,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
     if (!isOpen) return;
     setFormData((prev) => ({
       ...prev,
-      mem_email_id: selectedMember?.mem_email_id || "",
+      mem_app_id: selectedMember?.mem_app_id || "",
       mem_role: selectedMember?.mem_role || prev.mem_role,
     }));
   }, [isOpen, selectedMember]);
@@ -124,14 +124,15 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
   const validateForm = (): boolean => {
     // 이메일 검증 (계정 생성 또는 이메일 변경 모드)
     if ((effectiveMode === "create" || effectiveMode === "emailChange")) {
-      if (!formData.mem_email_id.trim()) {
-        setErrorMessage("이메일을 입력해주세요.");
+      if (!formData.mem_app_id.trim()) {
+        setErrorMessage("아이디를 입력해주세요.");
         return false;
       }
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.mem_email_id)) {
-        setErrorMessage("올바른 이메일 형식을 입력해주세요.");
+      // 아이디는 영문/숫자만 허용 (특수문자 불가)
+      const idRegex = /^[A-Za-z0-9]+$/;
+      if (!idRegex.test(formData.mem_app_id.trim())) {
+        setErrorMessage("아이디는 영문과 숫자만 입력 가능합니다.");
         return false;
       }
     }
@@ -184,7 +185,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         apiEndpoint = `${process.env.REACT_APP_API_URL}/app/memberApp/createMemberApp`;
         accountData = {
           mem_id: selectedMember?.mem_id,
-          mem_email_id: formData.mem_email_id.trim(),
+          mem_app_id: formData.mem_app_id.trim(),
           mem_app_password: formData.mem_app_password,
           mem_role: formData.mem_role,
         };
@@ -200,7 +201,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         apiEndpoint = `${process.env.REACT_APP_API_URL}/app/memberApp/updateMemberAppInfo`;
         accountData = {
           mem_id: selectedMember?.mem_id,
-          mem_email_id: formData.mem_email_id.trim(),
+          mem_app_id: formData.mem_app_id.trim(),
           mem_role: formData.mem_role,
         };
         successMessage = "앱 계정 정보가 성공적으로 변경되었습니다.";
@@ -254,7 +255,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
       
       // 폼 초기화
       setFormData({
-        mem_email_id: "",
+        mem_app_id: "",
         mem_app_password: "",
         confirmPassword: "",
         mem_role: "USER",
@@ -357,12 +358,12 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
                     아이디 <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="email"
-                    name="mem_email_id"
-                    value={formData.mem_email_id}
+                    type="text"
+                    name="mem_app_id"
+                    value={formData.mem_app_id}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="이메일을 입력하세요.(example@example.com)"
+                    placeholder="아이디를 입력하세요."
                     maxLength={100}
                     autoComplete="off"
                     disabled={isSubmitting}

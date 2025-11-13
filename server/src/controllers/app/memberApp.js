@@ -81,7 +81,7 @@ exports.selectMemberAppList = (req, res) => {
         , m.mem_id
         , m.mem_name
         , m.mem_phone
-        , m.mem_email_id
+        , m.mem_app_id
         , m.mem_role
         , CASE
             WHEN m.mem_gender = 0 THEN '여자'
@@ -117,7 +117,7 @@ exports.selectMemberAppList = (req, res) => {
 exports.createMemberApp = async (req, res) => {
   const {
     mem_id,
-    mem_email_id,
+    mem_app_id,
     mem_app_password,
     mem_role,
   } = req.body;
@@ -126,25 +126,25 @@ exports.createMemberApp = async (req, res) => {
     const checkDuplicateQuery = 
       `
         SELECT
-          COUNT(*)
+          COUNT(*) AS cnt
         FROM  members
         WHERE mem_status = 1
-        AND   mem_email_id = ?
+        AND   mem_app_id = ?
       `;
 
     db.query(
       checkDuplicateQuery,
-      [mem_email_id],
+      [String(mem_app_id || '').trim()],
       async (err, result) => {
         if (err) {
           console.log(err);
           return res.status(500).json(err);
         }
 
-        if (result[0].count > 0) {
+        if (result[0].cnt > 0) {
           return res.status(400).json({
             message:
-              "동일한 이메일이 존재합니다. 이메일을 변경하시기 바랍니다.",
+              "동일한 아이디가 존재합니다. 아이디를 변경하시기 바랍니다.",
             result: result,
           });
         }
@@ -157,7 +157,7 @@ exports.createMemberApp = async (req, res) => {
           const query = 
             `
               UPDATE members SET
-                mem_email_id = ?
+                mem_app_id = ?
                 , mem_app_password = ?
                 , mem_app_status = 'PROCEED'
                 , mem_role = ?
@@ -168,7 +168,7 @@ exports.createMemberApp = async (req, res) => {
           db.query(
             query,
             [
-              mem_email_id,
+              mem_app_id,
               hashedPassword,
               mem_role,
               mem_id,
@@ -206,42 +206,67 @@ exports.createMemberApp = async (req, res) => {
 // 어플 회원 정보 수정
 exports.updateMemberAppInfo = (req, res) => {
   try {
-    const { mem_id, mem_email_id, mem_role } = req.body;
+    const { mem_id, mem_app_id, mem_role } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
     const app_mod_dt = now.format("YYYYMMDDHHmmss");
 
-    // members 테이블에 어플 회원 비밀번호 정보 수정
-    const memberUpdateQuery = `
-      UPDATE members SET
-        mem_email_id = ?,
-        mem_role = ?,
-        app_mod_dt = ?,
-        app_mod_id = ?
-      WHERE mem_id = ?
+    // 아이디 중복 체크 (본인 제외)
+    const checkDuplicateQuery = `
+      SELECT COUNT(*) AS cnt
+      FROM members
+      WHERE mem_status = 1
+      AND mem_app_id = ?
+      AND mem_id <> ?
     `;
 
     db.query(
-      memberUpdateQuery,
-      [
-        mem_email_id,
-        mem_role,
-        app_mod_dt,
-        mem_id,
-        mem_id,
-      ],
-      (err, result) => {
-        if (err) {
-          console.error("어플 회원 정보 수정 오류:", err);
-          return res
-            .status(500)
-            .json({ error: "어플 회원 정보 수정 중 오류가 발생했습니다." });
+      checkDuplicateQuery,
+      [String(mem_app_id || "").trim(), mem_id],
+      (dupErr, dupRows) => {
+        if (dupErr) {
+          console.error("어플 회원 정보 수정(중복체크) 오류:", dupErr);
+          return res.status(500).json({ error: "어플 회원 정보 수정 중 오류가 발생했습니다." });
+        }
+        if (dupRows && dupRows[0] && Number(dupRows[0].cnt) > 0) {
+          return res.status(400).json({
+            message: "동일한 아이디가 존재합니다. 아이디를 변경하시기 바랍니다.",
+          });
         }
 
-        res.status(200).json({
-          message: "어플 회원 정보가 성공적으로 수정되었습니다.",
-        });
+        // members 테이블에 어플 회원 정보 수정
+        const memberUpdateQuery = `
+          UPDATE members SET
+            mem_app_id = ?,
+            mem_role = ?,
+            app_mod_dt = ?,
+            app_mod_id = ?
+          WHERE mem_id = ?
+        `;
+
+        db.query(
+          memberUpdateQuery,
+          [
+            String(mem_app_id || "").trim(),
+            mem_role,
+            app_mod_dt,
+            mem_id,
+            mem_id,
+          ],
+          (err, result) => {
+            if (err) {
+              console.error("어플 회원 정보 수정 오류:", err);
+              return res
+                .status(500)
+                .json({ error: "어플 회원 정보 수정 중 오류가 발생했습니다." });
+            }
+
+            res.status(200).json({
+              message: "어플 회원 정보가 성공적으로 수정되었습니다.",
+            });
+          }
+        );
       }
     );
   } catch (error) {

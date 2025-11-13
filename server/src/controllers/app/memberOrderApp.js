@@ -32,7 +32,7 @@ exports.selectMemberOrderAppList = (req, res) => {
         , m.mem_name
         , m.mem_birth
         , m.mem_phone
-        , m.mem_email_id
+        , m.mem_app_id
         , moa.order_app_id
         , moa.mem_id
         , moa.order_dt
@@ -616,7 +616,10 @@ exports.deleteTrackingNumber = (req, res) => {
 exports.updateOrderStatus = (req, res) => {
   try {
     const { order_detail_app_id, order_status, userId, order_group } = req.body;
-    
+console.log('order_detail_app_id::', order_detail_app_id)
+console.log('order_status::', order_status)
+console.log('userId::', userId)
+console.log('order_group::', order_group)
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
 
@@ -641,11 +644,13 @@ exports.updateOrderStatus = (req, res) => {
     `;
 
     params.push(order_detail_app_id);
-
+    console.log('updateQuery::', updateQuery)
+    console.log('params::', params)
     db.query(
       updateQuery,
       params,
       (err, result) => {
+        console.log('result::', result)
         if (err) {
           console.error("주문상태 변경 오류:", err);
           return res
@@ -1186,7 +1191,7 @@ exports.selectCenterMemberOrderAppList = (req, res) => {
               SELECT
                 IFNULL(SUM(smpa.point_amount), 0)
               FROM	member_point_app smpa
-              WHERE	smpa.order_app_id = moa.order_app_id
+              WHERE	smpa.order_detail_app_id = moda.order_detail_app_id
               AND		smpa.del_yn = 'N'
               AND		smpa.point_status = 'POINT_MINUS'
             ) AS point_amount

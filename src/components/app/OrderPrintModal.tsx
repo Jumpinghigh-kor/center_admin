@@ -5,7 +5,7 @@ interface OrderDetail {
   mem_name: string;
   mem_birth: string;
   mem_phone: string;
-  mem_email_id: string;
+  mem_app_id: string;
   order_app_id: number;
   order_status: string;
   order_quantity: number;
@@ -150,7 +150,7 @@ const OrderPrintModal: React.FC<OrderPrintModalProps> = ({ orderDetail, isOpen, 
                         <h3 className="font-bold text-xs mb-3">주문자 정보</h3>
                         <div className="space-y-1">
                           <p className="text-xs">{order.mem_name}</p>
-                          <p className="text-xs">{order.mem_email_id}</p>
+                          <p className="text-xs">{order.mem_app_id}</p>
                           <p className="text-xs">{order.mem_phone?.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}</p>
                         </div>
                       </div>

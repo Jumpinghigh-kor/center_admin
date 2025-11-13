@@ -36,7 +36,7 @@ interface Member {
   mem_id: number;
   mem_name: string;
   mem_nickname: string;
-  mem_email_id: string;
+  mem_app_id: string;
   mem_phone: string;
   mem_app_status: string;
   mem_gender: string;

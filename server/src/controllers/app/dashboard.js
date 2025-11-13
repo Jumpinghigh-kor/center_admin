@@ -75,7 +75,7 @@ exports.selectMemberList = (req, res) => {
       mem_id
       , mem_name
       , mem_nickname
-      , mem_email_id
+      , mem_app_id
       , CONCAT(SUBSTRING(mem_phone, 1, 3), '-', SUBSTRING(mem_phone, 4, 4), '-', SUBSTRING(mem_phone, 8, 4)) AS mem_phone
       , mem_app_status
       , mem_gender

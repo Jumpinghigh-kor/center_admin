@@ -26,6 +26,20 @@ async function sendPush(tokens, { title, body, data }) {
     });
     successCount += res.successCount;
     failureCount += res.failureCount;
+    try {
+      if (res.failureCount > 0 && Array.isArray(res.responses)) {
+        res.responses.forEach((r, idx) => {
+          if (!r.success && r.error) {
+            console.warn('[Push] Failure', {
+              tokenIndex: idx,
+              code: r.error.code,
+              message: r.error.message
+            });
+          }
+        });
+      }
+      console.log(`[Push] Batch sent. success=${res.successCount}, failure=${res.failureCount}`);
+    } catch (_) {}
   }
   return { successCount, failureCount };
 }

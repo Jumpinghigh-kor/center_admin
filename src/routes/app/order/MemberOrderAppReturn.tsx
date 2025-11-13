@@ -393,7 +393,7 @@ const MemberOrderAppReturn: React.FC = () => {
               ]
             } as any;
             const gfRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/shipping/return/deliveryItems`, body);
-            console.log('gfRes', gfRes);
+            console.log('gfRes::', gfRes);
             try {
               const serviceId =
                 gfRes?.data?.data?.items?.[0]?.data?.serviceId ||
@@ -402,6 +402,8 @@ const MemberOrderAppReturn: React.FC = () => {
               const detailIdsForUpdate: number[] = Array.from(new Set(
                 selectedReturnApplyItems.map(({ item }: any) => item?.order_detail_app_id).filter((v: any) => v != null)
               ));
+              console.log('serviceId', serviceId)
+              console.log('detailIdsForUpdate', detailIdsForUpdate)
               if (serviceId && detailIdsForUpdate.length > 0) {
                 await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
                   order_detail_app_id: detailIdsForUpdate,

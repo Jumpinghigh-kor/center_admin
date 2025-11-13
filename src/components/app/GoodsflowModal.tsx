@@ -7,7 +7,7 @@ interface Order {
   mem_name: string;
   mem_birth: string;
   mem_phone: string;
-  mem_email_id: string;
+  mem_app_id: string;
   order_app_id: number;
   order_detail_app_id: number;
   order_status: string;

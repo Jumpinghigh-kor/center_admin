@@ -11,7 +11,7 @@ export interface Member {
   mem_locker_number_old?: string;
   mem_checkin_number?: string;
   mem_gender?: number;
-  mem_email_id?: string;
+  mem_app_id?: string;
   mem_app_status?: string;
   mem_role?: string;
   push_yn?: string;
