@@ -1040,6 +1040,7 @@ const ProductAppRegister: React.FC = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택</option>
+                          <option value="N">없음</option>
                           <option value="W">여자</option>
                           <option value="M">남자</option>
                           <option value="A">전체</option>

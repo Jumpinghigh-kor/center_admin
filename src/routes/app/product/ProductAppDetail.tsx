@@ -441,7 +441,8 @@ const ProductAppDetail: React.FC = () => {
       alert("택배사를 선택해주세요.");
       return;
     }
-    if (!formData.delivery_fee || parseFloat(formData.delivery_fee) < 0) {
+    // 배송비: 빈 값은 불가, 0 이상은 허용
+    if (formData.delivery_fee === "" || Number(formData.delivery_fee) < 0) {
       alert("배송비를 올바르게 입력해주세요.");
       return;
     }
@@ -1275,6 +1276,7 @@ const ProductAppDetail: React.FC = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택</option>
+                          <option value="N">없음</option>
                           <option value="W">여자</option>
                           <option value="M">남자</option>
                           <option value="A">전체</option>
