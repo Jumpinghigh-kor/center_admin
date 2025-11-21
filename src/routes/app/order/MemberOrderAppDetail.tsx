@@ -964,7 +964,7 @@ const MemberOrderAppDetail: React.FC = () => {
       alert("송장번호 삭제 중 오류가 발생했습니다.");
     }
   };
-
+  
   // 취소거절 처리: 승인/취소 플래그 N 처리 후 대상만 배송대기로 되돌리기
   const fn_rejectCancel = async (targetDetailIds?: number[]) => {
     try {
@@ -1788,7 +1788,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                   <p className="text-xs text-gray-600">{product?.order_dt}{product?.order_app_id}</p>
                                   <p className="font-medium mb-2 text-sm">{product?.product_name}</p>
                                   <p className="text-gray-700 mt-1 bg-gray-300 px-2 py-1 rounded-full text-xs inline-block">
-                                    {product?.option_gender === 'W' ? '여성' : product?.option_gender === 'M' ? '남성' : '공용'}{product?.option_unit} ({product?.option_amount})
+                                    {product?.option_gender === 'W' ? '여성' : product?.option_gender === 'M' ? '남성' : '공용'}{product?.option_unit !== 'NONE_UNIT' ? product?.option_unit : ''} {product?.option_amount ? (product?.option_amount) : ''}
                                   </p>
                                 </div>
                                 <div className="flex justify-between items-start">
@@ -2286,7 +2286,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                               };
                                               
                                               const gfRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/shipping/return/deliveryItems`, body);
-console.log('gfRes::', gfRes);
+
                                               try {
                                                 const serviceId =
                                                   gfRes?.data?.data?.items?.[0]?.data?.serviceId ||
@@ -2755,16 +2755,20 @@ console.log('gfRes::', gfRes);
                 <span className="text-gray-600">상품 금액</span>
                 <span>{totalOriginalAmount.toLocaleString()} 원</span>
               </div>
-              {toStatus(orderDetail?.order_status) === 'CANCEL_COMPLETE' && ((Number(orderDetail?.payment_amount) || 0) <= orderDetail?.free_shipping_amount) && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">배송비</span>
-                  <span>{orderDetail?.delivery_fee?.toLocaleString()} 원</span>
-                </div>
-              )}
               <div className="flex justify-between">
                 <span className="text-gray-600">할인</span>
                 <span>-{(totalOriginalAmount - totalDiscountedAmount).toLocaleString()} 원</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">배송비</span>
+                <span>{(orderDetail?.free_shipping_amount > Number(orderDetail?.payment_amount)) ? orderDetail?.delivery_fee.toLocaleString() + ' 원' : '무료배송'}</span>
+              </div>
+              {orderDetail?.extra_zip_code &&
+                <div className="flex justify-between">
+                  <span className="text-gray-600">도서 산간 배송비</span>
+                  <span>{orderDetail?.remote_delivery_fee.toLocaleString()} 원</span>
+                </div>
+              }
               {Number(orderDetail?.point_use_amount) !== 0 &&
                 <div className="flex justify-between">
                   <span className="text-gray-600">적립금</span>
@@ -2777,12 +2781,12 @@ console.log('gfRes::', gfRes);
                   <span>{orderDetail?.coupon_discount_type === 'PERCENT' ? '-' + Number((Number(orderDetail?.coupon_discount_amount) * 1/100) * ( (totalOriginalAmount - totalDiscountedAmount))).toLocaleString() : '-' + Number(orderDetail?.coupon_discount_amount).toLocaleString()} 원</span>
                 </div>
               }
-              {Number(orderDetail?.refund_amount) !== 0 &&
+              {/* {Number(orderDetail?.refund_amount) !== 0 &&
                 <div className="flex justify-between">
                   <span className="text-gray-600">쿠폰+적립금</span>
-                  <span>-{(totalOriginalAmount - totalDiscountedAmount - orderDetail?.refund_amount - Number(orderDetail?.point_use_amount || 0) - orderDetail?.payment_amount).toLocaleString()} 원</span>    
+                  <span>{(totalOriginalAmount - totalDiscountedAmount - orderDetail?.refund_amount - Number(orderDetail?.point_use_amount || 0) - orderDetail?.payment_amount).toLocaleString()} 원</span>    
                 </div>
-              }
+              } */}
               <div className="flex justify-between">
                 <span className="text-gray-600">환불</span>
                 <span>{Number(Number(orderDetail?.refund_amount) ? -orderDetail?.refund_amount : 0).toLocaleString()} 원</span>

@@ -63,6 +63,12 @@ const PostAppRegister: React.FC = () => {
           all_send_yn: allSendYn,
           push_send_yn: pushSendYn,
           userId: user.index,
+          memberList: (formData.mem_id || "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s)
+            .map((s) => Number(s))
+            .filter((n) => !Number.isNaN(n)),
         }
       );
       

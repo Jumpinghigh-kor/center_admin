@@ -84,8 +84,7 @@ exports.selectMemberPostAppList = (req, res) => {
 // 우편함 등록
 exports.insertPostApp = (req, res) => {
   try {
-    const { post_type, title, content, all_send_yn, userId, push_send_yn, mem_id } = req.body;
-    
+    const { post_type, title, content, all_send_yn, userId, push_send_yn, mem_id, memberList } = req.body;
     // 현재 날짜 형식화
     const now = dayjs();
     const reg_dt = now.format("YYYYMMDDHHmmss");
@@ -134,21 +133,14 @@ exports.insertPostApp = (req, res) => {
             let tokenWhere = "WHERE m.push_yn = 'Y' AND m.push_token IS NOT NULL";
             const params = [];
 
-            if (all_send_yn === 'N' && mem_id) {
-              const ids = String(mem_id)
-                .split(',')
-                .map((s) => s.trim())
-                .filter((s) => s)
-                .map((s) => Number(s))
-                .filter((n) => !Number.isNaN(n));
-              if (ids.length) {
-                tokenWhere += ` AND m.mem_id IN (${ids.map(() => '?').join(',')})`;
-                params.push(...ids);
-              }
+            if (all_send_yn === 'N' && memberList && memberList.length > 0) {
+                tokenWhere += ` AND m.mem_id IN (${memberList.map(() => '?').join(',')})`;
+                params.push(...memberList);
             }
 
             const tokenQuery = `
-              SELECT m.push_token
+              SELECT
+                m.push_token
               FROM members m
               ${tokenWhere}
             `;

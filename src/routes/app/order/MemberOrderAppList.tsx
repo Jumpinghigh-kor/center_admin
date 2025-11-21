@@ -1413,7 +1413,7 @@ const MemberOrderAppList: React.FC = () => {
                           }
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">환불</p>
-                            <p className="text-sm text-gray-500">{order?.refund_amount ? -Number(order?.refund_amount)?.toLocaleString() : '0'} 원</p>
+                            <p className="text-sm text-gray-500">{order?.refund_amount ? -(order?.refund_amount)?.toLocaleString() : '0'} 원</p>
                           </div>
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">결제수단</p>
