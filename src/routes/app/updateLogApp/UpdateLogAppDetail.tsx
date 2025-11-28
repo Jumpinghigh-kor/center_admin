@@ -13,6 +13,7 @@ const UpdateLogAppDetail: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const upAppId = searchParams.get('upAppId');
+  const isAdmin = user?.usr_role === 'admin';
   const [formData, setFormData] = useState<UpdateLogApp>({
     upAppVersion: "",
     upAppDesc: "",
@@ -138,6 +139,7 @@ const UpdateLogAppDetail: React.FC = () => {
                     value={formData.upAppVersion}
                     onChange={(e) => setFormData({ ...formData, upAppVersion: e.target.value })}
                     className="w-full p-2 border border-gray-300 rounded"
+                    disabled={!isAdmin}
                     placeholder="버전을 입력하세요"
                   />
                 </td>
@@ -154,6 +156,7 @@ const UpdateLogAppDetail: React.FC = () => {
                     value={formData.upAppDesc}
                     onChange={(e) => setFormData({ ...formData, upAppDesc: e.target.value })}
                     className="w-full min-h-[150px] p-2 border border-gray-300 rounded"
+                    disabled={!isAdmin}
                   />
                 </td>
               </tr>
@@ -161,22 +164,24 @@ const UpdateLogAppDetail: React.FC = () => {
           </table>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            type="button"
-            onClick={handleUpdate}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            수정
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-          >
-            삭제
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+              type="button"
+              onClick={handleUpdate}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              수정
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+            >
+              삭제
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

@@ -109,20 +109,22 @@ const NoticesAppList: React.FC = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">공지사항 관리</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={handleBatchDelete}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              삭제
-            </button>
-            <button
-              onClick={() => navigate('/app/notice/noticesAppRegister')}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              등록
-            </button>
-          </div>
+          {user.usr_role === 'admin' && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleBatchDelete}
+                className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+              >
+                삭제
+              </button>
+              <button
+                onClick={() => navigate('/app/notice/noticesAppRegister')}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                등록
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 검색 필터 테이블 */}

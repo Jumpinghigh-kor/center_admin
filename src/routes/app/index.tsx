@@ -42,6 +42,7 @@ import NoticesShoppingAppList from "./noticeShopping/NoticesShoppingAppList";
 import NoticesShoppingAppDetail from "./noticeShopping/NoticesShoppingAppDetail";
 import NoticesShoppingAppRegister from "./noticeShopping/NoticesShoppingAppRegister";
 import CommonCodeList from "./commonCode/commonCodeList";
+import PointAppList from "./point/PointAppList";
 
 const MemberApp: React.FC = () => {
   const user = useUserStore((state) => state.user);
@@ -98,6 +99,8 @@ const MemberApp: React.FC = () => {
       setActiveTab("noticesShoppingAppList");
     } else if (location.pathname.includes("/commonCodeList")) {
       setActiveTab("commonCodeList");
+    } else if (location.pathname.includes("/pointAppList")) {
+      setActiveTab("pointAppList");
     }
 
     // 햄버거 메뉴 클릭 시 사이드바가 표시되는 것 방지
@@ -166,6 +169,7 @@ const MemberApp: React.FC = () => {
             <Route path="/reservation" element={<ReservationManagement />} />
             <Route path="/settings" element={<div>설정 페이지</div>} />
             <Route path="/commonCodeList" element={<CommonCodeList />} />
+            <Route path="/pointAppList" element={<PointAppList />} />
           </Routes>
         </div>
       </div>

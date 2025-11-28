@@ -404,6 +404,64 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
             </button>
           </li>
 
+          <li>
+            <button
+              onClick={() => handleNavigation("/app/noticesAppList", "noticesAppList")}
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === "noticesAppList"
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="공지사항 관리"
+            >
+              <svg
+                className="w-6 h-6 md:mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                />
+              </svg>
+              <span className="hidden md:inline">공지사항 관리</span>
+            </button>
+          </li>
+
+          <li>
+            <button
+              onClick={() =>
+                handleNavigation("/app/updateLogApp", "updateLogApp")
+              }
+              className={`flex items-center w-full py-2 px-4 text-left ${
+                activeTab === "updateLogApp"
+                  ? "bg-gray-200 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+              title="업데이트 로그 관리"
+            >
+              <svg
+                className="w-6 h-6 md:mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <span className="hidden md:inline">업데이트 로그 관리</span>
+            </button>
+          </li>
+
           {/* 공통 관리 */}
           {user.usr_role === 'admin' && (
             <>
@@ -441,34 +499,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
 
               <li>
                 <button
-                  onClick={() => handleNavigation("/app/noticesAppList", "noticesAppList")}
-                  className={`flex items-center w-full py-2 px-4 text-left ${
-                    activeTab === "noticesAppList"
-                      ? "bg-gray-200 text-gray-900"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  title="공지사항 관리"
-                >
-                  <svg
-                    className="w-6 h-6 md:mr-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                    />
-                  </svg>
-                  <span className="hidden md:inline">공지사항 관리</span>
-                </button>
-              </li>
-
-              <li>
-                <button
                   onClick={() =>
                     handleNavigation("/app/postAppList", "postAppList")
                   }
@@ -494,36 +524,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     />
                   </svg>
                   <span className="hidden md:inline">우편함 관리</span>
-                </button>
-              </li>
-
-              <li>
-                <button
-                  onClick={() =>
-                    handleNavigation("/app/updateLogApp", "updateLogApp")
-                  }
-                  className={`flex items-center w-full py-2 px-4 text-left ${
-                    activeTab === "updateLogApp"
-                      ? "bg-gray-200 text-gray-900"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  title="업데이트 로그 관리"
-                >
-                  <svg
-                    className="w-6 h-6 md:mr-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  <span className="hidden md:inline">업데이트 로그 관리</span>
                 </button>
               </li>
 
@@ -698,6 +698,34 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
 
               <li>
                 <button
+                  onClick={() => handleNavigation("/app/pointAppList", "pointAppList")}
+                  className={`flex items-center w-full py-2 px-4 text-left ${
+                    activeTab === "pointAppList"
+                      ? "bg-gray-200 text-gray-900"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  title="포인트 관리"
+                >
+                  <svg
+                    className="w-6 h-6 md:mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                  <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+                    />
+                  </svg>
+                  <span className="hidden md:inline">포인트 관리</span>
+                </button>
+              </li>
+
+              <li>
+                <button
                   onClick={() => handleNavigation("/app/couponApp", "couponApp")}
                   className={`flex items-center w-full py-2 px-4 text-left ${
                     activeTab === "couponApp"
@@ -749,6 +777,43 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
                     />
                   </svg>
                   <span className="hidden md:inline">이벤트 관리</span>
+                </button>
+              </li>
+            </>
+          )}
+
+          {/* 시스템 관리 */}
+          {user.usr_role === 'admin' && (
+            <>
+              <li className="bg-gray-500 text-gray-300">
+                <p className="flex items-center w-full py-2 px-4 text-left">시스템 관리</p>
+              </li>
+
+              <li>
+                <button
+                  onClick={() => handleNavigation("/app/commonCodeList", "commonCodeList")}
+                  className={`flex items-center w-full py-2 px-4 text-left ${
+                    activeTab === "commonCodeList"
+                      ? "bg-gray-200 text-gray-900"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  title="공통코드 관리"
+                >
+                  <svg
+                    className="w-6 h-6 md:mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span className="hidden md:inline">공통코드 관리</span>
                 </button>
               </li>
             </>

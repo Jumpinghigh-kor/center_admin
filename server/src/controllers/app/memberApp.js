@@ -97,6 +97,20 @@ exports.selectMemberAppList = (req, res) => {
         , m.mem_sch_id
         , DATE_FORMAT(m.recent_dt, '%Y-%m-%d %H:%i:%s') AS recent_dt
         , DATE_FORMAT(m.app_reg_dt, '%Y-%m-%d %H:%i:%s') AS app_reg_dt
+        , DATE_FORMAT(m.app_exit_dt, '%Y-%m-%d %H:%i:%s') AS app_exit_dt
+        , (
+            SELECT 
+              COALESCE(SUM(
+                  CASE 
+                      WHEN smpa.point_status = 'POINT_ADD' THEN smpa.point_amount
+                      WHEN smpa.point_status = 'POINT_MINUS' THEN -smpa.point_amount
+                      ELSE 0
+                  END
+              ), 0)
+            FROM member_point_app smpa
+            WHERE smpa.mem_id = m.mem_id
+            AND smpa.del_yn = 'N'
+          ) AS point_amount
       FROM		  centers c
       LEFT JOIN	members m ON c.center_id = m.center_id
       WHERE		  m.mem_status = 1

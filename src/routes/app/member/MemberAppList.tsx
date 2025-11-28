@@ -17,8 +17,10 @@ interface MemberApp {
   mem_sch_id: number;
   mem_name: string;
   mem_app_status: string;
+  point_amount: number;
   recent_dt: string;
-  app_reg_dt: string;
+  app_reg_dt: string; 
+  app_exit_dt: string;
 }
 
 interface CenterItem {
@@ -372,8 +374,10 @@ const MemberList: React.FC = () => {
                     </th>
                     <th className="text-center">성별</th>
                     <th className="text-center">전화번호</th>
+                    <th className="text-center">포인트 잔액</th>
                     <th className="text-center">최근 로그인일시</th>
                     <th className="text-center">어플 가입일시</th>
+                    <th className="text-center">탈퇴 일시</th>
                     {user.usr_role === 'admin' && <th className="text-center">등록 센터<br />(관리자만 노출)</th>}
                   </tr>
                 </thead>
@@ -405,8 +409,10 @@ const MemberList: React.FC = () => {
                       </td>
                       <td className="text-center px-2">{member.mem_gender ? member.mem_gender : '-'}</td>
                       <td className="text-center px-2">{member.mem_phone ? member.mem_phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</td>
+                      <td className="text-center px-2">{member.point_amount ? member.point_amount.toLocaleString() : '-'}</td>
                       <td className="text-center">{member.recent_dt ? member.recent_dt : '-'}</td>
                       <td className="text-center">{member.app_reg_dt ? member.app_reg_dt : '-'}</td>
+                      <td className="text-center">{member.app_exit_dt ? member.app_exit_dt : '-'}</td>
                       {user.usr_role === 'admin' && (
                         <td className="text-center px-2">{member.center_name ? member.center_name : '-'}</td>
                       )}

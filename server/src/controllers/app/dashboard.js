@@ -381,52 +381,47 @@ exports.selectPaymentAnalysisList = (req, res) => {
               CASE
                 WHEN	DATE_FORMAT(moa.order_dt, '%Y%m%d') = DATE_FORMAT(NOW(), '%Y%m%d')	AND mpa.payment_status = 'PAYMENT_COMPLETE'	THEN 1
               END) AS today_order_count
+      , ROUND((
+          SELECT AVG(p.total_amount)
+          FROM (
+            SELECT
+              smoa.order_app_id,
+              SUM(smpa.payment_amount) AS total_amount
+            FROM        member_order_app smoa
+            INNER JOIN  members sm   ON sm.mem_id = smoa.mem_id
+            INNER JOIN  member_payment_app smpa ON smpa.order_app_id = smoa.order_app_id
+            WHERE       smoa.del_yn = 'N'
+            AND         smpa.payment_status = 'PAYMENT_COMPLETE'
+            ${addSubConditions}
+            GROUP BY    smoa.order_app_id
+          ) p
+        ), 0) AS avg_order_amount
       , ROUND(
-              (
-                SELECT
-                  SUM(smpa.payment_amount)
-                FROM		    member_order_app smoa
-                LEFT JOIN   member_order_detail_app smoda ON smoa.order_app_id = smoda.order_app_id
-                INNER JOIN 	member_payment_app smpa	      ON smoa.order_app_id = smpa.order_app_id
-                INNER JOIN 	members sm				            ON sm.mem_id = smoa.mem_id
-                WHERE 		  smoa.del_yn = 'N'
-                AND 		    smpa.payment_status = 'PAYMENT_COMPLETE'
-                ${addSubConditions}
-              )
-              / NULLIF(
-                        (
-                          SELECT
-                            COUNT(*) 
-                          FROM		    member_order_app smoa
-                          LEFT JOIN   member_order_detail_app smoda ON smoa.order_app_id = smoda.order_app_id
-                          INNER JOIN 	member_payment_app smpa	      ON smoa.order_app_id = smpa.order_app_id
-                          INNER JOIN 	members sm				            ON sm.mem_id = smoa.mem_id
-                          WHERE		    smoa.del_yn = 'N'
-                          AND 		    smpa.payment_status = 'PAYMENT_COMPLETE'
-                          ${addSubConditions}
-                        ), 0), 0
-      ) AS avg_order_amount
-      , ROUND(
-              (
-                SELECT
-                  COUNT(*) 
-                FROM		    member_order_app smoa
-                INNER JOIN 	member_payment_app smpa   ON smoa.order_app_id = smpa.order_app_id
-                INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
-                WHERE 		  smoa.del_yn = 'N'
-                AND			    smpa.payment_status = 'PAYMENT_REFUND'
-                ${addSubConditions}
-                )
-              / NULLIF(
-                        (
-                          SELECT
-                            COUNT(*) 
-                          FROM		    member_order_app smoa
-                          INNER JOIN 	member_payment_app smpa   ON smoa.order_app_id = smpa.order_app_id
-                          INNER JOIN 	members sm				        ON sm.mem_id = smoa.mem_id
-                          WHERE 		  smoa.del_yn = 'N'
-                          ${addSubConditions}
-                        ), 0) * 100, 1
+          (
+            SELECT COUNT(*)
+            FROM (
+              SELECT DISTINCT smoa.order_app_id
+              FROM        member_order_app smoa
+              INNER JOIN  member_payment_app smpa ON smoa.order_app_id = smpa.order_app_id
+              INNER JOIN  members sm              ON sm.mem_id = smoa.mem_id
+              WHERE       smoa.del_yn = 'N'
+              AND         smpa.payment_status = 'PAYMENT_REFUND'
+              AND         smpa.payment_type = 'PRODUCT_BUY'
+              ${addSubConditions}
+            ) refunded_orders
+          )
+          / NULLIF((
+            SELECT COUNT(*)
+            FROM (
+              SELECT DISTINCT smoa.order_app_id
+              FROM        member_order_app smoa
+              INNER JOIN  member_payment_app smpa ON smoa.order_app_id = smpa.order_app_id
+              INNER JOIN  members sm              ON sm.mem_id = smoa.mem_id
+              WHERE       smoa.del_yn = 'N'
+              AND         smpa.payment_type = 'PRODUCT_BUY'
+              ${addSubConditions}
+            ) paid_orders
+          ), 0) * 100, 1
         ) AS refund_rate_percent
     FROM 		    member_order_app moa
     INNER JOIN 	member_payment_app mpa  ON moa.order_app_id = mpa.order_app_id
@@ -491,19 +486,30 @@ exports.selectCategorySalesList = (req, res) => {
   const query = `
     SELECT
       cc.common_code_name AS category_name
-      , SUM(mpa.payment_amount) AS category_sales
-    FROM 		  members m
-    LEFT JOIN	member_order_app moa 	        ON m.mem_id = moa.mem_id
-    LEFT JOIN	member_order_detail_app moda  ON moa.order_app_id = moda.order_app_id
-    LEFT JOIN	member_payment_app mpa 	      ON moa.order_app_id = mpa.order_app_id
-    LEFT JOIN	product_detail_app pda 	      ON moda.product_detail_app_id = pda.product_detail_app_id
-    LEFT JOIN	product_app pa			          ON pda.product_app_id = pa.product_app_id
-    LEFT JOIN	common_code cc			          ON pa.big_category = cc.common_code
-    WHERE		  moa.del_yn = 'N'
-    AND			  mpa.payment_status = 'PAYMENT_COMPLETE'
+      , SUM(po.paid_amount) AS category_sales
+    FROM (
+            SELECT
+              order_app_id
+              , SUM(payment_amount) AS paid_amount
+            FROM  member_payment_app
+            WHERE payment_status = 'PAYMENT_COMPLETE'
+            GROUP BY order_app_id
+          ) po
+    INNER JOIN member_order_app o ON o.order_app_id = po.order_app_id
+    INNER JOIN  (
+                  SELECT DISTINCT
+                    d.order_app_id
+                    , pa.big_category
+                  FROM        member_order_detail_app d
+                  INNER JOIN  product_detail_app pda ON pda.product_detail_app_id = d.product_detail_app_id
+                  INNER JOIN  product_app pa ON pa.product_app_id = pda.product_app_id
+                ) oc ON oc.order_app_id = o.order_app_id
+    INNER JOIN  members m ON m.mem_id = o.mem_id
+    INNER JOIN  common_code cc ON cc.common_code = oc.big_category
+    WHERE       o.del_yn = 'N'
     ${addConditions}
-    GROUP BY 	pa.big_category
-    ORDER BY 	cc.common_code_name DESC;
+    GROUP BY oc.big_category
+    ORDER BY cc.common_code_name DESC;
   `;
 
   db.query(query, [center_id], (err, result) => {

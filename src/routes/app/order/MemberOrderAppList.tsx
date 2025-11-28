@@ -1175,7 +1175,7 @@ const MemberOrderAppList: React.FC = () => {
                                         <div key={`oos-${groupNo}-${i}`}>
                                           <div className="mt-2 bg-gray-100 px-2 py-1 flex items-center gap-2">
                                             <p className="border border-gray-400 rounded-full p-1"><span className="text-xs text-gray-400 w-2 h-2 flex items-center justify-center">i</span></p>
-                                            <p className="text-xs font-semibold">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : product.option_gender == 'M' ? '남성' : '공용'} 품절</p>
+                                            <p className="text-xs font-semibold">{product.option_amount} {product.option_unit !== 'NONE_UNIT' ? product.option_unit : ''} {product.option_gender == 'W' ? '여성' : product.option_gender == 'M' ? '남성' : product.option_gender == 'A' ? '공용' : '없음'} 품절</p>
                                           </div>
                                         </div>
                                       )
@@ -1356,7 +1356,7 @@ const MemberOrderAppList: React.FC = () => {
                                               <div className="ml-4">
                                                 <p className="text-xs text-gray-500">{product.order_dt}{product.order_app_id}-{product.product_detail_app_id || '00'}</p>
                                                 <p className="font-medium">{product.product_name}</p>
-                                                <p className="inline-block font-bold text-xs bg-gray-200 px-2 py-1 rounded-lg mt-2">{product.option_amount} {product.option_unit} {product.option_gender == 'W' ? '여성' : '남성'}</p>
+                                                <p className="inline-block font-bold text-xs bg-gray-200 px-2 py-1 rounded-lg mt-2">{product.option_amount} {product.option_unit !== 'NONE_UNIT' ? product.option_unit : ''} {product.option_gender == 'W' ? '여성' : product.option_gender == 'M' ? '남성' : product.option_gender == 'A' ? '공용' : '없음'}</p>
                                               </div>
                                             </div>
                                             <div className="flex items-center justify-between">

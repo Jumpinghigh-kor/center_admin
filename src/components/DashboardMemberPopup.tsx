@@ -128,6 +128,9 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                     가입일
                   </th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                    탈퇴일
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -161,6 +164,9 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
                       {member.app_reg_dt}
+                    </td>
+                    <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
+                      {member.app_exit_dt}
                     </td>
                   </tr>
                 ))}

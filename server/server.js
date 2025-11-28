@@ -12,6 +12,8 @@ const http = require("http");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const db = require("./db");
+const { createClient } = require("@supabase/supabase-js");
+const axios = require("axios");
 
 const center = require("./src/routes/center");
 const sales = require("./src/routes/sales");
@@ -401,6 +403,56 @@ cron.schedule("0 0 * * *", () => {
   checkMembershipExpiry();
 });
 
+// Supabase Keep-Alive: 하루 1회 가벼운 Storage 호출로 웜업
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+const pingSupabase = async () => {
+  if (!supabase) {
+    console.warn("[keepalive] Supabase env not set; skipping ping");
+    return;
+  }
+  try {
+    // 공개 버킷 중 하나에서 최소 목록 호출 (권한 문제시 오류만 로깅)
+    const { error } = await supabase.storage.from("product").list("", { limit: 1 });
+    if (error) {
+      console.warn("[keepalive] storage list error:", error.message);
+    } else {
+      console.log(`[keepalive] Supabase ping at ${dayjs().format("YYYY-MM-DD HH:mm:ss")}`);
+    }
+  } catch (e) {
+    console.warn("[keepalive] ping failed:", e.message);
+  }
+};
+
+// 서버 시작 시 1회 즉시 실행
+pingSupabase();
+// 매일 새벽 4시(서버 로컬 타임존) 실행
+cron.schedule("0 4 * * *", () => {
+  pingSupabase();
+});
+
+// 매일 오후 10시(서버 로컬 타임존) 실행
+cron.schedule("0 22 * * *", () => {
+  pingSupabase();
+});
+
+// 1시간마다 실행(서버 로컬 타임존)
+cron.schedule("0 * * * *", async () => {
+  const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
+  console.log(`[delivery-sync] tick ${now}`);
+  try {
+    const { syncShippingingStatus, syncExchangeShippingingStatus } = require("./src/controllers/app/deliveryTracker");
+    await syncShippingingStatus();
+    await syncExchangeShippingingStatus();
+  } catch (e) {
+    console.warn("[delivery-sync] tick error:", e.message);
+  }
+});
+
 //알림 가져오기
 app.get("/api/notification/:centerid", (req, res) => {
   const { centerid } = req.params;
@@ -424,6 +476,12 @@ app.patch("/api/notification/:id", (req, res) => {
     }
     return res.json({ message: "Updated the notification", result: result });
   });
+});
+
+// 슈파베이스 자동 슬립 방지용
+app.get("/api/health/supabase-ping", async (req, res) => {
+  await pingSupabase();
+  res.json({ ok: true, message: "supabase ping triggered" });
 });
 
 //서버 시간

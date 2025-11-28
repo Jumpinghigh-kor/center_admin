@@ -32,6 +32,7 @@ const NoticesAppDetail: React.FC = () => {
   });
 
   const noticesAppId = searchParams.get('noticesAppId');
+  const isAdmin = user?.usr_role === 'admin';
 
   // 공지사항 상세 조회
   const getNoticesAppDetail = async () => {
@@ -168,7 +169,8 @@ const NoticesAppDetail: React.FC = () => {
                     name="notices_type"
                     value={formData.notices_type}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded"                     
+                    className="w-full p-2 border border-gray-300 rounded"
+                    disabled={!isAdmin}
                   >
                     <option value="NOTICE">공지</option>
                     <option value="EVENT">이벤트</option>
@@ -188,7 +190,7 @@ const NoticesAppDetail: React.FC = () => {
                         checked={formData.view_yn === "Y"}
                         onChange={handleInputChange}
                         className="form-radio h-5 w-5 text-red-600"
-                      />
+                      disabled={!isAdmin} />
                       <span className="ml-2">네</span>
                     </label>
                     <label className="inline-flex items-center">
@@ -199,7 +201,7 @@ const NoticesAppDetail: React.FC = () => {
                         checked={formData.view_yn === "N"}
                         onChange={handleInputChange}
                         className="form-radio h-5 w-5 text-blue-600"
-                      />
+                      disabled={!isAdmin} />
                       <span className="ml-2">아니오</span>
                     </label>
                   </div>
@@ -216,7 +218,7 @@ const NoticesAppDetail: React.FC = () => {
                    const input = e.currentTarget.querySelector('input[type="datetime-local"]') as HTMLInputElement | null;
                    if (input) openInputDatePicker(input);
                  }}>
-                   <input
+                  <input
                      type="datetime-local"
                      name="start_dt"
                      value={formData.start_dt ? `${formData.start_dt.slice(0, 4)}-${formData.start_dt.slice(4, 6)}-${formData.start_dt.slice(6, 8)}T${formData.start_dt.slice(8, 10)}:${formData.start_dt.slice(10, 12)}` : ''}
@@ -234,7 +236,8 @@ const NoticesAppDetail: React.FC = () => {
                      }}
                      onClick={(e) => openInputDatePicker(e.currentTarget)}
                      onFocus={(e) => openInputDatePicker(e.currentTarget)}
-                     className="w-full p-2 border cursor-pointer border-gray-300 rounded"
+                    className="w-full p-2 border cursor-pointer border-gray-300 rounded"
+                    disabled={!isAdmin}
                    />
                  </td>
                  <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
@@ -246,7 +249,7 @@ const NoticesAppDetail: React.FC = () => {
                    const input = e.currentTarget.querySelector('input[type="datetime-local"]') as HTMLInputElement | null;
                    if (input) openInputDatePicker(input);
                  }}>
-                   <input
+                  <input
                      type="datetime-local"
                      name="end_dt"
                      value={formData.end_dt ? `${formData.end_dt.slice(0, 4)}-${formData.end_dt.slice(4, 6)}-${formData.end_dt.slice(6, 8)}T${formData.end_dt.slice(8, 10)}:${formData.end_dt.slice(10, 12)}` : ''}
@@ -264,7 +267,8 @@ const NoticesAppDetail: React.FC = () => {
                      }}
                      onClick={(e) => openInputDatePicker(e.currentTarget)}
                      onFocus={(e) => openInputDatePicker(e.currentTarget)}
-                     className="w-full p-2 border cursor-pointer border-gray-300 rounded"
+                    className="w-full p-2 border cursor-pointer border-gray-300 rounded"
+                    disabled={!isAdmin}
                    />
                  </td>
                </tr>
@@ -281,6 +285,7 @@ const NoticesAppDetail: React.FC = () => {
                     value={formData.title}
                     onChange={handleInputChange}
                     className="w-full p-2 border border-gray-300 rounded"
+                    disabled={!isAdmin}
                     placeholder="공지 제목을 입력하세요"
                   />
                 </td>
@@ -296,6 +301,7 @@ const NoticesAppDetail: React.FC = () => {
                     value={formData.content}
                     onChange={handleInputChange}
                     className="w-full min-h-[150px] p-2 border border-gray-300 rounded"
+                    disabled={!isAdmin}
                   />
                 </td>
               </tr>
@@ -303,22 +309,24 @@ const NoticesAppDetail: React.FC = () => {
           </table>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            type="button"
-            onClick={handleUpdate}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            수정
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-          >
-            삭제
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+              type="button"
+              onClick={handleUpdate}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              수정
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+            >
+              삭제
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );
