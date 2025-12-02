@@ -430,7 +430,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">관리자 대시보드</h1>
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">대시보드</h1>
       
       {user?.usr_role === 'admin' && (
         <div className="mb-4 flex items-center gap-2">

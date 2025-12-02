@@ -1106,7 +1106,7 @@ const MemberOrderAppReturn: React.FC = () => {
                           <img src={item.image} className="w-16 h-16 rounded-lg" alt="상품 이미지" />
                           <div className="ml-2">
                             <p className="text-sm font-medium">{item.product_name}</p>
-                            <p className="text-xs font-semibold mt-1 bg-gray-100 px-2 py-1 rounded-full w-fit">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : item.option_gender == 'A' ? '공용' : '없음'} {item.option_amount}{item.option_unit !== 'NONE_UNIT' ? item.option_unit : ''}</p>
+                            <p className="text-xs font-semibold mt-1 bg-gray-100 px-2 py-1 rounded-full w-fit">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : item.option_gender == 'A' ? '공용' : '없음'} {item.option_amount ? item.option_amount : ''}{item.option_unit !== 'NONE_UNIT' ? item.option_unit : ''}</p>
                             <p className="text-xs text-gray-500 mt-2">{item.price?.toLocaleString()} X {item.order_quantity}</p>
                             <p className="text-sm font-medium mt-1">총 {(item.price * item.order_quantity)?.toLocaleString()}원</p>
                           </div>
@@ -1231,7 +1231,7 @@ const MemberOrderAppReturn: React.FC = () => {
                             <img src={item.image} className="w-16 h-16 rounded-lg" alt="상품 이미지" />
                             <div className="flex flex-col">
                               <p className="text-sm font-semibold">{item.product_name}</p>
-                              <p className="bg-gray-300 px-2 py-1 rounded-full w-fit text-xs font-semibold mt-1">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : item.option_gender == 'A' ? '공용' : '없음'} {item.option_amount}{item.option_unit !== 'NONE_UNIT' ? item.option_unit : ''}</p>
+                              <p className="bg-gray-300 px-2 py-1 rounded-full w-fit text-xs font-semibold mt-1">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : item.option_gender == 'A' ? '공용' : '없음'} {item.option_amount ? item.option_amount : ''}{item.option_unit !== 'NONE_UNIT' ? item.option_unit : ''}</p>
                             </div>
                           </div>
                           <div className="flex flex-col items-end">
@@ -1632,7 +1632,7 @@ const MemberOrderAppReturn: React.FC = () => {
                           <img src={item.image} className="w-16 h-16 rounded-lg" alt="상품 이미지" />
                           <div className="flex flex-col">
                             <p className="text-sm font-semibold">{item.product_name}</p>
-                            <p className="bg-gray-300 px-2 py-1 rounded-full w-fit text-xs font-semibold mt-1">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : item.option_gender == 'A' ? '공용' : '없음'} {item.option_amount}{item.option_unit !== 'NONE_UNIT' ? item.option_unit : ''}</p>
+                            <p className="bg-gray-300 px-2 py-1 rounded-full w-fit text-xs font-semibold mt-1">{item.option_gender == 'M' ? '남자' : item.option_gender == 'W' ? '여자' : item.option_gender == 'A' ? '공용' : '없음'} {item.option_amount ? item.option_amount : ''}{item.option_unit !== 'NONE_UNIT' ? item.option_unit : ''}</p>
                           </div>
                         </div>
                         <div className="flex flex-col items-end">

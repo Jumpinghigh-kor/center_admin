@@ -139,8 +139,8 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
                  // 상품별로 다른 부분만 반복
          const deliveryItems = products.map((product, productIndex) => {
            // 상품 옵션 정보 생성
-           const itemOption = product.option_gender === 'W' ? '여성' : '남성';
-           const optionText = `${product.option_amount} ${product.option_unit} ${itemOption}`;
+           const itemGender = product.option_gender === 'W' ? '여성' : product.option_gender === 'M' ? '남성' : product.option_gender === 'A' ? '공용' : '';
+           const optionText = `${product.option_amount ? product.option_amount : ''} ${product.option_unit !== 'NONE_UNIT' ? product.option_unit : ''} ${itemGender ? itemGender : ''}`;
 
            return {
              orderNo: `${order.order_dt}${order.order_app_id}`,
@@ -179,10 +179,6 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
       });
 
       const items = itemsList.flat();
-
-      // 디버그: 요청 페이로드 로깅
-      console.log('[GF] requestId:', requestId);
-      console.log('[GF] request items sample:', items[0]);
 
       // 요청 순서와 상세 주문 ID 매핑 저장
       items.forEach((_item, idx) => {

@@ -69,12 +69,12 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
         axios
           .get(`${restBase}/carriers/${carrierId}/tracks/${encodeURIComponent(trackingNumber)}`, { timeout: 15000 })
           .then((res) => {
-            const track = res?.data || {};
-            const progresses = Array.isArray(track?.progresses) ? track.progresses : [];
-            const stateId = String(track?.state?.id || '').toLowerCase();
+            const track = res && res.data ? res.data : {};
+            const progresses = track && Array.isArray(track.progresses) ? track.progresses : [];
+            const stateId = String(((track && track.state && track.state.id) || '')).toLowerCase();
             const delivered =
               stateId === 'delivered' ||
-              progresses.some((p) => String(p?.status?.id || '').toLowerCase() === 'delivered');
+              progresses.some((p) => String(((p && p.status && p.status.id) || '')).toLowerCase() === 'delivered');
             return { carrierId, trackingNumber, delivered };
           })
       )
@@ -116,9 +116,9 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
       const key = `kr.cjlogistics::${tn}`;
       if (!deliveredPairs.has(key)) continue;
 
-      const memId = Number(r?.mem_id);
-      const memName = String(r?.mem_name || '').trim();
-      const productName = String(r?.product_name || '').trim();
+      const memId = Number(r && r.mem_id);
+      const memName = String(((r && r.mem_name) || '')).trim();
+      const productName = String(((r && r.product_name) || '')).trim();
       const title = `${memName}님께서 주문하신 ${productName} 상품이 배송 완료 되었습니다.`;
       const content = '고객님의 소중한 상품이 배송 완료되었습니다. 저희 서비스를 이용해 주셔서 감사드리며, 앞으로도 더 나은 서비스를 위해 노력하겠습니다.';
 
@@ -148,7 +148,7 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
             , NULL
           )
         `;
-        db.query(insertPost, [title, content, now, memId], (err, result) => resolve(err ? null : result?.insertId));
+        db.query(insertPost, [title, content, now, memId], (err, result) => resolve(err ? null : (result && result.insertId)));
       });
       if (!postAppId) continue;
 
@@ -209,7 +209,7 @@ module.exports = {
     `;
     await syncGeneric({
       selectQuery,
-      extractTrackingNumberFromRow: (r) => r?.tracking_number,
+      extractTrackingNumberFromRow: (r) => (r && r.tracking_number),
       statusToUpdate: 'SHIPPING_COMPLETE',
     }).catch((e) => console.warn('[shippinging] sync error:', e.message));
   },
@@ -234,7 +234,7 @@ module.exports = {
     `;
     await syncGeneric({
       selectQuery,
-      extractTrackingNumberFromRow: (r) => r?.company_tracking_number,
+      extractTrackingNumberFromRow: (r) => (r && r.company_tracking_number),
       statusToUpdate: 'EXCHANGE_SHIPPING_COMPLETE',
     }).catch((e) => console.warn('[exchange_shippinging] sync error:', e.message));
   }

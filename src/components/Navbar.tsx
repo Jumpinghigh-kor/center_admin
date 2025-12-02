@@ -5,6 +5,7 @@ import axios from "axios";
 import "./../styles/Navbar.css";
 import { convertDateWithoutYear } from "../utils/formatUtils";
 import { Notification } from "../utils/types";
+import AppInfoModal from "./AppInfoModal";
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const Navbar: React.FC = () => {
   ]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotification, setShowNotification] = useState<Boolean>();
+  const [showAppInfoModal, setShowAppInfoModal] = useState<Boolean>(false);
   const target = location.pathname.startsWith("/app") ? "/" : "/app";
 
   const UNREAD_NOTIFICATION_COUNT = notifications.filter(
@@ -173,16 +175,26 @@ const Navbar: React.FC = () => {
               </div>
             </div>
 
-            <NavLink to={target}>
-            {/* <NavLink to="/"> */}
+            {location.pathname.startsWith("/app") && (
+              <div className="bg-white rounded-lg p-2 mr-8">
+                <button className="text-black" onClick={() => setShowAppInfoModal(true)}>점핑하이 플러스 설명</button>
+              </div>
+            )}
+
+            {/* <NavLink to={target}> */}
+            <NavLink to="/">
               <div className="flex items-center justify-center">
-                <p className="text-white mr-4">[ {location.pathname.startsWith("/app") ? "점핑하이 관리로 이동" : "회원 어플 관리로 이동"}]</p>
+                {/* <p className="text-white mr-4">[ {location.pathname.startsWith("/app") ? "점핑하이 관리로 이동" : "점핑하이 플러스 관리로 이동"}]</p> */}
                 <span className="text-white font-bold">JUMPING-HIGH</span>
               </div>
             </NavLink>
           </div>
         </div>
       </div>
+      <AppInfoModal
+        isOpen={!!showAppInfoModal}
+        onClose={() => setShowAppInfoModal(false)}
+      />
     </nav>
   );
 };
