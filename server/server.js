@@ -440,8 +440,8 @@ cron.schedule("0 22 * * *", () => {
   pingSupabase();
 });
 
-// 1시간마다 실행(서버 로컬 타임존)
-cron.schedule("0 * * * *", async () => {
+// 30분 마다 실행(서버 로컬 타임존) - 배송 현황 동기화
+cron.schedule("*/30 * * * *", async () => {
   const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
   console.log(`[delivery-sync] tick ${now}`);
   try {
@@ -450,6 +450,55 @@ cron.schedule("0 * * * *", async () => {
     await syncExchangeShippingingStatus();
   } catch (e) {
     console.warn("[delivery-sync] tick error:", e.message);
+  }
+});
+
+// 30분 마다 실행(서버 로컬 타임존) - 배송완료 3일 경과 → 구매확정 자동 전환
+cron.schedule("*/30 * * * *", async () => {
+  try {
+    const selectQuery = `
+      SELECT
+        moda.order_detail_app_id
+        , moa.mem_id
+      FROM		  member_order_app moa
+      LEFT JOIN	member_order_detail_app moda ON moa.order_app_id = moda.order_app_id
+      WHERE		  order_status = 'SHIPPING_COMPLETE'
+      AND     	shipping_complete_dt <= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 3 DAY), '%Y%m%d%H%i%s');
+    `;
+    db.query(selectQuery, (selErr, rows) => {
+      if (selErr) {
+        console.warn("[auto-purchase-confirm] select error:", selErr);
+        return;
+      }
+      // mem_id 별로 묶어서 각 그룹의 mem_id를 mod_id로 사용
+      const groups = new Map();
+      (rows || []).forEach(r => {
+        const id = r && r.order_detail_app_id;
+        const memId = r && r.mem_id;
+        if (!id || memId == null) return;
+        if (!groups.has(memId)) groups.set(memId, []);
+        groups.get(memId).push(id);
+      });
+      if (groups.size === 0) return;
+
+      const updateQuery = `
+        UPDATE member_order_detail_app SET
+          order_status = 'PURCHASE_CONFIRM'
+          , purchase_confirm_dt = DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
+          , mod_dt = DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
+          , mod_id = ?
+        WHERE order_detail_app_id IN (?)
+      `;
+      groups.forEach((ids, modId) => {
+        db.query(updateQuery, [modId, ids], (updErr) => {
+          if (updErr) {
+            console.warn("[auto-purchase-confirm] update error:", updErr);
+          }
+        });
+      });
+    });
+  } catch (e) {
+    console.warn("[auto-purchase-confirm] tick error:", e.message);
   }
 });
 

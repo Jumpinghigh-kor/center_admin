@@ -131,7 +131,7 @@ const MemberReviewApp: React.FC = () => {
           const memId = rv?.mem_id;
           const productName = String(rv?.product_title || '').trim();
           if (!memId || !productName) return;
-          const title = '리뷰가 운영정책 위반으로 삭제되었습니다.';
+          const title = '운영정책 위반으로 리뷰가 삭제되었습니다.';
           const content = `주문하신 ${productName} 상품에 등록하신 리뷰가 운영정책(부적절한 표현/홍보성 내용/개인정보 노출 등) 위반으로 삭제되었습니다. 자세한 문의는 고객센터로 연락 부탁드립니다.`;
           const postRes = await axios.post(
             `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,

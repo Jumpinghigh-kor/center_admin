@@ -424,6 +424,7 @@ exports.insertMemberOrderDetailApp = (req, res) => {
         , courier_code
         , tracking_number
         , goodsflow_id
+        , shipping_complete_dt
         , purchase_confirm_dt
         , reg_dt
         , reg_id
@@ -431,6 +432,7 @@ exports.insertMemberOrderDetailApp = (req, res) => {
         , mod_id
       ) VALUES (
         ?
+        , ?
         , ?
         , ?
         , ?
@@ -457,6 +459,7 @@ exports.insertMemberOrderDetailApp = (req, res) => {
         courier_code,
         tracking_number,
         goodsflow_id,
+        null,
         null,
         reg_dt,
         userId,
@@ -540,19 +543,33 @@ exports.updateTrackingNumber = (req, res) => {
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
 
-    const updateTrackingNumberQuery = `
+  const setFields = [
+    "order_status = ?",
+    "courier_code = ?",
+    "tracking_number = ?",
+    "mod_dt = ?",
+    "mod_id = ?",
+  ];
+
+  const params = [order_status, courier_code, tracking_number];
+
+  if (String(order_status || '').trim().toUpperCase() === 'SHIPPING_COMPLETE') {
+    // 배송완료 시점 기록
+    setFields.splice(1, 0, "shipping_complete_dt = ?"); // order_status 다음 위치
+    params.splice(1, 0, mod_dt);
+  }
+
+  params.push(mod_dt, userId);
+
+  const updateTrackingNumberQuery = `
       UPDATE member_order_detail_app SET
-        order_status = ?
-        , courier_code = ?
-        , tracking_number = ?
-        , mod_dt = ?
-        , mod_id = ?
+        ${setFields.join("\n        , ")}
       WHERE order_detail_app_id IN (?)
     `;
 
     db.query(
       updateTrackingNumberQuery,
-      [order_status, courier_code, tracking_number, mod_dt, userId, order_detail_app_id],
+      [...params, order_detail_app_id],
       (err, result) => {
         if (err) {
           console.error("송장번호 입력 오류:", err);
@@ -616,10 +633,7 @@ exports.deleteTrackingNumber = (req, res) => {
 exports.updateOrderStatus = (req, res) => {
   try {
     const { order_detail_app_id, order_status, userId, order_group } = req.body;
-console.log('order_detail_app_id::', order_detail_app_id)
-console.log('order_status::', order_status)
-console.log('userId::', userId)
-console.log('order_group::', order_group)
+
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
 
@@ -628,6 +642,12 @@ console.log('order_group::', order_group)
       "order_status = ?"
     ];
     const params = [order_status];
+
+  // 배송완료로 상태 변경 시, 완료 일시 기록
+  if (String(order_status || '').trim().toUpperCase() === 'SHIPPING_COMPLETE') {
+    setClause.push("shipping_complete_dt = ?");
+    params.push(mod_dt);
+  }
 
     if (order_group !== undefined && order_group !== null) {
       setClause.push("order_group = ?");
@@ -865,6 +885,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                       , courier_code
                       , tracking_number
                       , goodsflow_id
+                      , shipping_complete_dt
                       , purchase_confirm_dt
                       , reg_dt
                       , reg_id
@@ -879,6 +900,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                       , ?
                       , ?
                       , ?
+                      , NULL
                       , NULL
                       , ?
                       , ?

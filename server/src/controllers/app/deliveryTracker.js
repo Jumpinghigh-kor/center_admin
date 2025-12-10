@@ -99,14 +99,26 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
 
     const now = dayjs().format('YYYYMMDDHHmmss');
     await new Promise((resolve) => {
-      const updateQuery = `
+      const updateQuery = statusToUpdate === 'SHIPPING_COMPLETE'
+        ? `
+        UPDATE member_order_detail_app SET
+          order_status = ?
+          , shipping_complete_dt = ?
+          , mod_dt = ?
+          , mod_id = ?
+        WHERE order_detail_app_id IN (?)
+      `
+        : `
         UPDATE member_order_detail_app SET
           order_status = ?
           , mod_dt = ?
           , mod_id = ?
         WHERE order_detail_app_id IN (?)
       `;
-      db.query(updateQuery, [statusToUpdate, now, 1, idsToUpdate], () => resolve());
+      const params = statusToUpdate === 'SHIPPING_COMPLETE'
+        ? [statusToUpdate, now, now, 1, idsToUpdate]
+        : [statusToUpdate, now, 1, idsToUpdate];
+      db.query(updateQuery, params, () => resolve());
     });
 
     // Send notifications only for delivered rows

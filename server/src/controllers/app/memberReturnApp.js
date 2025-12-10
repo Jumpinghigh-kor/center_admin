@@ -228,8 +228,15 @@ exports.updateReturnGoodsflowId = (req, res) => {
 // 구매자 송장 번호 입력
 exports.updateReturnCustomerTrackingNumber = (req, res) => {
   try {
-    const { order_detail_app_id, customer_tracking_number, userId } = req.body;
-    
+    const { order_detail_app_id, customer_tracking_number, userId, transporter } = req.body;
+   
+    let courierCode = '';
+    if (transporter == 'KOREX') {
+      courierCode = 'CJ';
+    } else {
+      courierCode = String(transporter || '').toUpperCase();
+    }
+
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
 
@@ -237,6 +244,7 @@ exports.updateReturnCustomerTrackingNumber = (req, res) => {
       UPDATE member_return_app SET
         customer_tracking_number = ?
         , return_goodsflow_id = NULL
+        , customer_courier_code = ?
         , mod_dt = ?
         , mod_id = ?
       WHERE order_detail_app_id IN (?)
@@ -244,7 +252,7 @@ exports.updateReturnCustomerTrackingNumber = (req, res) => {
 
     db.query(
       updateReturnCustomerInfoQuery,
-      [customer_tracking_number, mod_dt, userId, order_detail_app_id],
+      [customer_tracking_number, courierCode, mod_dt, userId, order_detail_app_id],
       (err, result) => {
         if (err) {
           console.error("구매자 송장 정보 입력 오류:", err);

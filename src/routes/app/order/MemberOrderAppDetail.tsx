@@ -537,6 +537,7 @@ const MemberOrderAppDetail: React.FC = () => {
                 order_detail_app_id: [detailId],
                 customer_tracking_number: String(d.invoiceNo),
                 userId: user.index,
+                transporter: String(d.transporter)
               }
             ));
           });
@@ -927,6 +928,14 @@ const MemberOrderAppDetail: React.FC = () => {
       }
       
       if (!isAnyExchangePayment ? response.data.message : true) {
+        // 삭제 후 상태를 배송대기(PAYMENT_COMPLETE)로 되돌리기
+        try {
+          if ((orderAppIds || []).length > 0) {
+            await fn_updateOrderStatusWithParams(orderAppIds, 'PAYMENT_COMPLETE');
+          } else if (orderDetail?.order_detail_app_id) {
+            await fn_updateOrderStatusWithParams(orderDetail.order_detail_app_id, 'PAYMENT_COMPLETE');
+          }
+        } catch (_) {}
         // 주문 정보 업데이트: 해당 order_app_id만 비우기
         setOrderDetail(prev => {
           if (!prev) return prev;
@@ -1529,7 +1538,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                       송장번호 수정
                                     </button>
                                   )}
-                                  {(hasUnifiedTracking || (groupHasGoodsflowId && !groupHasAnyTracking)) && groupStatus !== 'SHIPPINGING' && groupStatus !== 'SHIPPING_COMPLETE' && (
+                                  {(hasUnifiedTracking || (groupHasGoodsflowId && !groupHasAnyTracking)) && groupStatus !== 'SHIPPING_COMPLETE' && (
                                     <button
                                       className="w-full py-2 text-left text-sm hover:bg-gray-50"
                                       onClick={() => {
@@ -2208,7 +2217,14 @@ const MemberOrderAppDetail: React.FC = () => {
                                   >
                                     반품거절
                                   </button>
-                                  {groupHasReturnGoodsflowId ? (
+                                  {(() => {
+                                    const hasCustomerPair = (items || []).some(i => {
+                                      const t = String(i?.product?.customer_tracking_number || '').trim();
+                                      const c = String(i?.product?.customer_courier_code || '').trim();
+                                      return t !== '' && c !== '';
+                                    });
+                                    return (groupHasReturnGoodsflowId || hasCustomerPair);
+                                  })() ? (
                                     <button
                                       className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
                                       onClick={async () => {
@@ -2298,6 +2314,18 @@ const MemberOrderAppDetail: React.FC = () => {
                                                     return_goodsflow_id: serviceId,
                                                     userId: user?.index,
                                                   });
+                                                  // 로컬 상태 즉시 반영: return_goodsflow_id 업데이트하여 버튼이 '수거완료'로 바뀌도록 처리
+                                                  try {
+                                                    setOrderDetail((prev) => {
+                                                      if (!prev) return prev;
+                                                      const updatedProducts = (prev.products || []).map((p: any) =>
+                                                        groupOrderDetailAppIds.includes(p?.order_detail_app_id)
+                                                          ? { ...p, return_goodsflow_id: serviceId }
+                                                          : p
+                                                      );
+                                                      return { ...prev, products: updatedProducts } as any;
+                                                    });
+                                                  } catch {}
                                                 }
                                               } catch (saveErr) {
                                                 console.error('[RETURN_FLOW] save return_goodsflow_id error', saveErr);
@@ -2330,7 +2358,14 @@ const MemberOrderAppDetail: React.FC = () => {
                                     </>
                                   )}
                                 </div>
-                                {!(groupApplicator === '구매자' && !groupHasReturnGoodsflowId) && (
+                                {(() => {
+                                  const hasCustomerPair = (items || []).some(i => {
+                                    const t = String(i?.product?.customer_tracking_number || '').trim();
+                                    const c = String(i?.product?.customer_courier_code || '').trim();
+                                    return t !== '' && c !== '';
+                                  });
+                                  return !(groupApplicator === '구매자' && !groupHasReturnGoodsflowId && !hasCustomerPair);
+                                })() && (
                                   <p className="text-xs mt-2">수거가 완료되면 위의 버튼을 눌러주세요.</p>
                                 )}
                               </div>

@@ -717,6 +717,7 @@ const MemberOrderAppList: React.FC = () => {
               order_detail_app_id: [detailId],
               customer_tracking_number: invoiceNo,
               userId: user.index,
+              transporter: courier
             }
           ));
         });
@@ -1413,7 +1414,7 @@ const MemberOrderAppList: React.FC = () => {
                           }
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">환불</p>
-                            <p className="text-sm text-gray-500">{order?.refund_amount ? -(order?.refund_amount)?.toLocaleString() : '0'} 원</p>
+                            <p className="text-sm text-gray-500">{Number(order?.refund_amount) > 0 ? '-' + (Number(order?.refund_amount))?.toLocaleString() : '0'} 원</p>
                           </div>
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">결제수단</p>
@@ -1532,6 +1533,14 @@ const MemberOrderAppList: React.FC = () => {
                         }
                       });
 
+                      const allShippinging = selectedOrders.every(order => {
+                        if (order?.products) {
+                          return order.products.every((product: any) => product.order_status === 'SHIPPINGING');
+                        } else {
+                          return order?.order_status === 'SHIPPINGING';
+                        }
+                      });
+
                       // 모든 선택된 주문이 배송완료 상태인지 확인
                       const allShippingComplete = selectedOrders.every(order => {
                         if (order?.products) {
@@ -1616,7 +1625,7 @@ const MemberOrderAppList: React.FC = () => {
                             setIsOrderProcessOpen(false);
                           }}>송장등록 - 굿스플로</p>
                           <p className={`px-4 py-2 text-sm cursor-pointer text-white hover:bg-gray-700`} onClick={async () => {
-                            if (!allPaymentComplete || !(allHaveTrackingNumber || allHaveGoodsflowId)) {
+                            if (!(allPaymentComplete || allShippinging) || !(allHaveTrackingNumber || allHaveGoodsflowId)) {
                               setErrorMessage({ 
                                 title: '송장번호를 삭제할 수 없어요', 
                                 content: '송장번호를 삭제할 수 없어요' 
@@ -1906,6 +1915,12 @@ const MemberOrderAppList: React.FC = () => {
                     await sendShippingNotification(order.mem_id, order.mem_name, (order as any)?.product_name);
                   }
                 }
+              }
+            }
+            // 송장번호 삭제 완료 시 상태를 PAYMENT_COMPLETE로 변경
+            if (popupMode === 'delete' && Array.isArray(selectedOrderDetailAppId) && selectedOrderDetailAppId.length > 0) {
+              for (const id of selectedOrderDetailAppId) {
+                await fn_updateOrderStatus(id, 'PAYMENT_COMPLETE');
               }
             }
           } catch {}
