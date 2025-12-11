@@ -97,9 +97,9 @@ const MemberOrderAppDetail: React.FC = () => {
   
   // 화면/계산 공통에 사용하는 헬퍼 함수/상수 정의
   const toStatus = (s: any) => {
-    const u = String(s ?? '').trim().toUpperCase();
-    if (u === 'EXCHANGE_PAYMENT_COMPLETE') return 'PAYMENT_COMPLETE';
-    return u;
+    const upperString = String(s ?? '').trim().toUpperCase();
+    if (upperString === 'EXCHANGE_PAYMENT_COMPLETE') return 'PAYMENT_COMPLETE';
+    return upperString;
   };
   const STATUS_SETS = {
     shippingVisible: new Set(['PAYMENT_COMPLETE', 'SHIPPINGING', 'SHIPPING_COMPLETE', 'PURCHASE_CONFIRM']),
@@ -431,9 +431,9 @@ const MemberOrderAppDetail: React.FC = () => {
 
         const mapTransporterToCourierCode = (transporter: string): string => {
           if (!transporter) return '';
-          const t = String(transporter).toUpperCase();
-          if (t === 'KOREX') return 'CJ';
-          return t;
+          const upperTransporter = String(transporter).toUpperCase();
+          if (upperTransporter === 'KOREX') return 'CJ';
+          return upperTransporter;
         };
         
         const updates: Array<{ orderId: number; invoiceNo: string; courierCode: string }> = [];
@@ -466,13 +466,13 @@ const MemberOrderAppDetail: React.FC = () => {
           setOrderDetail((prev) => {
             if (!prev) return prev;
             const updatedProducts = (prev.products || []).map((p: any) => {
-              const u = updates.find((it) => it.orderId === p?.order_detail_app_id);
-              if (!u) return p;
+              const updateItem = updates.find((it) => it.orderId === p?.order_detail_app_id);
+              if (!updateItem) return p;
               return {
                 ...p,
-                tracking_number: u.invoiceNo,
-                order_courier_code: u.courierCode,
-                courier_code: u.courierCode
+                tracking_number: updateItem.invoiceNo,
+                order_courier_code: updateItem.courierCode,
+                courier_code: updateItem.courierCode
               };
             });
             return { ...prev, products: updatedProducts } as any;
@@ -677,10 +677,10 @@ const MemberOrderAppDetail: React.FC = () => {
 
   // 상태 → 탭 매핑
   const mapStatusToTab = (status: string = ''): '전체' | '배송' | '취소' | '반품교환' | '기타' => {
-    const s = String(status).toUpperCase();
-    if (s === 'PAYMENT_COMPLETE' || s === 'SHIPPINGING' || s === 'SHIPPING_COMPLETE' || s === 'PURCHASE_CONFIRM') return '배송';
-    if (s.includes('CANCEL')) return '취소';
-    if (s.includes('RETURN') || s.includes('EXCHANGE')) return '반품교환';
+    const upperStatus = String(status).toUpperCase();
+    if (upperStatus === 'PAYMENT_COMPLETE' || upperStatus === 'SHIPPINGING' || upperStatus === 'SHIPPING_COMPLETE' || upperStatus === 'PURCHASE_CONFIRM') return '배송';
+    if (upperStatus.includes('CANCEL')) return '취소';
+    if (upperStatus.includes('RETURN') || upperStatus.includes('EXCHANGE')) return '반품교환';
     return '기타';
   };
 
@@ -851,8 +851,8 @@ const MemberOrderAppDetail: React.FC = () => {
     const list: any[] = orderDetail?.products || [];
     if (list.length === 0) return 2;
     const maxGroup = list.reduce((max: number, p: any) => {
-      const g = Number(p?.order_group) || 1;
-      return g > max ? g : max;
+      const orderGroupNumber = Number(p?.order_group) || 1;
+      return orderGroupNumber > max ? orderGroupNumber : max;
     }, 1);
     return maxGroup + 1;
   };
@@ -1378,8 +1378,8 @@ const MemberOrderAppDetail: React.FC = () => {
               const groupOrderAppIds: number[] = Array.from(new Set(items.map(i => i.product?.order_app_id).filter((v: any) => v != null)));
               const groupOrderDetailAppIds: number[] = Array.from(new Set(items.map(i => i.product?.order_detail_app_id).filter((v: any) => v != null)));
               const useCustomerTracking = (() => {
-                const s = String(groupStatus || '').toUpperCase();
-                const isReturnFlow = s === 'RETURN_APPLY' || s === 'RETURN_COMPLETE';
+                const upperStatus = String(groupStatus || '').toUpperCase();
+                const isReturnFlow = upperStatus === 'RETURN_APPLY' || upperStatus === 'RETURN_COMPLETE';
                 if (!isReturnFlow) return false;
                 const allHaveCustCourier = items.every(i => String(i.product?.customer_courier_code || '').trim() !== '');
                 const allHaveCustTracking = items.every(i => String(i.product?.customer_tracking_number || '').trim() !== '');
@@ -1400,13 +1400,18 @@ const MemberOrderAppDetail: React.FC = () => {
               const displayCourierCode = unifiedCouriers.length >= 1 ? unifiedCouriers[0] : null;
               const groupHasGoodsflowId = items.some(i => String(i.product?.goodsflow_id || '').trim() !== '');
               const groupHasReturnGoodsflowId = items.some(i => String(i.product?.return_goodsflow_id || '').trim() !== '');
+              const groupHasCustomerPair = items.some(i => {
+                const customerTrackingNumber = String(i?.product?.customer_tracking_number || '').trim();
+                const customerCourierCode = String(i?.product?.customer_courier_code || '').trim();
+                return customerTrackingNumber !== '' && customerCourierCode !== '';
+              });
               const groupHasAnyTracking = items.some(i => {
-                const t = useCustomerTracking ? i.product?.customer_tracking_number : i.product?.tracking_number;
-                return String(t || '').trim() !== '';
+                const trackingNumber = useCustomerTracking ? i.product?.customer_tracking_number : i.product?.tracking_number;
+                return String(trackingNumber || '').trim() !== '';
               });
               const hasExchangeCompanyTracking = (() => {
-                const s = String(groupStatus || '').toUpperCase();
-                if (s !== 'EXCHANGE_PAYMENT_COMPLETE') return false;
+                const statusCode = String(groupStatus || '').toUpperCase();
+                if (statusCode !== 'EXCHANGE_PAYMENT_COMPLETE') return false;
                 // 그룹 내 모든 항목에 회사 송장/택배사가 존재해야 배송중 처리 버튼 활성화
                 return items.every(i => String(i?.product?.company_tracking_number || '').trim() !== '' && String(i?.product?.company_courier_code || '').trim() !== '');
               })();
@@ -1810,8 +1815,8 @@ const MemberOrderAppDetail: React.FC = () => {
                                         className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
                                         value={splitQtyByDetailId[product?.order_detail_app_id] ?? ''}
                                         onChange={(e) => {
-                                          const v = e.target.value === '' ? '' : Number(e.target.value);
-                                          setSplitQtyByDetailId((prev) => ({ ...prev, [product?.order_detail_app_id]: (v as any) }));
+                                          const value = e.target.value === '' ? '' : Number(e.target.value);
+                                          setSplitQtyByDetailId((prev) => ({ ...prev, [product?.order_detail_app_id]: (value as any) }));
                                         }}
                                         placeholder="0"
                                       />
@@ -1931,7 +1936,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                     className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold"
                                     onClick={async () => {
                                       // 수거완료 버튼 클릭 시 확인 팝업 표시 (동작 변경 없음)
-                                      if (groupHasReturnGoodsflowId) {
+                                      if (groupHasReturnGoodsflowId || groupHasCustomerPair) {
                                         setIsExchangePickupConfirmOpen(true);
                                         setExchangePickupRefundChoice('no');
                                         try {
@@ -1947,16 +1952,16 @@ const MemberOrderAppDetail: React.FC = () => {
                                         try {
                                           const nowId = `${Date.now()}`;
                                           const pickupDateStr = (() => {
-                                            const d = new Date();
-                                            d.setDate(d.getDate() + 1);
-                                            return d.toISOString().slice(0,10);
+                                            const pickupDate = new Date();
+                                            pickupDate.setDate(pickupDate.getDate() + 1);
+                                            return pickupDate.toISOString().slice(0,10);
                                           })();
                                           // 그룹의 첫 상품을 기준으로 기본 정보 구성
                                           const first = (items && items[0] && items[0].product) ? items[0].product : {} as any;
                                           const orderDateStr = (() => {
-                                            const s = String(first?.order_dt || orderDetail?.order_dt || '');
-                                            if (s && s.length >= 12) {
-                                              return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+                                            const orderDate = String(first?.order_dt || orderDetail?.order_dt || '');
+                                            if (orderDate && orderDate.length >= 12) {
+                                              return `${orderDate.slice(0,4)}-${orderDate.slice(4,6)}-${orderDate.slice(6,8)} ${orderDate.slice(8,10)}:${orderDate.slice(10,12)}`;
                                             }
                                             return new Date().toISOString().slice(0,16).replace('T',' ');
                                           })();
@@ -2073,10 +2078,10 @@ const MemberOrderAppDetail: React.FC = () => {
                                       }
                                     }}
                                   >
-                                    {groupHasReturnGoodsflowId ? '수거완료' : '수거신청'}
+                                    {(groupHasReturnGoodsflowId || groupHasCustomerPair) ? '수거완료' : '수거신청'}
                                   </button>
                                 </div>
-                                {groupHasReturnGoodsflowId && (
+                                {(groupHasReturnGoodsflowId || groupHasCustomerPair) && (
                                   <p className="text-xs mt-2">수거가 완료되면 위의 버튼을 눌러주세요.</p>
                                 )}
                               </div>
@@ -2181,8 +2186,8 @@ const MemberOrderAppDetail: React.FC = () => {
                                         console.error('반품 거절 후 주소 인서트 오류:', e);
                                       }
                                       const hasPurchaseConfirm = (items || []).some(({ product }: any) => {
-                                        const v = String(product?.purchase_confirm_dt || '').trim();
-                                        return v !== '' && v !== 'null' && v !== 'undefined';
+                                        const purchaseConfirmDate = String(product?.purchase_confirm_dt || '').trim();
+                                        return purchaseConfirmDate !== '' && purchaseConfirmDate !== 'null' && purchaseConfirmDate !== 'undefined';
                                       });
                                       await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, hasPurchaseConfirm ? 'PURCHASE_CONFIRM' : 'SHIPPING_COMPLETE');
                                       // 반품거절 안내 메시지 발송
@@ -2219,9 +2224,9 @@ const MemberOrderAppDetail: React.FC = () => {
                                   </button>
                                   {(() => {
                                     const hasCustomerPair = (items || []).some(i => {
-                                      const t = String(i?.product?.customer_tracking_number || '').trim();
-                                      const c = String(i?.product?.customer_courier_code || '').trim();
-                                      return t !== '' && c !== '';
+                                      const customerTrackingNumber = String(i?.product?.customer_tracking_number || '').trim();
+                                      const customerCourierCode = String(i?.product?.customer_courier_code || '').trim();
+                                      return customerTrackingNumber !== '' && customerCourierCode !== '';
                                     });
                                     return (groupHasReturnGoodsflowId || hasCustomerPair);
                                   })() ? (
@@ -2247,17 +2252,17 @@ const MemberOrderAppDetail: React.FC = () => {
                                               // 굿스플로 반품신청 API 호출
                                               const nowId = `${Date.now()}`;
                                               const pickupDateStr = (() => {
-                                                const d = new Date();
-                                                d.setDate(d.getDate() + 1);
-                                                return d.toISOString().slice(0,10);
+                                                const pickupDate = new Date();
+                                                pickupDate.setDate(pickupDate.getDate() + 1);
+                                                return pickupDate.toISOString().slice(0,10);
                                               })();
                                               
                                               // 그룹의 첫 상품을 기준으로 기본 정보 구성
                                               const first = (items && items[0] && items[0].product) ? items[0].product : {} as any;
                                               const orderDateStr = (() => {
-                                                const s = String(first?.order_dt || orderDetail?.order_dt || '');
-                                                if (s && s.length >= 12) {
-                                                  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
+                                                const orderDate = String(first?.order_dt || orderDetail?.order_dt || '');
+                                                if (orderDate && orderDate.length >= 12) {
+                                                  return `${orderDate.slice(0,4)}-${orderDate.slice(4,6)}-${orderDate.slice(6,8)} ${orderDate.slice(8,10)}:${orderDate.slice(10,12)}`;
                                                 }
                                                 return new Date().toISOString().slice(0,16).replace('T',' ');
                                               })();
@@ -2360,9 +2365,9 @@ const MemberOrderAppDetail: React.FC = () => {
                                 </div>
                                 {(() => {
                                   const hasCustomerPair = (items || []).some(i => {
-                                    const t = String(i?.product?.customer_tracking_number || '').trim();
-                                    const c = String(i?.product?.customer_courier_code || '').trim();
-                                    return t !== '' && c !== '';
+                                    const customerTrackingNumber = String(i?.product?.customer_tracking_number || '').trim();
+                                    const customerCourierCode = String(i?.product?.customer_courier_code || '').trim();
+                                    return customerTrackingNumber !== '' && customerCourierCode !== '';
                                   });
                                   return !(groupApplicator === '구매자' && !groupHasReturnGoodsflowId && !hasCustomerPair);
                                 })() && (
@@ -2638,10 +2643,10 @@ const MemberOrderAppDetail: React.FC = () => {
                                           // 선택된 항목들 중 입력 수량이 1 이상, 최대-1 이하인 케이스가 하나라도 있으면 true
                                           for (const idx of selectedProducts) {
                                             if (!groupIndexes.includes(idx)) continue;
-                                            const p = visibleProducts[idx];
-                                            const maxQty = Number(p?.order_quantity || 0);
-                                            const q = Number((splitQtyByDetailId as any)[p?.order_detail_app_id] || 0);
-                                            if (maxQty > 1 && q > 0 && q < maxQty) return true;
+                                            const product = visibleProducts[idx];
+                                            const maxQty = Number(product?.order_quantity || 0);
+                                            const quantity = Number((splitQtyByDetailId as any)[product?.order_detail_app_id] || 0);
+                                            if (maxQty > 1 && quantity > 0 && quantity < maxQty) return true;
                                           }
                                           return false;
                                         })();
@@ -2658,8 +2663,8 @@ const MemberOrderAppDetail: React.FC = () => {
                                             .map(index => visibleProducts[index])
                                             .filter(p => {
                                               const maxQty = Number(p?.order_quantity || 0);
-                                              const q = Number((splitQtyByDetailId as any)[p?.order_detail_app_id] || 0);
-                                              return maxQty > 1 && q > 0 && q < maxQty;
+                                              const quantity = Number((splitQtyByDetailId as any)[p?.order_detail_app_id] || 0);
+                                              return maxQty > 1 && quantity > 0 && quantity < maxQty;
                                             });
                                           if (qtySplitTargets.length > 0) {
                                             try {
@@ -2696,11 +2701,11 @@ const MemberOrderAppDetail: React.FC = () => {
                                     </button>
                                   </div>
                                 ) : (
-                                  (() => { const s = String(groupStatus || '').toUpperCase(); const isExchangePayment = (s === 'EXCHANGE_PAYMENT_COMPLETE'); const isExchangeShipping = (s === 'EXCHANGE_SHIPPINGING'); const paymentLike = (s === 'PAYMENT_COMPLETE' || s === 'EXCHANGE_SHIPPING_COMPLETE'); if (s === 'EXCHANGE_SHIPPING_COMPLETE') { return null; } return (
+                                  (() => { const upperStatus = String(groupStatus || '').toUpperCase(); const isExchangePayment = (upperStatus === 'EXCHANGE_PAYMENT_COMPLETE'); const isExchangeShipping = (upperStatus === 'EXCHANGE_SHIPPINGING'); const paymentLike = (upperStatus === 'PAYMENT_COMPLETE' || upperStatus === 'EXCHANGE_SHIPPING_COMPLETE'); if (upperStatus === 'EXCHANGE_SHIPPING_COMPLETE') { return null; } return (
                                   <button
                                     className="bg-black text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
                                   onClick={() => {
-                                    if (s == 'HOLD') {
+                                    if (upperStatus == 'HOLD') {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'PAYMENT_COMPLETE');
                                     } else if (paymentLike && hasUnifiedTracking) {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPINGING');
@@ -2709,7 +2714,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                           sendShippingNotification((orderDetail as any)?.mem_id, (orderDetail as any)?.mem_name, product?.product_name);
                                         });
                                       } catch {}
-                                    } else if (s == 'SHIPPINGING') {
+                                    } else if (upperStatus == 'SHIPPINGING') {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPING_COMPLETE');
                                     } else if (isExchangeShipping) {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'EXCHANGE_SHIPPING_COMPLETE');
@@ -2721,7 +2726,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                     }
                                   }}
                                   >
-                                    {(((isExchangePayment && !hasExchangeCompanyTracking)) || (s === 'PAYMENT_COMPLETE' && !hasUnifiedTracking)) && (
+                                    {(((isExchangePayment && !hasExchangeCompanyTracking)) || (upperStatus === 'PAYMENT_COMPLETE' && !hasUnifiedTracking)) && (
                                       <>
                                         <span className="text-sm">송장추가</span>
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2729,9 +2734,9 @@ const MemberOrderAppDetail: React.FC = () => {
                                         </svg>
                                       </>
                                     )}
-                                    {s == 'SHIPPINGING' && <span className="text-sm">배송완료 처리</span>}
+                                    {upperStatus === 'SHIPPINGING' && <span className="text-sm">배송완료 처리</span>}
                                     {isExchangeShipping && <span className="text-sm">배송완료 처리</span>}
-                                    {s == 'HOLD' && <span className="text-sm">배송보류 해제</span>}
+                                    {upperStatus === 'HOLD' && <span className="text-sm">배송보류 해제</span>}
                                     {paymentLike && hasUnifiedTracking && <span className="text-sm">배송중 처리</span>}
                                     {isExchangePayment && hasExchangeCompanyTracking && <span className="text-sm">배송중 처리</span>}
                                   </button>
@@ -2906,14 +2911,14 @@ const MemberOrderAppDetail: React.FC = () => {
               ? invoiceOrderIds
               : (orderDetail?.products ? orderDetail.products.map((p: any) => p?.order_detail_app_id) : []);
             const targets = (orderDetail?.products || []).filter((p: any) => ids.includes(p?.order_detail_app_id));
-            for (const p of targets) {
-              const statusUpper = String(p?.order_status || '').toUpperCase();
+            for (const targetItem of targets) {
+              const statusUpper = String(targetItem?.order_status || '').toUpperCase();
               if (statusUpper.startsWith('EXCHANGE')) {
-                const t = String(p?.company_tracking_number || '').trim();
-                if (t) return t;
+                const companyTrackingNumber = String(targetItem?.company_tracking_number || '').trim();
+                if (companyTrackingNumber) return companyTrackingNumber;
               } else {
-                const t = String(p?.tracking_number || '').trim();
-                if (t) return t;
+                const trackingNumber = String(targetItem?.tracking_number || '').trim();
+                if (trackingNumber) return trackingNumber;
               }
             }
             return '';
@@ -2925,14 +2930,14 @@ const MemberOrderAppDetail: React.FC = () => {
               ? invoiceOrderIds
               : (orderDetail?.products ? orderDetail.products.map((p: any) => p?.order_detail_app_id) : []);
             const targets = (orderDetail?.products || []).filter((p: any) => ids.includes(p?.order_detail_app_id));
-            for (const p of targets) {
-              const statusUpper = String(p?.order_status || '').toUpperCase();
+            for (const targetItem of targets) {
+              const statusUpper = String(targetItem?.order_status || '').toUpperCase();
               if (statusUpper.startsWith('EXCHANGE')) {
-                const c = String(p?.company_courier_code || '').trim();
-                if (c) return c;
+                const companyCourierCode = String(targetItem?.company_courier_code || '').trim();
+                if (companyCourierCode) return companyCourierCode;
               } else {
-                const c = String(p?.order_courier_code || p?.courier_code || '').trim();
-                if (c) return c;
+                const orderCourierCode = String(targetItem?.order_courier_code || targetItem?.courier_code || '').trim();
+                if (orderCourierCode) return orderCourierCode;
               }
             }
             return '';
@@ -3008,11 +3013,11 @@ const MemberOrderAppDetail: React.FC = () => {
                    setOrderDetail((prev) => {
                      if (!prev) return prev;
                      const updatedProducts = (prev.products || []).map((p: any) => {
-                       const m = byDetailId.get(Number(p?.order_detail_app_id));
-                       if (!m) return p;
+                       const matchedDetail = byDetailId.get(Number(p?.order_detail_app_id));
+                       if (!matchedDetail) return p;
                        return {
                          ...p,
-                         goodsflow_id: m?.goodsflow_id || p.goodsflow_id,
+                         goodsflow_id: matchedDetail?.goodsflow_id || p.goodsflow_id,
                        };
                      });
                      return { ...prev, products: updatedProducts } as any;
