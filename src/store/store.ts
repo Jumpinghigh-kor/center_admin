@@ -16,6 +16,7 @@ interface User {
   usr_id: string;
   usr_role: string;
   center_id: number;
+  center_name: string;
 }
 
 interface UserType {
@@ -40,6 +41,7 @@ export const useUserStore = create<UserType>((set) => ({
     usr_id: "",
     usr_role: "",
     center_id: 0,
+    center_name: "",
   },
   setUser: (state) => set({ user: state }),
 }));

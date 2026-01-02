@@ -5,6 +5,8 @@ const {
   createMemberApp,
   updateMemberAppInfo,
   updateMemberAppPassword,
+  updateMemberActive,
+  deleteMemberApp,
 } = require("../../controllers/app/memberApp");
 
 // 어플 회원 목록 조회
@@ -18,5 +20,11 @@ router.post("/updateMemberAppInfo", updateMemberAppInfo);
 
 // 어플 회원 비밀번호 수정
 router.post("/updateMemberAppPassword", updateMemberAppPassword);
+
+// 어플 회원 상태 활성화 (탈퇴 해제)
+router.post("/updateMemberActive", updateMemberActive);
+
+// 어플 회원 삭제
+router.post("/deleteMemberApp", deleteMemberApp);
 
 module.exports = router;

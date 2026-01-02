@@ -1,6 +1,6 @@
 {
   "name": "jumpinghigh",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "private": true,
   "dependencies": {
     "@fullcalendar/core": "^6.1.15",

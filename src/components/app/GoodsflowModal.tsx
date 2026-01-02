@@ -161,7 +161,7 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
            fromName: "점핑하이",
            fromPhoneNo: "07050554754",
            fromAddress1: "서울 강서구 마곡서로 133",
-           fromAddress2: "704동2층",
+           fromAddress2: "704동 202호, 203호, 204호",
            fromZipcode: "07798",
            toName: order.receiver_name,
            toPhoneNo: order.receiver_phone,
@@ -369,7 +369,7 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
                     className="flex justify-between items-center w-full border border-gray-300 rounded-lg p-2 text-sm cursor-pointer"
                     onClick={() => setShowAccountDetails(!showAccountDetails)}
                   >
-                    <p className="truncate">(07798) 서울 강서구 마곡서로 133 (마곡동, 마곡엠 밸리7단지), 704동 2층</p>
+                    <p className="truncate">(07798) 서울 강서구 마곡서로 133 (마곡동, 마곡엠 밸리7단지), 704동 202호, 203호, 204호</p>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 transition-transform duration-200 ${showAccountDetails ? 'rotate-180' : ''}`}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                     </svg>
@@ -378,7 +378,7 @@ const GoodsflowModal: React.FC<GoodsflowModalProps> = ({
                     <div className="cursor-pointer absolute mt-2 bg-white rounded-lg p-2 text-sm z-10 border border-gray-300 shadow-lg" onClick={() => setShowAccountDetails(false)}>
                       <div className='bg-gray-100 p-2 rounded-lg'>
                         <p className="font-medium">CJ대한통운</p>
-                        <p>(07798) 서울 강서구 마곡서로 133 (마곡동, 마곡엠 밸<br />리7단지), 704동 2층</p>
+                        <p>(07798) 서울 강서구 마곡서로 133 (마곡동, 마곡엠 밸리7단지), 704동 202호, 203호, 204호</p>
                       </div>
                     </div>
                   )}

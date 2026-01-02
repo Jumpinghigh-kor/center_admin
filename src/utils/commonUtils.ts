@@ -10,14 +10,27 @@ export function openInputDatePicker(el: HTMLInputElement | null | undefined): vo
 
 // 전역: native date/datetime-local/time/month 선택 시 자동 닫기(blur)
 export function installAutoCloseNativePickers(): void {
+  // prevent duplicate global listeners (multiple pages may call this)
+  const w = window as any;
+  if (w.__autoCloseNativePickersInstalled) return;
+  w.__autoCloseNativePickersInstalled = true;
+
   const handler = (e: Event) => {
     const t = e.target as HTMLInputElement | null;
     if (!t) return;
     const types = ["date", "datetime-local", "time", "month"];
-    if (types.includes(t.type)) {
-      try { t.blur(); } catch {}
-    }
+    if (!types.includes(t.type)) return;
+
+    // Some browsers fire `change` after the picker closes.
+    // `input` usually fires on selection; blur in next tick closes the picker reliably.
+    setTimeout(() => {
+      try {
+        t.blur();
+      } catch {}
+    }, 0);
   };
+
+  document.addEventListener("input", handler, true);
   document.addEventListener("change", handler, true);
 }
 
@@ -29,4 +42,25 @@ export function isValidDateRange(start?: string | null, end?: string | null): bo
   const s = norm(start);
   const e = norm(end);
   return e >= s;
+}
+
+// 체크박스 공통: 전체 선택 / 개별 선택 유틸 (id 배열 기반)
+export function toggleSelectAll<T extends string | number>(allIds: T[], checked: boolean): T[] {
+  return checked ? [...allIds] : [];
+}
+
+export function toggleSelectOne<T extends string | number>(
+  selectedIds: T[],
+  id: T,
+  checked: boolean
+): T[] {
+  const has = selectedIds.includes(id);
+  if (checked) return has ? selectedIds : [...selectedIds, id];
+  return has ? selectedIds.filter((v) => v !== id) : selectedIds;
+}
+
+export function isAllSelected<T extends string | number>(allIds: T[], selectedIds: T[]): boolean {
+  if (!allIds.length) return false;
+  const set = new Set(selectedIds);
+  return allIds.every((id) => set.has(id));
 }

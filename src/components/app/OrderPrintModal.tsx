@@ -242,7 +242,7 @@ const OrderPrintModal: React.FC<OrderPrintModalProps> = ({ orderDetail, isOpen, 
                 {/* 하단 회사 정보 */}
                 <div className="text-center mt-8">
                   <p className="font-bold text-xs mb-1">점핑하이 - 점핑코리아</p>
-                  <p className="text-xs mb-1">서울 강서구 마곡서로 133 (마곡동, 마곡엠밸리7단지) 704동 2층</p>
+                  <p className="text-xs mb-1">서울 강서구 마곡서로 133 (마곡동, 마곡엠밸리7단지) 704동 202호, 203호, 204호</p>
                   <p className="text-xs">02-1661-0042 / jumpingkor@naver.com</p>
                 </div>
               </div>

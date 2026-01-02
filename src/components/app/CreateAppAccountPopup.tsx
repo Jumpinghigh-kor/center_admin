@@ -60,6 +60,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(true);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(true);
+  const [reactivateExit, setReactivateExit] = useState<"Y" | "N">("N");
   
   // Modal functionality
   useEffect(() => {
@@ -180,6 +181,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
       let apiEndpoint = "";
       let accountData = {};
       let successMessage = "";
+      let didReactivate = false;
 
       if (effectiveMode === "create") {
         apiEndpoint = `${process.env.REACT_APP_API_URL}/app/memberApp/createMemberApp`;
@@ -218,6 +220,23 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         }
       );
 
+      // 탈퇴 해재 요청 (선택된 회원이 EXIT이고 '예' 선택 시)
+      if (selectedMember?.mem_app_status === 'EXIT' && reactivateExit === 'Y') {
+        await axios.post(
+          `${process.env.REACT_APP_API_URL}/app/memberApp/updateMemberActive`,
+          { mem_id: selectedMember?.mem_id },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            withCredentials: true,
+          }
+        );
+        // 목록 즉시 반영
+        didReactivate = true;
+        onSuccess();
+      }
+
       // 계정 생성 시 환영 우편 발송 (베스트 에포트)
       if (effectiveMode === "create") {
         try {
@@ -250,7 +269,9 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
       }
 
       alert(successMessage);
-      onSuccess();
+      if (!didReactivate) {
+        onSuccess();
+      }
       onClose();
       
       // 폼 초기화
@@ -448,6 +469,38 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
                     <option value="USER">일반회원</option>
                     <option value="FRANCHISEE">가맹점주</option>
                   </select>
+
+                  {selectedMember?.mem_app_status === "EXIT" && (
+                    <div className="mt-4">
+                      <p className="block text-sm font-medium text-gray-700 mb-2">
+                        탈퇴 해재
+                      </p>
+                      <div className="flex items-center space-x-6">
+                        <label className="inline-flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name="reactivate_exit"
+                            value="Y"
+                            checked={reactivateExit === "Y"}
+                            onChange={() => setReactivateExit("Y")}
+                            disabled={isSubmitting}
+                          />
+                          <span className="text-sm text-gray-700">예</span>
+                        </label>
+                        <label className="inline-flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name="reactivate_exit"
+                            value="N"
+                            checked={reactivateExit === "N"}
+                            onChange={() => setReactivateExit("N")}
+                            disabled={isSubmitting}
+                          />
+                          <span className="text-sm text-gray-700">아니오</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

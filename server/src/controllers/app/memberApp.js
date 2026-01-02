@@ -306,9 +306,9 @@ exports.updateMemberAppPassword = (req, res) => {
     // members 테이블에 어플 회원 비밀번호 정보 수정
     const memberUpdateQuery = `
       UPDATE members SET
-        mem_app_password = ?,
-        app_mod_dt = ?,
-        app_mod_id = ?
+        mem_app_password = ?
+        , app_mod_dt = ?
+        , app_mod_id = ?
       WHERE mem_id = ?
     `;
 
@@ -335,6 +335,123 @@ exports.updateMemberAppPassword = (req, res) => {
     );
   } catch (error) {
     console.error("어플 회원 비밀번호 수정 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};
+
+// 회원 앱 상태 활성화 (탈퇴 해제)
+exports.updateMemberActive = (req, res) => {
+  try {
+    const { mem_id } = req.body;
+    
+    const query = `
+      UPDATE members SET
+        mem_app_status = 'ACTIVE'
+        , app_exit_dt = NULL
+      WHERE mem_id = ?
+    `;
+
+    db.query(
+      query,
+      [mem_id],
+      (err, result) => {
+        if (err) {
+          console.error("회원 활성화 오류:", err);
+          return res.status(500).json({ error: "회원 활성화 중 오류가 발생했습니다." });
+        }
+        return res.status(200).json({
+          message: "회원 상태가 활동회원으로 변경되었습니다.",
+        });
+      }
+    );
+  } catch (error) {
+    console.error("회원 활성화 처리 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};
+
+// 회원 앱 삭제
+exports.deleteMemberApp = (req, res) => {
+  try {
+    const { mem_id } = req.body;
+    
+    const query = `
+      UPDATE members SET
+        mem_nickname= NULL
+        , mem_app_id = NULL
+        , mem_app_password = NULL
+        , mem_app_status = NULL
+        , push_yn = NULL
+        , push_token = NULL
+        , recent_dt = NULL
+        , app_active_dt = NULL
+        , app_exit_dt = NULL
+        , app_reg_dt = NULL
+        , app_reg_id = NULL
+        , app_mod_dt = NULL
+        , app_mod_id = NULL
+      WHERE mem_id = ?
+    `;
+
+    db.query(
+      query,
+      [mem_id],
+      (err, result) => {
+        if (err) {
+          console.error("회원 삭제 오류:", err);
+          return res.status(500).json({ error: "회원 삭제 중 오류가 발생했습니다." });
+        }
+
+        const now = dayjs();
+        const mod_dt = now.format("YYYYMMDDHHmmss");
+
+        const updateMemberOrderAppQuery = `
+          UPDATE member_order_app SET
+            del_yn = 'Y'
+            , mod_dt = ?
+            , mod_id = ?
+          WHERE mem_id = ?
+          AND   del_yn = 'N'
+        `;
+
+        db.query(
+          updateMemberOrderAppQuery,
+          [mod_dt, mem_id, mem_id],
+          (orderErr, orderResult) => {
+            if (orderErr) {
+              console.error("주문 삭제 오류:", orderErr);
+              return res.status(500).json({ error: "주문 삭제 중 오류가 발생했습니다." });
+            }
+
+            const updateMemberPointAppQuery = `
+              UPDATE member_point_app SET
+                del_yn = 'Y'
+                , mod_dt = ?
+                , mod_id = ?
+              WHERE mem_id = ?
+              AND   del_yn = 'N'
+            `;
+
+            db.query(
+              updateMemberPointAppQuery,
+              [mod_dt, mem_id, mem_id],
+              (pointErr, pointResult) => {
+                if (pointErr) {
+                  console.error("포인트 삭제 오류:", pointErr);
+                  return res.status(500).json({ error: "포인트 삭제 중 오류가 발생했습니다." });
+                }
+
+                return res.status(200).json({
+                  message: "회원 삭제가 성공적으로 완료되었습니다.",
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error("회원 활성화 처리 중 오류 발생:", error);
     res.status(500).json({ error: "서버 오류가 발생했습니다." });
   }
 };

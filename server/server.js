@@ -28,6 +28,7 @@ const admin = require("./src/routes/admin");
 const news = require("./src/routes/news");
 const locker = require("./src/routes/locker");
 const app_api = require("./src/routes/app");
+const poster = require("./src/routes/poster");
 
 const cron = require("node-cron");
 
@@ -57,7 +58,25 @@ const verifyToken = (req, res) => {
   try {
     const token = req.cookies.accessToken;
     const data = jwt.verify(token, ACCESS_SECRET);
-    const query = "SELECT * FROM users WHERE usr_id = ?";
+    const query = `
+      SELECT
+        u.index
+        , u.usr_name
+        , u.usr_id
+        , u.usr_password
+        , u.usr_second_password
+        , u.usr_role
+        , u.center_id
+        , (
+            SELECT
+              center_name
+            FROM	centers sc
+            WHERE	sc.center_id = u.center_id
+            ORDER BY sc.center_id DESC
+            LIMIT 1
+        ) AS center_name
+      FROM   users u
+      WHERE  u.usr_id = ?`;
     db.query(query, [data.id], (err, result) => {
       if (err) {
         res.send(err);
@@ -115,7 +134,26 @@ app.post("/api/login/secondary", (req, res) => {
     .update(req.body.password)
     .digest("base64");
   const ipAddress = getIpAddress(req);
-  const loginQuery = `SELECT * FROM users WHERE usr_id = ? AND usr_second_password = ?`;
+  const loginQuery = `
+    SELECT
+      u.index
+      , u.usr_name
+      , u.usr_id
+      , u.usr_password
+      , u.usr_second_password
+      , u.usr_role
+      , u.center_id 
+      , (
+          SELECT
+            center_name
+          FROM	centers sc
+          WHERE	sc.center_id = u.center_id
+          ORDER BY sc.center_id DESC
+          LIMIT 1
+        ) AS center_name
+    FROM  users u
+    WHERE u.usr_id = ?
+    AND   u.usr_second_password = ?`;
   db.query(loginQuery, [id, password], (err, result) => {
     if (err) {
       return res.send(err);
@@ -210,7 +248,7 @@ app.use("/api/admin", admin);
 app.use("/api/news", news);
 app.use("/api/locker", locker);
 app.use("/api/app", app_api);
-
+app.use("/api/poster", poster);
 //센터 추가
 app.post("/api/user", (req, res) => {
   const { name, id, password, user_role } = req.body;
@@ -398,10 +436,17 @@ const checkMembershipExpiry = () => {
   );
 };
 
+// PM2 cluster 모드에서는 인스턴스별로 크론이 중복 실행될 수 있으므로,
+// 리더 인스턴스(0)에서만 스케줄을 등록한다. (fork 모드에서는 NODE_APP_INSTANCE가 없을 수 있음)
+const IS_CRON_LEADER =
+  process.env.NODE_APP_INSTANCE == null || process.env.NODE_APP_INSTANCE === "0";
+
 //매일 자정에 멤버쉽 만료를 체크
-cron.schedule("0 0 * * *", () => {
-  checkMembershipExpiry();
-});
+if (IS_CRON_LEADER) {
+  cron.schedule("0 0 * * *", () => {
+    checkMembershipExpiry();
+  });
+}
 
 // Supabase Keep-Alive: 하루 1회 가벼운 Storage 호출로 웜업
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -431,76 +476,84 @@ const pingSupabase = async () => {
 // 서버 시작 시 1회 즉시 실행
 pingSupabase();
 // 매일 새벽 4시(서버 로컬 타임존) 실행
-cron.schedule("0 4 * * *", () => {
-  pingSupabase();
-});
+if (IS_CRON_LEADER) {
+  cron.schedule("0 4 * * *", () => {
+    pingSupabase();
+  });
+}
 
 // 매일 오후 10시(서버 로컬 타임존) 실행
-cron.schedule("0 22 * * *", () => {
-  pingSupabase();
-});
+if (IS_CRON_LEADER) {
+  cron.schedule("0 22 * * *", () => {
+    pingSupabase();
+  });
+}
 
 // 30분 마다 실행(서버 로컬 타임존) - 배송 현황 동기화
-cron.schedule("*/30 * * * *", async () => {
-  const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
-  console.log(`[delivery-sync] tick ${now}`);
-  try {
-    const { syncShippingingStatus, syncExchangeShippingingStatus } = require("./src/controllers/app/deliveryTracker");
-    await syncShippingingStatus();
-    await syncExchangeShippingingStatus();
-  } catch (e) {
-    console.warn("[delivery-sync] tick error:", e.message);
-  }
-});
+if (IS_CRON_LEADER) {
+  cron.schedule("*/30 * * * *", async () => {
+    const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
+    console.log(`[delivery-sync] tick ${now}`);
+    try {
+      const { syncShippingingStatus, syncExchangeShippingingStatus } = require("./src/controllers/app/deliveryTracker");
+      await syncShippingingStatus();
+      await syncExchangeShippingingStatus();
+    } catch (e) {
+      console.warn("[delivery-sync] tick error:", e.message);
+    }
+  });
+}
 
 // 30분 마다 실행(서버 로컬 타임존) - 배송완료 3일 경과 → 구매확정 자동 전환
-cron.schedule("*/30 * * * *", async () => {
-  try {
-    const selectQuery = `
-      SELECT
-        moda.order_detail_app_id
-        , moa.mem_id
-      FROM		  member_order_app moa
-      LEFT JOIN	member_order_detail_app moda ON moa.order_app_id = moda.order_app_id
-      WHERE		  order_status = 'SHIPPING_COMPLETE'
-      AND     	shipping_complete_dt <= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 3 DAY), '%Y%m%d%H%i%s');
-    `;
-    db.query(selectQuery, (selErr, rows) => {
-      if (selErr) {
-        console.warn("[auto-purchase-confirm] select error:", selErr);
-        return;
-      }
-      // mem_id 별로 묶어서 각 그룹의 mem_id를 mod_id로 사용
-      const groups = new Map();
-      (rows || []).forEach(r => {
-        const id = r && r.order_detail_app_id;
-        const memId = r && r.mem_id;
-        if (!id || memId == null) return;
-        if (!groups.has(memId)) groups.set(memId, []);
-        groups.get(memId).push(id);
-      });
-      if (groups.size === 0) return;
-
-      const updateQuery = `
-        UPDATE member_order_detail_app SET
-          order_status = 'PURCHASE_CONFIRM'
-          , purchase_confirm_dt = DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
-          , mod_dt = DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
-          , mod_id = ?
-        WHERE order_detail_app_id IN (?)
+if (IS_CRON_LEADER) {
+  cron.schedule("*/30 * * * *", async () => {
+    try {
+      const selectQuery = `
+        SELECT
+          moda.order_detail_app_id
+          , moa.mem_id
+        FROM		  member_order_app moa
+        LEFT JOIN	member_order_detail_app moda ON moa.order_app_id = moda.order_app_id
+        WHERE		  order_status = 'SHIPPING_COMPLETE'
+        AND     	shipping_complete_dt <= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 3 DAY), '%Y%m%d%H%i%s');
       `;
-      groups.forEach((ids, modId) => {
-        db.query(updateQuery, [modId, ids], (updErr) => {
-          if (updErr) {
-            console.warn("[auto-purchase-confirm] update error:", updErr);
-          }
+      db.query(selectQuery, (selErr, rows) => {
+        if (selErr) {
+          console.warn("[auto-purchase-confirm] select error:", selErr);
+          return;
+        }
+        // mem_id 별로 묶어서 각 그룹의 mem_id를 mod_id로 사용
+        const groups = new Map();
+        (rows || []).forEach(r => {
+          const id = r && r.order_detail_app_id;
+          const memId = r && r.mem_id;
+          if (!id || memId == null) return;
+          if (!groups.has(memId)) groups.set(memId, []);
+          groups.get(memId).push(id);
+        });
+        if (groups.size === 0) return;
+
+        const updateQuery = `
+          UPDATE member_order_detail_app SET
+            order_status = 'PURCHASE_CONFIRM'
+            , purchase_confirm_dt = DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
+            , mod_dt = DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
+            , mod_id = ?
+          WHERE order_detail_app_id IN (?)
+        `;
+        groups.forEach((ids, modId) => {
+          db.query(updateQuery, [modId, ids], (updErr) => {
+            if (updErr) {
+              console.warn("[auto-purchase-confirm] update error:", updErr);
+            }
+          });
         });
       });
-    });
-  } catch (e) {
-    console.warn("[auto-purchase-confirm] tick error:", e.message);
-  }
-});
+    } catch (e) {
+      console.warn("[auto-purchase-confirm] tick error:", e.message);
+    }
+  });
+}
 
 //알림 가져오기
 app.get("/api/notification/:centerid", (req, res) => {

@@ -127,6 +127,44 @@ const Sidebar: React.FC = () => {
             </NavLink>
           </li>
 
+          {user?.usr_role === "admin" && (
+            <li>
+              <NavLink to="/poster">
+                <div className="flex items-center p-2 text-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 group">
+                  <svg
+                    className="w-5 h-5 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Z"
+                      />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M8.5 10.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M21 16l-5.5-5.5L6 20"
+                      />
+                  </svg>
+                  <span className="flex-1 ms-3 whitespace-nowrap hidden sm:block">
+                    포스터 관리
+                  </span>
+                </div>
+              </NavLink>
+            </li>
+          )}
+
           <li>
             <NavLink to="/locker">
               <div className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 group">
@@ -683,7 +721,7 @@ const Sidebar: React.FC = () => {
             </li>
           ) : null}
 
-          {/* <li>
+          <li>
             <NavLink to="/app">
               <div className="flex items-center p-2 text-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 group">
                 <svg
@@ -723,7 +761,7 @@ const Sidebar: React.FC = () => {
                 </span>
               </div>
             </NavLink>
-          </li> */}
+          </li>
 
           <li onClick={onLogout}>
             <div className="flex items-center p-2 text-gray-900 rounded-lg cursor-pointer hover:bg-gray-100 group">

@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -72,6 +72,7 @@ const Dashboard: React.FC = () => {
   const [updateLogList, setUpdateLogList] = useState<any[]>([]);
   const [centerList, setCenterList] = useState<Array<{ center_id: number; center_name: string }>>([]);
   const [selectedCenterId, setSelectedCenterId] = useState<string>("");
+  const [url, setUrl] = useState<string[]>([]);
 
   const getEffectiveCenterId = (overrideCenterId?: string | number | null) => {
     if (overrideCenterId !== undefined && overrideCenterId !== null) {
@@ -402,6 +403,27 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_URL}/video`,
+          {
+            pl_type: "APP_GUIDE",
+          }
+        );
+
+        const playlist = res.data.result[0].pl_url;
+        
+        setUrl(playlist);
+      } catch (e) {
+        console.log(e);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  useEffect(() => {
     if(user) {
       selectCenterList();
       selectMemberCount(selectedCenterId);
@@ -459,6 +481,45 @@ const Dashboard: React.FC = () => {
           </select>
         </div>
       )}
+
+      <section className="mb-8">
+        <NavLink
+          target="_blank"
+          to={`https://youtu.be/${url}`}
+        >
+          <div className="h-auto p-6 bg-white border max-w-full flex items-center border-gray-200 rounded-sm shadow hover:bg-gray-100">
+            <div className="flex">
+              <span className="m-0 font-bold">가이드 영상 보러 가기</span>
+              <svg
+                className="w-4 h-4 text-gray-800"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778"
+                />
+              </svg>
+            </div>
+            <span className="[&>svg]:h-6 [&>svg]:w-6 ml-1">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="red"
+                viewBox="0 0 576 512"
+              >
+                <path d="M549.7 124.1c-6.3-23.7-24.8-42.3-48.3-48.6C458.8 64 288 64 288 64S117.2 64 74.6 75.5c-23.5 6.3-42 24.9-48.3 48.6-11.4 42.9-11.4 132.3-11.4 132.3s0 89.4 11.4 132.3c6.3 23.7 24.8 41.5 48.3 47.8C117.2 448 288 448 288 448s170.8 0 213.4-11.5c23.5-6.3 42-24.2 48.3-47.8 11.4-42.9 11.4-132.3 11.4-132.3s0-89.4-11.4-132.3zm-317.5 213.5V175.2l142.7 81.2-142.7 81.2z" />
+              </svg>
+            </span>
+          </div>
+        </NavLink>
+      </section>
 
       {/* 1. 사용자 통계 개요 */}
       <section className="mb-8">
@@ -881,14 +942,14 @@ const Dashboard: React.FC = () => {
                 <div className="flex justify-center items-center h-full">
                   <div className="text-gray-500">업데이트 로그 목록이 없습니다.</div>
                 </div>
-                             ) : (
+              ) : (
                  updateLogList.slice(0, 3).map((item, index) => (
                    <div className="p-2 bg-white rounded" key={index}>
-                     <span className="text-sm font-medium">{item.up_app_version} 업데이트</span>
-                     <p className="text-xs text-gray-600 mt-1">{item.up_app_desc}</p>
-               </div>
+                    <span className="text-sm font-medium">{item.up_app_version} 업데이트</span>
+                    <p className="text-xs text-gray-600 mt-1">{item.up_app_desc}</p>
+                  </div>
                )))}
-                          </div>
+            </div>
           </div>
         </div>
       </section>

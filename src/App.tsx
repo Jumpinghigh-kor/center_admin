@@ -33,6 +33,9 @@ import Locker from "./routes/Locker";
 import MemberApp from "./routes/app";
 import AllCenterMembers from "./routes/AllCenterMembers";
 import ReservationManagement from "./routes/ReservationManagement";
+import PosterList from "./routes/PosterList";
+import PosterRegister from "./routes/PosterRegister";
+import PosterDetail from "./routes/PosterDetail";
 
 const App: React.FC = () => {
   const setUser = useUserStore((state) => state.setUser);
@@ -262,6 +265,30 @@ const App: React.FC = () => {
             element={
               <PrivateRoute>
                 <ReservationManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/poster"
+            element={
+              <PrivateRoute>
+                <PosterList />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/poster/register"
+            element={
+              <PrivateRoute>
+                <PosterRegister />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/poster/detail/:posterId"
+            element={
+              <PrivateRoute>
+                <PosterDetail />
               </PrivateRoute>
             }
           />

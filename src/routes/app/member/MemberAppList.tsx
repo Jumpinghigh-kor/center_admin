@@ -40,6 +40,7 @@ const MemberList: React.FC = () => {
     totalItems: memberList.length,
     itemsPerPage: 10,
   });
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   // 현재 페이지에 표시할 데이터
   const currentMemberList = pagination.getCurrentPageData(memberList);
@@ -110,24 +111,61 @@ const MemberList: React.FC = () => {
     }
   }, [user]);
 
+  const handleDeleteMemberApp = async () => {
+    try {
+      if (!selectedMember) {
+        alert("회원을 선택하세요.");
+        return;
+      }
+      if (!window.confirm("선택한 회원의 어플 계정을 삭제하시겠습니까?")) {
+        return;
+      }
+      setDeleting(true);
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/app/memberApp/deleteMemberApp`,
+        { mem_id: selectedMember.mem_id },
+        { withCredentials: true }
+      );
+      alert("어플 계정이 삭제되었습니다.");
+      setSelectedMember(undefined);
+      await selectMemberAppList(searchData);
+    } catch (err) {
+      console.error("어플 계정 삭제 오류:", err);
+      alert("어플 계정 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">회원 관리</h2>
-          <button
-            onClick={() => {
-              if (!selectedMember) {
-                alert("회원을 선택하세요.");
-                return;
-              }
-              setPopupMode(selectedMember?.mem_app_status ? "emailChange" : "create");
-              setPopupToggle(true);
-            }}
-            className={`px-4 py-2 text-sm font-medium text-white ${selectedMember?.mem_app_status ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"} border border-transparent rounded`}
-          >
-            {selectedMember?.mem_app_status ? "어플 계정 변경" : "어플 계정 생성"}
-          </button>
+          <div>
+            {user?.usr_role === 'admin' && (
+              <button
+                onClick={handleDeleteMemberApp}
+                disabled={deleting}
+                className="mr-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 border border-transparent rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                어플 계정 삭제(관리자용)
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (!selectedMember) {
+                  alert("회원을 선택하세요.");
+                  return;
+                }
+                setPopupMode(selectedMember?.mem_app_status ? "emailChange" : "create");
+                setPopupToggle(true);
+              }}
+              className={`px-4 py-2 text-sm font-medium text-white ${selectedMember?.mem_app_status ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"} border border-transparent rounded`}
+              >
+              {selectedMember?.mem_app_status ? "어플 계정 변경" : "어플 계정 생성"}
+            </button>
+          </div>
         </div>
 
         {/* 검색 필터 테이블 */}
