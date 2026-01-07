@@ -54,8 +54,34 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
   const [reservationMember, setReservationMember] = useState<MemberScheduleAppDetail[]>([]);
   const [registeredMember, setRegisteredMember] = useState<MemberScheduleAppDetail[]>([]);
   const [memo, setMemo] = useState<string>("");
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [selectedMemoMember, setSelectedMemoMember] = useState<MemberScheduleAppDetail | null>(null);
+  const [isReservationUpdating, setIsReservationUpdating] = useState(false);
   const user = useUserStore((state) => state.user);
-  const { checkedItems, allChecked, handleAllCheck, handleIndividualCheck, resetCheckedItems } = useCheckbox(reservationMember.length);
+  const pendingReservationMember = React.useMemo(
+    () => reservationMember.filter((m) => !m.agree_yn),
+    [reservationMember]
+  );
+  const confirmedReservationMember = React.useMemo(
+    () => reservationMember.filter((m) => m.agree_yn === "Y"),
+    [reservationMember]
+  );
+
+  const {
+    checkedItems: pendingCheckedItems,
+    allChecked: pendingAllChecked,
+    handleAllCheck: handlePendingAllCheck,
+    handleIndividualCheck: handlePendingIndividualCheck,
+    resetCheckedItems: resetPendingCheckedItems,
+  } =
+    useCheckbox(pendingReservationMember.length);
+  const {
+    checkedItems: confirmedCheckedItems,
+    allChecked: confirmedAllChecked,
+    handleAllCheck: handleConfirmedAllCheck,
+    handleIndividualCheck: handleConfirmedIndividualCheck,
+    resetCheckedItems: resetConfirmedCheckedItems,
+  } = useCheckbox(confirmedReservationMember.length);
   
   const isReservationTimePassed = React.useMemo(() => {
     if (!selectedReservation?.schedule?.sch_dt || !selectedReservation?.schedule?.sch_time) return false;
@@ -83,7 +109,9 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
     if (isOpen && selectedReservation) {
       // 초기화
       setMemo("");
-      resetCheckedItems();
+      setSelectedMemoMember(null);
+      resetPendingCheckedItems();
+      resetConfirmedCheckedItems();
       selectReservationMember();
       selectRegisteredMember();
     }
@@ -121,16 +149,23 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
   // 예약 승인/거절 업데이트
   const handleReservationUpdate = async (agreeStatus: "Y" | "N") => {
     if (!selectedReservation) return;
+    if (isReservationUpdating) return;
 
-    const selectedIds = reservationMember
-      .filter((_, index) => checkedItems[index])
-      .map((m) => m.sch_app_id);
+    const selectedIds = [
+      ...pendingReservationMember
+        .filter((_, index) => pendingCheckedItems[index])
+        .map((m) => m.sch_app_id),
+      ...confirmedReservationMember
+        .filter((_, index) => confirmedCheckedItems[index])
+        .map((m) => m.sch_app_id),
+    ];
 
     if (selectedIds.length === 0) {
       alert("예약 회원을 선택해주세요.");
       return;
     }
 
+    setIsReservationUpdating(true);
     try {
       await axios.patch(
         `${process.env.REACT_APP_API_URL}/schedule/updateMemberScheduleApp`,
@@ -143,9 +178,14 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
 
       // 우편/푸시 발송: 선택 회원에게만 발송
       try {
-        const selectedMemIds = reservationMember
-          .filter((_, index) => checkedItems[index])
-          .map((m) => m.mem_id);
+        const selectedMemIds = [
+          ...pendingReservationMember
+            .filter((_, index) => pendingCheckedItems[index])
+            .map((m) => m.mem_id),
+          ...confirmedReservationMember
+            .filter((_, index) => confirmedCheckedItems[index])
+            .map((m) => m.mem_id),
+        ];
 
         const dateStr = selectedReservation.schedule.sch_dt || '';
         const [yyyy, mm, dd] = dateStr.split('-');
@@ -189,13 +229,14 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
     } catch (error) {
       console.error("Failed to update reservation:", error);
       alert("예약 처리 중 오류가 발생했습니다.");
+    } finally {
+      setIsReservationUpdating(false);
     }
   };
 
   // 메모 업데이트
   const handleMemoUpdate = async () => {
-    const selectedIndex = checkedItems.findIndex(item => item);
-    const selectedMember = reservationMember[selectedIndex];
+    const selectedMember = selectedMemoMember;
     
     if (!selectedMember) return;
 
@@ -222,7 +263,7 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 pt-24 pb-24 pl-32 pr-32"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 pt-12 pb-12 pl-32 pr-32"
       onClick={onClose}
     >
       <div 
@@ -232,13 +273,12 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
       >
         {/* 헤더 */}
         <div className="text-white px-6 py-4 rounded-t-lg" style={{borderBottom: '1px solid #4A4A4A'}}>
-          <div className="flex justify-between items-center">
-            <div></div>
+          <div className="flex justify-end items-center">
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-white text-xl"
             >
-              ×
+              x
             </button>
           </div>
         </div>
@@ -266,7 +306,7 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
                 <p className="text-white font-medium">{selectedReservation?.schedule.sch_max_cap}명</p>
               </div>
               <div className="mb-4">
-                <p className="text-white text-sm mb-2" style={{color: '#9D9D9D'}}>등록 인원</p>
+                <p className="text-white text-sm mb-2" style={{color: '#9D9D9D'}}>고정 인원</p>
                 <p className="text-white font-medium">{selectedReservation?.schedule.registered_count}명</p>
               </div>
               <div className="mb-4">
@@ -279,20 +319,63 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
           {/* 중간 영역 */}
           <div className="w-2/4 flex flex-col" style={{borderRight: '1px solid #4A4A4A'}}>
             <div className="p-4">
-              <div className="mb-4 pl-2">
+              <div className="mb-4 pl-2 flex items-center justify-between">
                 <p className="text-white text-lg font-bold">회원 목록</p>
+                <button
+                  type="button"
+                  className="text-sm font-semibold px-3 py-2 rounded bg-gray-600 text-white hover:bg-gray-600"
+                  onClick={() => setIsGuideOpen(true)}
+                >
+                  설명보기
+                </button>
               </div>
             </div>
+
+            {isGuideOpen ? (
+              <div
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+                onClick={() => setIsGuideOpen(false)}
+              >
+                <div
+                  className="w-[min(92vw,700px)] rounded-lg bg-white p-4 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="text-base font-bold text-gray-900">설명</div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-base font-bold">1. 예약 회원</p>
+                    <p>- 사용자가 어플에서 원하는 시간표에 예약을 한 경우입니다.</p> 
+                    <p>- 예약 회원 목록에서 체크박스를 선택하여 예약 수락/거절을 할 수 있습니다.</p>
+                    <p className="text-base font-bold mt-10">2. 고정 회원</p>
+                    <p>- 점주님이 설정한 시간표에 등록된 고정 회원입니다.</p>
+                    <p className="text-base font-bold mt-10">3. 참여 확정 회원</p>
+                    <p>- 예약 회원에서 예약이 수락된 경우입니다.</p>
+                    <p>- 사용자가 어플에서 기본 시간표에 예약을 한 경우로 참여 확정 회원에 추가됩니다.</p>
+                  </div>
+                  <div className="flex justify-end mt-10">
+                    <button
+                      type="button"
+                      style={{ backgroundColor: '#5C6B7A' }}
+                      className="text-white rounded px-4 py-2 text-sm"
+                      onClick={() => setIsGuideOpen(false)}
+                      >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             
             {/* 예약 회원 섹션 */}
-            <div className="px-4 overflow-y-auto mb-4" style={{height: '41%', borderBottom: '1px solid #4A4A4A'}}>
+            <div className="px-4 overflow-y-auto mb-4" style={{height: '27%', borderBottom: '1px solid #4A4A4A'}}>
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center text-white text-lg font-bold p-2" style={{width: '20%'}}>
                   <input 
                     type="checkbox" 
                     className="mr-4 w-4 h-4 cursor-pointer" 
-                    checked={allChecked}
-                    onChange={(e) => handleAllCheck(e.target.checked)}
+                    checked={pendingAllChecked}
+                    onChange={(e) => handlePendingAllCheck(e.target.checked)}
                   />
                   <p>예약 회원</p>
                 </div>
@@ -303,23 +386,34 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
               </div>
               {reservationMember.length > 0 ? (
                 <div>
-                  {reservationMember.map((item, index) => (
+                  {pendingReservationMember.map((item, index) => (
                     <div key={index + 1}>
                       <div className="mt-4">
                         <div
-                          className={`flex justify-between items-center cursor-pointer hover:bg-gray-700 p-2 ${checkedItems[index] ? 'bg-gray-700' : ''}`}
+                          className={`flex justify-between items-center cursor-pointer hover:bg-gray-700 p-2 ${
+                            pendingCheckedItems[index] || selectedMemoMember?.sch_app_id === item.sch_app_id
+                              ? 'bg-gray-700'
+                              : ''
+                          }`}
                           onClick={() => {
-                            const next = !checkedItems[index];
-                            handleIndividualCheck(index, next);
-                            setMemo(item.admin_memo || "");
+                            const isSelected = selectedMemoMember?.sch_app_id === item.sch_app_id;
+                            const next = !pendingCheckedItems[index];
+                            handlePendingIndividualCheck(index, next);
+                            if (isSelected && !next) {
+                              setSelectedMemoMember(null);
+                              setMemo("");
+                            } else {
+                              setMemo(item.admin_memo || "");
+                              setSelectedMemoMember(item);
+                            }
                           }}
                         >
                           <div className="flex items-center text-white" style={{width: '20%'}}>
                             <input 
                               type="checkbox" 
                               className="mr-4 w-4 h-4 cursor-pointer" 
-                              checked={checkedItems[index] || false}
-                              onChange={(e) => handleIndividualCheck(index, e.target.checked)}
+                              checked={pendingCheckedItems[index] || false}
+                              onChange={(e) => handlePendingIndividualCheck(index, e.target.checked)}
                               onClick={(e) => e.stopPropagation()}
                             />
                             <p>{index + 1}. <span className={`${item.agree_yn ? item.agree_yn === 'Y' ? 'text-green-500' : 'text-red-500' : 'text-gray-400'} ml-2`}>{item.agree_yn ? item.agree_yn === 'Y' ? '승인' : '거절' : '예약대기'}</span></p>
@@ -334,16 +428,16 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="mt-20 text-center text-white">
+                <div className="mt-10 text-center text-white">
                   <p>예약 회원이 없습니다.</p>
                 </div>
               )}
             </div>
             
-            {/* 등록 회원 섹션 */}
-            <div className="px-4 overflow-y-auto mb-4" style={{height: '41%', borderBottom: '1px solid #4A4A4A'}}>
+            {/* 고정 회원 섹션 */}
+            <div className="px-4 overflow-y-auto mb-4" style={{height: '27%', borderBottom: '1px solid #4A4A4A'}}>
               <div className="flex justify-between items-center mb-4 p-2">
-                <p className="text-white text-lg font-bold" style={{width: '20%'}}>등록 회원</p>
+                <p className="text-white text-lg font-bold" style={{width: '20%'}}>고정 회원</p>
                 <p className="text-white text-sm" style={{color: '#9D9D9D', width: '20%'}}>이름</p>
                 <p className="text-white text-sm" style={{color: '#9D9D9D', width: '20%'}}>성별</p>
                 <p className="text-white text-sm" style={{color: '#9D9D9D', width: '20%'}}>연락처</p>
@@ -366,8 +460,78 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="mt-20 text-center text-white">
-                  <p>등록 회원이 없습니다.</p>
+                <div className="mt-10 text-center text-white">
+                  <p>고정 회원이 없습니다.</p>
+                </div>
+              )}
+            </div>
+
+            {/* 참여 확정 회원 섹션 */}
+            <div className="px-4 overflow-y-auto mb-4" style={{height: '27%'}}>
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center text-white text-lg font-bold p-2" style={{width: '20%'}}>
+                  <input
+                    type="checkbox"
+                    className="mr-4 w-4 h-4 cursor-pointer"
+                    checked={confirmedAllChecked}
+                    onChange={(e) => handleConfirmedAllCheck(e.target.checked)}
+                  />
+                  <p>참여 확정 회원</p>
+                </div>
+                <p className="text-white text-sm" style={{color: '#9D9D9D', width: '20%'}}>이름</p>
+                <p className="text-white text-sm" style={{color: '#9D9D9D', width: '20%'}}>성별</p>
+                <p className="text-white text-sm" style={{color: '#9D9D9D', width: '20%'}}>연락처</p>
+                <p className="text-white text-sm" style={{color: '#9D9D9D', width: '20%'}}>생년월일</p>
+              </div>
+              {confirmedReservationMember.length > 0 ? (
+                <div>
+                  {confirmedReservationMember.map((item, index) => (
+                    <div key={index + 1}>
+                      <div className="mt-4">
+                        <div
+                          className={`flex justify-between items-center p-2 cursor-pointer hover:bg-gray-700 ${
+                            confirmedCheckedItems[index] || selectedMemoMember?.sch_app_id === item.sch_app_id
+                              ? 'bg-gray-700'
+                              : ''
+                          }`}
+                          onClick={() => {
+                            const isSelected = selectedMemoMember?.sch_app_id === item.sch_app_id;
+                            const next = !confirmedCheckedItems[index];
+                            handleConfirmedIndividualCheck(index, next);
+                            if (isSelected && !next) {
+                              setSelectedMemoMember(null);
+                              setMemo("");
+                              return;
+                            }
+                            setSelectedMemoMember(item);
+                            setMemo(item.admin_memo || "");
+                          }}
+                        >
+                          <div className="flex items-center text-white" style={{width: '20%'}}>
+                            <input
+                              type="checkbox"
+                              className="mr-4 w-4 h-4 cursor-pointer"
+                              checked={confirmedCheckedItems[index] || false}
+                              onChange={(e) => handleConfirmedIndividualCheck(index, e.target.checked)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <p>
+                              {index + 1}.{" "}
+                              <span className="text-green-500 ml-2">승인</span>
+                            </p>
+                          </div>
+                          <p className="text-white" style={{width: '20%'}}>{item.mem_name ? item.mem_name : '-'}</p>
+                          <p className="text-white" style={{width: '20%'}}>{item.mem_gender ? item.mem_gender : '-'}</p>
+                          <p className="text-white" style={{width: '20%'}}>{item.mem_phone ? item.mem_phone : '-'}</p>
+                          <p className="text-white" style={{width: '20%'}}>{item.mem_birth ? item.mem_birth : '-'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-10 text-center text-white">
+                  <p>참여 확정 회원이 없습니다.</p>
                 </div>
               )}
             </div>
@@ -376,14 +540,14 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
               <button
                 className="bg-green-700 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => handleReservationUpdate("Y")}
-                disabled={isReservationTimePassed}
+                disabled={isReservationTimePassed || isReservationUpdating}
               >
                 예약 수락
               </button>
               <button
                 className="bg-red-700 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-4 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => handleReservationUpdate("N")}
-                disabled={isReservationTimePassed}
+                disabled={isReservationTimePassed || isReservationUpdating}
               >
                 예약 거절
               </button>
@@ -399,14 +563,14 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
           <div className="flex p-6 w-1/4">
             <div className="w-full">
               <div className="mb-4">
-                <p className="text-white text-lg font-bold">메모(예약 전용)</p>
+                <p className="text-white text-lg font-bold">메모</p>
               </div>
               <div className="space-y-4 mb-6 rounded-lg" style={{border: '1px solid #4A4A4A', height: '80%'}}>
                 <textarea
                   className="w-full h-full rounded-lg text-white p-4"
                   style={{backgroundColor: '#353535'}}
-                  placeholder="회원 한 명의 체크 박스를 선택 후 메모를 입력해주세요."
-                  disabled={checkedItems.filter(item => item).length !== 1}
+                  placeholder="예약 회원 또는 참여 확정 회원 한 명을 선택 후 메모를 입력해주세요."
+                  disabled={!selectedMemoMember}
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
                 ></textarea>
@@ -414,11 +578,11 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
               <div className="flex justify-end">
                 <button 
                   className={`font-bold py-2 px-4 rounded ${
-                    checkedItems.filter(item => item).length === 1 && memo.trim() !== "" 
+                    !!selectedMemoMember && memo.trim() !== "" 
                       ? "bg-green-700 hover:bg-green-800 text-white" 
                       : "bg-gray-600 text-gray-400 cursor-not-allowed"
                   }`}
-                  disabled={checkedItems.filter(item => item).length !== 1 || memo.trim() === ""}
+                  disabled={!selectedMemoMember || memo.trim() === ""}
                   onClick={handleMemoUpdate}
                 >
                   메모 저장

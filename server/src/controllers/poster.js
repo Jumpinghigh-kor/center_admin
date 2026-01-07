@@ -19,16 +19,15 @@ exports.getPosterBaseList = (req, res) => {
       , pb.reg_id
       , (
           SELECT
-            GROUP_CONCAT(spd.poster_type) AS poster_type
-          FROM  poster_detail spd
-          WHERE spd.poster_id = pb.poster_id
-          AND   spd.use_yn = 'Y'
-        ) AS poster_type
+            GROUP_CONCAT(spi.poster_image_type) AS poster_image_type
+          FROM  poster_image spi
+          WHERE spi.poster_id = pb.poster_id
+          AND   spi.use_yn = 'Y'
+        ) AS poster_image_type
     FROM  poster_base pb
     WHERE pb.del_yn = 'N'
     AND   (pb.start_dt <= DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') AND DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= pb.end_dt)
     ORDER BY  pb.poster_id DESC
-
   `
   db.query(query, (err, result) => {
     if (err) {
@@ -38,7 +37,7 @@ exports.getPosterBaseList = (req, res) => {
   });
 };
 
-//포스터 기본 목록 조회
+//포스터 상세 조회
 exports.getPosterDetail = (req, res) => {
   const { poster_id } = req.query;
   const query =`
@@ -47,28 +46,43 @@ exports.getPosterDetail = (req, res) => {
       , pb.title
       , DATE_FORMAT(pb.start_dt, '%Y-%m-%d %H:%i') AS start_dt
       , DATE_FORMAT(pb.end_dt, '%Y-%m-%d %H:%i') AS end_dt
+      , pi.poster_image_id
+      , pi.poster_image_type
       , cf.file_id
       , cf.file_name
       , cf.file_path
       , cf.file_division
-      , pd.poster_detail_id
-      , pd.poster_type
-      , pd.font_family
-      , pd.font_size
-      , pd.font_weight
-      , pd.color
-      , pd.x_px
-      , pd.y_px
+      , pt.poster_text_id
+      , pt.poster_text_type
+      , pt.use_yn
+      , pt.font_family
+      , pt.font_size
+      , pt.font_weight
+      , pt.color
+      , pt.x_px
+      , pt.y_px
     FROM      poster_base pb
-    LEFT JOIN poster_detail pd  ON pb.poster_id = pd.poster_id
-    LEFT JOIN common_file cf    ON pd.file_id = cf.file_id
+    LEFT JOIN poster_image pi ON pb.poster_id = pi.poster_id
+    LEFT JOIN common_file cf  ON pi.file_id = cf.file_id
+    LEFT JOIN poster_text pt  ON pi.poster_image_id = pt.poster_image_id
     WHERE     pb.poster_id = ?
-    AND       pd.use_yn = 'Y'
-    ORDER BY  pd.poster_type ASC, pd.poster_detail_id ASC
+    AND       pi.use_yn = 'Y'
   `
   db.query(query, [poster_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      console.log("err", err);
+      // 운영 환경에서 500 응답은 호스팅(가비아) 에러 페이지로 치환/리다이렉트되어
+      // 브라우저에서 CORS/네트워크 에러로 보일 수 있어, 안전하게 200으로 내려준다.
+      if (process.env.NODE_ENV === "production") {
+        return res.status(200).json({
+          result: [],
+          error: {
+            message: err.sqlMessage || err.message || String(err),
+            code: err.code,
+          },
+        });
+      }
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -107,12 +121,62 @@ exports.createPosterBase = (req, res) => {
   });
 };
 
-//포스터 상세 등록
-exports.createPosterDetail = (req, res) => {
+//포스터 이미지 등록
+exports.createPosterImage = (req, res) => {
   const {
     poster_id,
     file_id,
-    poster_type,
+    poster_image_type,
+    userId,
+  } = req.body;
+  const time = dayjs().format("YYYYMMDDHHmmss");
+  const query = `
+    INSERT INTO poster_image (
+      poster_id
+      , file_id
+      , poster_image_type
+      , use_yn
+      , reg_dt
+      , reg_id
+      , mod_dt
+      , mod_id
+    ) VALUES (
+      ?
+      ,?
+      ,?
+      ,?
+      ,?
+      ,?
+      ,?
+      ,?
+    )
+  `;
+  db.query(
+    query,
+    [
+      poster_id,
+      file_id,
+      poster_image_type,
+      "Y",
+      time,
+      userId,
+      null,
+      null,
+    ],
+    (err, result) => {
+    if (err) {
+      console.log("err", err);
+    }
+    res.status(201).json({ result: result });
+    }
+  );
+};
+
+//포스터 텍스트 등록
+exports.createPosterText = (req, res) => {
+  const {
+    poster_image_id,
+    poster_text_type,
     font_family,
     font_size,
     font_weight,
@@ -123,10 +187,9 @@ exports.createPosterDetail = (req, res) => {
   } = req.body;
   const time = dayjs().format("YYYYMMDDHHmmss");
   const query = `
-    INSERT INTO poster_detail (
-      poster_id
-      , file_id
-      , poster_type
+    INSERT INTO poster_text (
+      poster_image_id
+      , poster_text_type
       , font_family
       , font_size
       , font_weight
@@ -152,26 +215,24 @@ exports.createPosterDetail = (req, res) => {
       ,?
       ,?
       ,?
-      ,?
     )
   `;
   db.query(
     query,
     [
-      poster_id,
-      file_id,
-      poster_type,
+      poster_image_id,
+      poster_text_type,
       font_family,
       font_size,
-      font_weight || 400,
+      font_weight,
       color,
       x_px,
       y_px,
-      "Y",
+      'Y',
       time,
       userId,
       null,
-      null,
+      null
     ],
     (err, result) => {
     if (err) {
@@ -215,39 +276,27 @@ exports.updatePosterBase = (req, res) => {
   );
 };
 
-//포스터 상세 수정
-exports.updatePosterDetail = (req, res) => {
+//포스터 이미지 수정
+exports.updatePosterImage = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_detail_id, poster_type, file_id, font_family, font_size, font_weight, color, x_px, y_px, userId} = req.body;
+  const { poster_image_id, poster_image_type, file_id, userId} = req.body;
 
   const query = `
-    UPDATE poster_detail SET
-      poster_type = ?
+    UPDATE poster_image SET
+      poster_image_type = ?
       , file_id = ?
-      , font_family = ?
-      , font_size = ?
-      , font_weight = ?
-      , color = ?
-      , x_px = ?
-      , y_px = ?
       , mod_dt = ?
       , mod_id = ?
-    WHERE poster_detail_id = ?
+    WHERE poster_image_id = ?
   `;
   db.query(
     query,
     [
-      poster_type,
+      poster_image_type,
       file_id,
-      font_family,
-      font_size,
-      font_weight || 400,
-      color,
-      x_px,
-      y_px,
       time,
       userId,
-      poster_detail_id,
+      poster_image_id,
     ],
     (err, result) => {
     if (err) {
@@ -258,18 +307,59 @@ exports.updatePosterDetail = (req, res) => {
   );
 };
 
-//포스터 기본 삭제
-exports.updatePosterDetailUseYn = (req, res) => {
+//포스터 텍스트 수정
+exports.updatePosterText = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_detail_id, use_yn, userId} = req.body;
+  const { poster_text_id, poster_text_type, font_family, font_size, font_weight, color, x_px, y_px, userId} = req.body;
+
   const query = `
-    UPDATE poster_detail SET
+    UPDATE poster_text SET
+      poster_text_type = ?
+      , font_family = ?
+      , font_size = ?
+      , font_weight = ?
+      , color = ?
+      , x_px = ?
+      , y_px = ?
+      , mod_dt = ?
+      , mod_id = ?
+    WHERE poster_text_id = ?
+  `;
+  db.query(
+    query,
+    [
+      poster_text_type,
+      font_family,
+      font_size,
+      font_weight,
+      color,
+      x_px,
+      y_px,
+      time,
+      userId,
+      poster_text_id,
+    ],
+    (err, result) => {
+    if (err) {
+      console.log("err", err);
+    }
+    res.status(201).json({ result: result });
+    }
+  );
+};
+
+//포스터 이미지 삭제
+exports.updatePosterImageUseYn = (req, res) => {
+  const time = dayjs().format("YYYYMMDDHHmmss");
+  const { poster_image_id, use_yn, userId} = req.body;
+  const query = `
+    UPDATE poster_image SET
       use_yn = ?
       , mod_dt = ?
       , mod_id = ?
-    WHERE poster_detail_id = ?
+    WHERE poster_image_id = ?
   `;
-  db.query(query, [use_yn, time, userId, poster_detail_id], (err, result) => {
+  db.query(query, [use_yn, time, userId, poster_image_id], (err, result) => {
     if (err) {
       console.log("err", err);
     }
@@ -381,6 +471,26 @@ exports.deletePosterBase = (req, res) => {
     WHERE poster_id IN (?)
   `;
   db.query(query, [time, userId, poster_id], (err, result) => {
+    if (err) {
+      console.log("err", err);
+    }
+    res.status(201).json({ result: result });
+    }
+  );
+};
+
+//포스터 텍스트 삭제
+exports.updatePosterTextUseYn = (req, res) => {
+  const time = dayjs().format("YYYYMMDDHHmmss");
+  const { poster_text_id, use_yn, userId} = req.body;
+  const query = `
+    UPDATE poster_text SET
+      use_yn = ?
+      , mod_dt = ?
+      , mod_id = ?
+    WHERE poster_text_id = ?
+  `;
+  db.query(query, [use_yn, time, userId, poster_text_id], (err, result) => {
     if (err) {
       console.log("err", err);
     }

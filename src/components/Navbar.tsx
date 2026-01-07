@@ -42,7 +42,7 @@ const Navbar: React.FC = () => {
           if (location.pathname.startsWith("/app")) {
             navigate("/app/reservation");
           } else {
-            navigate("/members/reservation");
+            navigate("/app/reservation");
           }
         }
       } catch (e) {

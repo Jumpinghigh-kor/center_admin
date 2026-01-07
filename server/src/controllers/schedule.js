@@ -176,9 +176,11 @@ exports.getMemberScheduleAppList = (req, res) => {
       , s.sch_info
       , s.sch_max_cap
       , COALESCE(SUM(CASE WHEN cnt.original_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS registered_count
-      , COALESCE(SUM(CASE WHEN cnt.final_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS reserved_count
+      , COALESCE(SUM(CASE WHEN cnt.final_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS total_count
       , s.sch_max_cap - COALESCE(SUM(CASE WHEN cnt.final_sch_id = s.sch_id THEN cnt.member_cnt END), 0) AS remaining
       , COALESCE(ac.agree_yn_cnt, 0) AS agree_yn_cnt
+      , COALESCE(cur.current_count, 0) AS current_count
+      , COALESCE(pc.reserved_count, 0) AS reserved_count
     FROM (
           SELECT
             DATE_ADD(?, INTERVAL seq.seq DAY) AS sch_dt
@@ -257,14 +259,46 @@ exports.getMemberScheduleAppList = (req, res) => {
                 AND   msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
                 GROUP BY STR_TO_DATE(msa.sch_dt, '%Y%m%d'), msa.reservation_sch_id
               ) ac ON ac.start_dt = dates.sch_dt AND ac.sch_id = s.sch_id
+        LEFT JOIN (
+                SELECT
+                  STR_TO_DATE(msa.sch_dt, '%Y%m%d') AS start_dt
+                  , msa.reservation_sch_id AS sch_id
+                  , COUNT(DISTINCT msa.mem_id) AS current_count
+                FROM  member_schedule_app msa
+                WHERE msa.del_yn = 'N'
+                AND   msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
+                AND   (
+                        msa.reservation_sch_id = msa.original_sch_id
+                        OR msa.agree_yn = 'Y'
+                      )
+                GROUP BY STR_TO_DATE(msa.sch_dt, '%Y%m%d'), msa.reservation_sch_id
+              ) cur ON cur.start_dt = dates.sch_dt AND cur.sch_id = s.sch_id 
+    LEFT JOIN (
+                SELECT
+                  STR_TO_DATE(msa.sch_dt, '%Y%m%d') AS start_dt
+                  , msa.reservation_sch_id AS sch_id
+                  , COUNT(DISTINCT msa.mem_id) AS reserved_count
+                FROM  member_schedule_app msa
+                WHERE msa.del_yn = 'N'
+                AND   msa.agree_yn IS NULL
+                AND   msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
+                GROUP BY STR_TO_DATE(msa.sch_dt, '%Y%m%d'), msa.reservation_sch_id
+              ) pc ON pc.start_dt = dates.sch_dt AND pc.sch_id = s.sch_id
     WHERE   s.center_id = ?
     AND     s.sch_status = 1
-    GROUP BY dates.sch_dt, s.sch_id, s.sch_time, s.sch_max_cap, ac.agree_yn_cnt
+    GROUP BY dates.sch_dt, s.sch_id, s.sch_time, s.sch_max_cap, ac.agree_yn_cnt, cur.current_count, pc.reserved_count
     ORDER BY dates.sch_dt, s.sch_time
   `;
 
   db.query(query, [
-    start_date, start_date, end_date, start_date, start_date, end_date, center_id, start_date, end_date, start_date, end_date, center_id
+    start_date, start_date, end_date,
+    start_date, start_date, end_date,
+    center_id,
+    start_date, end_date,
+    start_date, end_date,
+    start_date, end_date,
+    start_date, end_date,
+    center_id
   ], (err, result) => {
     if (err) {
       return res.status(500).json(err);
@@ -544,9 +578,9 @@ exports.getReservationMemberCnt = (req, res) => {
     SELECT
       COUNT(*) AS cnt
     FROM		  members m
-    LEFT JOIN	member_schedule_app mca ON m.mem_id = mca.mem_id
-    WHERE		  mca.agree_yn IS NULL
-    AND			  DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= DATE_FORMAT(STR_TO_DATE(mca.sch_dt, '%Y%m%d'), '%Y%m%d%H%i%s')
+    LEFT JOIN	member_schedule_app msa ON m.mem_id = msa.mem_id
+    WHERE		  msa.agree_yn IS NULL
+    AND			  DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= DATE_FORMAT(STR_TO_DATE(msa.sch_dt, '%Y%m%d'), '%Y%m%d%H%i%s')
     AND			  m.center_id = ?
   `;
 

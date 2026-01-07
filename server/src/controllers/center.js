@@ -108,3 +108,27 @@ exports.getCenterList = (req, res) => {
     res.status(200).json({ result: result });
   });
 };
+
+//센터 주소 변경하기
+exports.updateCenterAddress = (req, res) => {
+  const { center_id, address, address_detail, zip_code, phone_number } =
+    req.body;
+  const query = `
+    UPDATE centers SET
+      address = ?
+      , address_detail = ?
+      , zip_code = ?
+      , phone_number = ?
+    WHERE center_id = ?;`;
+
+  db.query(
+    query,
+    [address, address_detail, zip_code, phone_number, center_id],
+    (err, result) => {
+      if (err) {
+        return res.status(500).json(err);
+      }
+      res.json({ message: "Updated the center address successfully", result: result });
+    }
+  );
+};

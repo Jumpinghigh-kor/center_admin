@@ -48,20 +48,6 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
     const dd = String(now.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
   }, []);
-  const hasConflict = useMemo(
-    () =>
-      selectedScheduleId !== "" &&
-      members.some((m, idx) => checkedItems[idx] && m.mem_sch_id === selectedScheduleId),
-    [selectedScheduleId, members, checkedItems]
-  );
-
-  const conflictMemberNames = useMemo(
-    () =>
-      selectedScheduleId === ""
-        ? []
-        : members.filter((m, idx) => checkedItems[idx] && m.mem_sch_id === selectedScheduleId).map((m) => m.mem_name),
-    [selectedScheduleId, members, checkedItems]
-  );
 
   const isScheduleTimePast = (schTime: string): boolean => {
     if (date !== todayStr) return false;
@@ -173,7 +159,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
   };
 
   const handleRegister = async () => {
-    if (!date || !selectedScheduleId || selectedMembers.length === 0 || hasConflict) return;
+    if (!date || !selectedScheduleId || selectedMembers.length === 0) return;
     const schDt = date.replace(/-/g, '');
     try {
       setDuplicateWarning("");
@@ -306,17 +292,6 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
                       );
                     })}
                   </select>
-                  {hasConflict && (
-                    <p className="text-sm text-red-600 mt-2">
-                      선택한 회원 중 현재 시간표와 동일한 회원이 있어 등록할 수 없습니다.
-                      {conflictMemberNames.length > 0 && (
-                        <>
-                          <span className="text-black">[{conflictMemberNames.join(", ")}]</span>
-                          님을 체크 해제 후 이용해주세요.
-                        </>
-                      )}
-                    </p>
-                  )}
                   {duplicateWarning && (
                     <p className="text-sm text-red-600 mt-2">
                       {(() => {
@@ -412,7 +387,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
             type="button"
             onClick={handleRegister}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            disabled={!date || !selectedScheduleId || selectedMembers.length === 0 || hasConflict || !!duplicateWarning}
+            disabled={!date || !selectedScheduleId || selectedMembers.length === 0 || !!duplicateWarning}
           >
             등록
           </button>

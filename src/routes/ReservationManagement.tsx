@@ -15,6 +15,7 @@ interface Schedule {
   registered_count: number;
   reserved_count: number;
   sch_app_id: number;
+  current_count: number;
 }
 
 const ReservationManagement: React.FC = () => {
@@ -26,6 +27,17 @@ const ReservationManagement: React.FC = () => {
   const [selectedReservation, setSelectedReservation] = useState<{ schedule: Schedule } | null>(null);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const nowLocation = location.pathname.startsWith("/app")
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  // 설명 모달 ESC 닫기
+  useEffect(() => {
+    if (!isGuideOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsGuideOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isGuideOpen]);
 
   const fetchMemberScheduleApp = async () => {
     try {
@@ -121,9 +133,57 @@ const ReservationManagement: React.FC = () => {
   return (
     <div className={`${nowLocation ? "p-6 bg-white rounded-lg shadow-lg overflow-hidden" : "px-2 py-3 lg:p-10"}`}>
       <div className="flex flex-col">
+        {isGuideOpen ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+            onClick={() => setIsGuideOpen(false)}
+          >
+            <div
+              className="w-[min(92vw,700px)] rounded-lg bg-white p-4 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-base font-bold text-gray-900">설명보기</div>
+              </div>
+              <div className="mt-3">
+                <p className="text-base">현재 페이지는 회원의 예약을 관리할 수 있습니다.</p>
+                <p className="text-base">어플을 통해 사용자가 예약을 할 경우 달력에 예약 표시가 나오고 상단에 종 모양에 알림이 옵니다.</p>
+                <p className="text-base">달력안에 표시된 시간표를 클릭하여, 예약 목록을 확인할 수 있으며,</p>
+                <p className="text-base">시간표 옆 각 숫자가 의미하는 것은 [참여 확정 회원수/예약 신청 회원수/최대 수용 인원수] 입니다.</p>
+                <p className="text-base">우측 상단의 예약 등록 버튼을 누를 경우, 점주님께서 직접 원하는 시간표에 회원을 예약할 수 있습니다.</p>
+                <p className="text-base font-bold mt-10">1. 예약 회원</p>
+                <p className="text-base">- 사용자가 어플에서 원하는 시간표에 예약을 한 경우입니다.</p>
+                <p className="text-base">- 예약 회원 목록에서 체크박스를 선택하여 예약 수락/거절을 할 수 있습니다.</p>
+                <p className="text-base font-bold mt-10">2. 고정 회원</p>
+                <p className="text-base">- 점주님이 설정한 시간표에 등록된 고정 회원입니다.</p>
+                <p className="text-base font-bold mt-10">3. 참여 확정 회원</p>
+                <p className="text-base">- 예약 회원에서 예약이 수락된 경우입니다.</p>
+                <p className="text-base">- 사용자가 어플에서 기본 시간표에 예약을 한 경우로 참여 확정 회원에 추가됩니다.</p>
+              </div>
+              <div className="flex justify-end mt-10">
+                <button
+                  type="button"
+                  style={{ backgroundColor: '#5C6B7A' }}
+                  className="text-white rounded px-4 py-2 text-sm"
+                  onClick={() => setIsGuideOpen(false)}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex justify-between items-center mb-4">
           <span className="font-bold text-xl">예약 관리</span>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded"
+              onClick={() => setIsGuideOpen(true)}
+            >
+              설명
+            </button>
             <button
               type="button"
               className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded"
@@ -190,7 +250,6 @@ const ReservationManagement: React.FC = () => {
               <span className="text-sm">여유</span>
             </div>
           </div>
-          
 
           {/* 달력 */}
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -253,8 +312,8 @@ const ReservationManagement: React.FC = () => {
                                   schedule.reserved_count,
                                   schedule.sch_max_cap
                                 );
-                                const totalCount = schedule.reserved_count;
-                                // 예약 마감 여부 (예약 대상에 한해 표시)
+                                // const totalCount = schedule.registered_count - schedule.current_count;
+                                const reservedCount = schedule.reserved_count;
                                 const timeParts = (schedule.sch_time || '').split(' ');
                                 const hm = (timeParts[0] || '').split(':');
                                 let hours = parseInt(hm[0] || '0', 10);
@@ -289,7 +348,7 @@ const ReservationManagement: React.FC = () => {
                                         className={`w-2 h-2 ${status.color} rounded-full`}
                                       ></div>
                                       <span className="text-gray-600">
-                                        {totalCount}/{schedule.sch_max_cap}
+                                        {schedule.current_count}/{reservedCount}/{schedule.sch_max_cap} 
                                       </span>
                                     </div>
                                   </div>
@@ -317,7 +376,6 @@ const ReservationManagement: React.FC = () => {
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
         onSubmit={(date, members) => {
-          console.log('예약 등록:', date, members);
           setIsRegisterOpen(false);
           fetchMemberScheduleApp();
         }}

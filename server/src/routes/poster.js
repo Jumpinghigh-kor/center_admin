@@ -5,12 +5,15 @@ const {
   getPosterBaseList,
   getPosterDetail,
   createPosterBase,
-  createPosterDetail,
+  createPosterImage,
+  createPosterText,
   uploadPosterImage,
   updatePosterBase,
-  updatePosterDetail,
   deletePosterBase,
-  updatePosterDetailUseYn,
+  updatePosterImageUseYn,
+  updatePosterText,
+  updatePosterImage,
+  updatePosterTextUseYn,
 } = require("../controllers/poster");
 
 // 메모리 스토리지 설정 (임시 저장)
@@ -34,11 +37,14 @@ const upload = multer({
 router.get("/", getPosterBaseList);
 router.get("/:posterId", getPosterDetail);
 router.post("/createPosterBase", createPosterBase);
-router.post("/createPosterDetail", createPosterDetail);
+router.post("/createPosterImage", createPosterImage);
+router.post("/createPosterText", createPosterText);
 router.post("/uploadPosterImage", upload.any(), uploadPosterImage);
 router.post("/updatePosterBase", updatePosterBase);
-router.post("/updatePosterDetail", updatePosterDetail);
+router.post("/updatePosterImage", updatePosterImage);
+router.post("/updatePosterText", updatePosterText);
 router.post("/deletePosterBase", deletePosterBase);
-router.post("/updatePosterDetailUseYn", updatePosterDetailUseYn);
+router.post("/updatePosterImageUseYn", updatePosterImageUseYn);
+router.post("/updatePosterTextUseYn", updatePosterTextUseYn);
 
 module.exports = router;
