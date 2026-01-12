@@ -61,6 +61,7 @@ exports.getPosterDetail = (req, res) => {
       , pt.color
       , pt.x_px
       , pt.y_px
+      , pt.flyer_type
     FROM      poster_base pb
     LEFT JOIN poster_image pi ON pb.poster_id = pi.poster_id
     LEFT JOIN common_file cf  ON pi.file_id = cf.file_id
@@ -177,6 +178,7 @@ exports.createPosterText = (req, res) => {
   const {
     poster_image_id,
     poster_text_type,
+    flyer_type,
     font_family,
     font_size,
     font_weight,
@@ -190,6 +192,7 @@ exports.createPosterText = (req, res) => {
     INSERT INTO poster_text (
       poster_image_id
       , poster_text_type
+      , flyer_type
       , font_family
       , font_size
       , font_weight
@@ -215,6 +218,7 @@ exports.createPosterText = (req, res) => {
       ,?
       ,?
       ,?
+      ,?
     )
   `;
   db.query(
@@ -222,6 +226,7 @@ exports.createPosterText = (req, res) => {
     [
       poster_image_id,
       poster_text_type,
+      flyer_type,
       font_family,
       font_size,
       font_weight,
@@ -310,11 +315,12 @@ exports.updatePosterImage = (req, res) => {
 //포스터 텍스트 수정
 exports.updatePosterText = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_text_id, poster_text_type, font_family, font_size, font_weight, color, x_px, y_px, userId} = req.body;
+  const { poster_text_id, poster_text_type, flyer_type, font_family, font_size, font_weight, color, x_px, y_px, userId} = req.body;
 
   const query = `
     UPDATE poster_text SET
       poster_text_type = ?
+      , flyer_type = ?
       , font_family = ?
       , font_size = ?
       , font_weight = ?
@@ -329,6 +335,7 @@ exports.updatePosterText = (req, res) => {
     query,
     [
       poster_text_type,
+      flyer_type,
       font_family,
       font_size,
       font_weight,

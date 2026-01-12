@@ -34,8 +34,8 @@ const cron = require("node-cron");
 
 const PORT = process.env.PORT || 8080;
 const app = express();
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(
   cors({
     origin: [
@@ -248,6 +248,18 @@ app.use("/api/admin", admin);
 app.use("/api/news", news);
 app.use("/api/locker", locker);
 app.use("/api/app", app_api);
+// 413 Payload Too Large 에러 핸들러 추가
+app.use((err, req, res, next) => {
+  if (err.status === 413 || err.statusCode === 413) {
+    return res.status(413).json({
+      error: '파일 크기가 너무 큽니다. 최대 100MB까지 업로드 가능합니다.',
+      statusCode: '413',
+      message: 'The file size exceeds the maximum allowed size (100MB)'
+    });
+  }
+  next(err);
+});
+
 app.use("/api/poster", poster);
 //센터 추가
 app.post("/api/user", (req, res) => {

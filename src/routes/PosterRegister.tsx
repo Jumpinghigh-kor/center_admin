@@ -56,9 +56,10 @@ const PosterRegister: React.FC = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [centerInfo, setCenterInfo] = useState<any>(null);
-  const [posterView, setPosterView] = useState<{ web: boolean; print: boolean }>({
+  const [posterView, setPosterView] = useState<{ web: boolean; print: boolean; banner: boolean }>({
     web: true,
     print: true,
+    banner: true,
   });
   const [selectedPoster, setSelectedPoster] = useState<PosterRegisterType>();
   const [templateFile, setTemplateFile] = useState<File | null>(null);
@@ -67,6 +68,10 @@ const PosterRegister: React.FC = () => {
   );
   const [printTemplateFile, setPrintTemplateFile] = useState<File | null>(null);
   const [printTemplatePreviewUrl, setPrintTemplatePreviewUrl] = useState<string | null>(
+    null
+  );
+  const [bannerTemplateFile, setBannerTemplateFile] = useState<File | null>(null);
+  const [bannerTemplatePreviewUrl, setBannerTemplatePreviewUrl] = useState<string | null>(
     null
   );
   const previewBoxRef = useRef<HTMLDivElement | null>(null);
@@ -113,6 +118,28 @@ const PosterRegister: React.FC = () => {
   const [printImageNaturalSize, setPrintImageNaturalSize] = useState<{ w: number; h: number } | null>(
     null
   );
+  const bannerPreviewBoxRef = useRef<HTMLDivElement | null>(null);
+  const bannerPreviewImgRef = useRef<HTMLImageElement | null>(null);
+  const bannerCenterTextRef = useRef<HTMLDivElement | null>(null);
+  const bannerAddressTextRef = useRef<HTMLDivElement | null>(null);
+  const bannerPhoneTextRef = useRef<HTMLDivElement | null>(null);
+  const bannerOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bannerDraggingRef = useRef(false);
+  const bannerDragTargetRef = useRef<"center" | "address" | "phone" | null>(null);
+  const bannerDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [bannerShowGuides, setBannerShowGuides] = useState<{ v: boolean; h: boolean }>({
+    v: false,
+    h: false,
+  });
+  const [bannerImageBox, setBannerImageBox] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [bannerImageNaturalSize, setBannerImageNaturalSize] = useState<{ w: number; h: number } | null>(
+    null
+  );
   const [fontColor, setFontColor] = useState<string>("#ffffff");
   const [fontSizePt, setFontSizePt] = useState<number>(90);
   const [fontWeight, setFontWeight] = useState<number>(400);
@@ -137,6 +164,19 @@ const PosterRegister: React.FC = () => {
   const [printPhoneFontSizePt, setPrintPhoneFontSizePt] = useState<number>(230);
   const [printPhoneFontWeight, setPrintPhoneFontWeight] = useState<number>(400);
   const [printPhoneFontFamily, setPrintPhoneFontFamily] = useState<string>("");
+  const [flyerType, setFlyerType] = useState<string>("A4");
+  const [bannerFontColor, setBannerFontColor] = useState<string>("#ffffff");
+  const [bannerFontSizePt, setBannerFontSizePt] = useState<number>(600);
+  const [bannerFontWeight, setBannerFontWeight] = useState<number>(400);
+  const [bannerFontFamily, setBannerFontFamily] = useState<string>("");
+  const [bannerAddressFontColor, setBannerAddressFontColor] = useState<string>("#ffffff");
+  const [bannerAddressFontSizePt, setBannerAddressFontSizePt] = useState<number>(300);
+  const [bannerAddressFontWeight, setBannerAddressFontWeight] = useState<number>(400);
+  const [bannerAddressFontFamily, setBannerAddressFontFamily] = useState<string>("");
+  const [bannerPhoneFontColor, setBannerPhoneFontColor] = useState<string>("#ffffff");
+  const [bannerPhoneFontSizePt, setBannerPhoneFontSizePt] = useState<number>(600);
+  const [bannerPhoneFontWeight, setBannerPhoneFontWeight] = useState<number>(400);
+  const [bannerPhoneFontFamily, setBannerPhoneFontFamily] = useState<string>("");
   const [posterTitle, setPosterTitle] = useState<string>("");
   const [textPos, setTextPos] = useState<{ x: number; y: number }>({
     x: 10,
@@ -150,18 +190,27 @@ const PosterRegister: React.FC = () => {
   });
   const [printAddressPos, setPrintAddressPos] = useState<{ x: number; y: number }>({ x: 10, y: 60 });
   const [printPhonePos, setPrintPhonePos] = useState<{ x: number; y: number }>({ x: 10, y: 110 });
+  const [bannerTextPos, setBannerTextPos] = useState<{ x: number; y: number }>({
+    x: 10,
+    y: 10,
+  });
+  const [bannerAddressPos, setBannerAddressPos] = useState<{ x: number; y: number }>({ x: 10, y: 60 });
+  const [bannerPhonePos, setBannerPhonePos] = useState<{ x: number; y: number }>({ x: 10, y: 110 });
   const [postStartAt, setPostStartAt] = useState<string>("");
   const [postEndAt, setPostEndAt] = useState<string>("");
   const [postRangeMode, setPostRangeMode] = useState<"manual" | "forever">(
     "manual"
   );
-  // 표시 항목은 WEB/PRINT 각각 독립적으로 관리해야 함
+  // 표시 항목은 WEB/FLYER/BANNER 각각 독립적으로 관리해야 함
   const [showWebCenterLine, setShowWebCenterLine] = useState(true);
   const [showWebAddressLine, setShowWebAddressLine] = useState(true);
   const [showWebPhoneLine, setShowWebPhoneLine] = useState(true);
   const [showPrintCenterLine, setShowPrintCenterLine] = useState(true);
   const [showPrintAddressLine, setShowPrintAddressLine] = useState(true);
   const [showPrintPhoneLine, setShowPrintPhoneLine] = useState(true);
+  const [showBannerCenterLine, setShowBannerCenterLine] = useState(true);
+  const [showBannerAddressLine, setShowBannerAddressLine] = useState(true);
+  const [showBannerPhoneLine, setShowBannerPhoneLine] = useState(true);
   const manualPostRangeRef = useRef<{ start: string; end: string }>({
     start: "",
     end: "",
@@ -171,6 +220,7 @@ const PosterRegister: React.FC = () => {
   const fontLoadCacheRef = useRef<Map<string, Promise<void>>>(new Map());
   const webOverlayDrawSeqRef = useRef(0);
   const printOverlayDrawSeqRef = useRef(0);
+  const bannerOverlayDrawSeqRef = useRef(0);
   const measureTextBoxImg = useCallback(
     (opts: {
       text: string;
@@ -250,6 +300,10 @@ const PosterRegister: React.FC = () => {
   const fontSizePx = useMemo(() => (fontSizePt * 4) / 3, [fontSizePt]); // 96DPI 기준: pt * 96/72
   const printMainPreviewUrl = printTemplatePreviewUrl;
   const printFontSizePx = useMemo(() => (printFontSizePt * 4) / 3, [printFontSizePt]); // 96DPI 기준: pt * 96/72
+  const bannerMainPreviewUrl = bannerTemplatePreviewUrl;
+  const bannerFontSizePx = useMemo(() => (bannerFontSizePt * 4) / 3, [bannerFontSizePt]); // 96DPI 기준: pt * 96/72
+  const bannerAddressFontSizePx = useMemo(() => (bannerAddressFontSizePt * 4) / 3, [bannerAddressFontSizePt]); // 96DPI 기준: pt * 96/72
+  const bannerPhoneFontSizePx = useMemo(() => (bannerPhoneFontSizePt * 4) / 3, [bannerPhoneFontSizePt]); // 96DPI 기준: pt * 96/72
   const webScale = useMemo(() => {
     if (!imageBox || !imageNaturalSize?.w) return 1;
     return imageBox.width / imageNaturalSize.w;
@@ -258,7 +312,12 @@ const PosterRegister: React.FC = () => {
     if (!printImageBox || !printImageNaturalSize?.w) return 1;
     return printImageBox.width / printImageNaturalSize.w;
   }, [printImageBox, printImageNaturalSize?.w]);
-  const isBothView = posterView.web && posterView.print;
+  const bannerScale = useMemo(() => {
+    if (!bannerImageBox || !bannerImageNaturalSize?.w) return 1;
+    return bannerImageBox.width / bannerImageNaturalSize.w;
+  }, [bannerImageBox, bannerImageNaturalSize?.w]);
+  const isBothView = (posterView.web && posterView.print) || (posterView.web && posterView.banner) || (posterView.print && posterView.banner);
+  const isAllView = posterView.web && posterView.print && posterView.banner;
 
   const centerTextValue = useMemo(
     () => ((user as any)?.center_name) || "",
@@ -300,10 +359,16 @@ const PosterRegister: React.FC = () => {
       if (showWebPhoneLine && phoneTextValue && !phoneFontFamily) return alert("웹용 매장번호 폰트를 선택해주세요.");
     }
     if (posterView.print) {
-      if (!printTemplateFile) return alert("인쇄용 이미지를 업로드해주세요.");
-      if (showPrintCenterLine && centerTextValue && !printFontFamily) return alert("인쇄용 지점명 폰트를 선택해주세요.");
-      if (showPrintAddressLine && addressTextValue && !printAddressFontFamily) return alert("인쇄용 주소 폰트를 선택해주세요.");
-      if (showPrintPhoneLine && phoneTextValue && !printPhoneFontFamily) return alert("인쇄용 매장번호 폰트를 선택해주세요.");
+      if (!printTemplateFile) return alert("전단지용 이미지를 업로드해주세요.");
+      if (showPrintCenterLine && centerTextValue && !printFontFamily) return alert("전단지용 지점명 폰트를 선택해주세요.");
+      if (showPrintAddressLine && addressTextValue && !printAddressFontFamily) return alert("전단지용 주소 폰트를 선택해주세요.");
+      if (showPrintPhoneLine && phoneTextValue && !printPhoneFontFamily) return alert("전단지용 매장번호 폰트를 선택해주세요.");
+    }
+    if (posterView.banner) {
+      if (!bannerTemplateFile) return alert("배너용 이미지를 업로드해주세요.");
+      if (showBannerCenterLine && centerTextValue && !bannerFontFamily) return alert("배너용 지점명 폰트를 선택해주세요.");
+      if (showBannerAddressLine && addressTextValue && !bannerAddressFontFamily) return alert("배너용 주소 폰트를 선택해주세요.");
+      if (showBannerPhoneLine && phoneTextValue && !bannerPhoneFontFamily) return alert("배너용 매장번호 폰트를 선택해주세요.");
     }
 
     try {
@@ -330,7 +395,7 @@ const PosterRegister: React.FC = () => {
       }
 
       const uploadAndCreateDetail = async (opts: {
-        poster_image_type: "WEB" | "PRINT";
+        poster_image_type: "WEB" | "FLYER" | "BANNER";
         file: File;
         font_family: string;
         font_size: number;
@@ -378,9 +443,10 @@ const PosterRegister: React.FC = () => {
         font_family: string,
         font_size: number,
         font_weight: number,
-        color: string
+        color: string,
+        flyer_type?: string
       ) => {
-        await axios.post(`${process.env.REACT_APP_API_URL}/poster/createPosterText`, {
+        const payload: any = {
           // For backward/forward compatibility across schema transitions:
           poster_id: posterId,
           poster_image_id: posterImageId,
@@ -392,7 +458,11 @@ const PosterRegister: React.FC = () => {
           x_px: x,
           y_px: y,
           userId: user.index,
-        });
+        };
+        if (flyer_type) {
+          payload.flyer_type = flyer_type;
+        }
+        await axios.post(`${process.env.REACT_APP_API_URL}/poster/createPosterText`, payload);
       };
 
       if (opts.poster_image_type === "WEB") {
@@ -405,15 +475,25 @@ const PosterRegister: React.FC = () => {
         if (showWebPhoneLine && phoneTextValue) {
           await createText("PHONE", Math.round(phonePos.x), Math.round(phonePos.y), phoneFontFamily, phoneFontSizePt, phoneFontWeight, phoneFontColor);
         }
-      } else {
+      } else if (opts.poster_image_type === "FLYER") {
         if (showPrintCenterLine && centerTextValue) {
-          await createText("CENTER", Math.round(printTextPos.x), Math.round(printTextPos.y), printFontFamily, printFontSizePt, printFontWeight, printFontColor);
+          await createText("CENTER", Math.round(printTextPos.x), Math.round(printTextPos.y), printFontFamily, printFontSizePt, printFontWeight, printFontColor, flyerType);
         }
         if (showPrintAddressLine && addressTextValue) {
-          await createText("ADDRESS", Math.round(printAddressPos.x), Math.round(printAddressPos.y), printAddressFontFamily, printAddressFontSizePt, printAddressFontWeight, printAddressFontColor);
+          await createText("ADDRESS", Math.round(printAddressPos.x), Math.round(printAddressPos.y), printAddressFontFamily, printAddressFontSizePt, printAddressFontWeight, printAddressFontColor, flyerType);
         }
         if (showPrintPhoneLine && phoneTextValue) {
-          await createText("PHONE", Math.round(printPhonePos.x), Math.round(printPhonePos.y), printPhoneFontFamily, printPhoneFontSizePt, printPhoneFontWeight, printPhoneFontColor);
+          await createText("PHONE", Math.round(printPhonePos.x), Math.round(printPhonePos.y), printPhoneFontFamily, printPhoneFontSizePt, printPhoneFontWeight, printPhoneFontColor, flyerType);
+        }
+      } else {
+        if (showBannerCenterLine && centerTextValue) {
+          await createText("CENTER", Math.round(bannerTextPos.x), Math.round(bannerTextPos.y), bannerFontFamily, bannerFontSizePt, bannerFontWeight, bannerFontColor);
+        }
+        if (showBannerAddressLine && addressTextValue) {
+          await createText("ADDRESS", Math.round(bannerAddressPos.x), Math.round(bannerAddressPos.y), bannerAddressFontFamily, bannerAddressFontSizePt, bannerAddressFontWeight, bannerAddressFontColor);
+        }
+        if (showBannerPhoneLine && phoneTextValue) {
+          await createText("PHONE", Math.round(bannerPhonePos.x), Math.round(bannerPhonePos.y), bannerPhoneFontFamily, bannerPhoneFontSizePt, bannerPhoneFontWeight, bannerPhoneFontColor);
         }
       }
       };
@@ -433,7 +513,7 @@ const PosterRegister: React.FC = () => {
 
       if (posterView.print && printTemplateFile) {
         await uploadAndCreateDetail({
-          poster_image_type: "PRINT",
+          poster_image_type: "FLYER",
           file: printTemplateFile,
           font_family: printFontFamily,
           font_size: printFontSizePt,
@@ -441,6 +521,19 @@ const PosterRegister: React.FC = () => {
           color: printFontColor,
           x_px: printTextPos.x,
           y_px: printTextPos.y,
+        });
+      }
+
+      if (posterView.banner && bannerTemplateFile) {
+        await uploadAndCreateDetail({
+          poster_image_type: "BANNER",
+          file: bannerTemplateFile,
+          font_family: bannerFontFamily,
+          font_size: bannerFontSizePt,
+          font_weight: bannerFontWeight,
+          color: bannerFontColor,
+          x_px: bannerTextPos.x,
+          y_px: bannerTextPos.y,
         });
       }
 
@@ -916,12 +1009,12 @@ const PosterRegister: React.FC = () => {
 
     const dpi = await getImageDpi(file);
     if (dpi == null) {
-      alert("인쇄용 이미지는 DPI 정보를 확인할 수 있어야 업로드 가능합니다. (DPI 200 이상)");
+      alert("전단지용 이미지는 DPI 정보를 확인할 수 있어야 업로드 가능합니다. (DPI 200 이상)");
       e.target.value = "";
       return;
     }
     if (dpi < 200) {
-      alert(`인쇄용 이미지는 DPI 200 이상만 업로드 가능합니다. (현재: ${dpi})`);
+      alert(`전단지용 이미지는 DPI 200 이상만 업로드 가능합니다. (현재: ${dpi})`);
       e.target.value = "";
       return;
     }
@@ -994,6 +1087,27 @@ const PosterRegister: React.FC = () => {
     setPrintTemplatePreviewUrl(tmpUrl);
   };
 
+  const handleBannerTemplateImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+
+    const file = e.target.files[0];
+    const fileType = file.type;
+
+    if (fileType !== "image/png" && fileType !== "image/jpeg") {
+      alert("PNG 또는 JPG 파일만 업로드 가능합니다.");
+      e.target.value = "";
+      return;
+    }
+
+    const tmpUrl = URL.createObjectURL(file);
+
+    // Cleanup old preview URL
+    if (bannerTemplatePreviewUrl) URL.revokeObjectURL(bannerTemplatePreviewUrl);
+
+    setBannerTemplateFile(file);
+    setBannerTemplatePreviewUrl(tmpUrl);
+  };
+
   useEffect(() => {
     return () => {
       if (templatePreviewUrl) URL.revokeObjectURL(templatePreviewUrl);
@@ -1005,6 +1119,12 @@ const PosterRegister: React.FC = () => {
       if (printTemplatePreviewUrl) URL.revokeObjectURL(printTemplatePreviewUrl);
     };
   }, [printTemplatePreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (bannerTemplatePreviewUrl) URL.revokeObjectURL(bannerTemplatePreviewUrl);
+    };
+  }, [bannerTemplatePreviewUrl]);
 
   useEffect(() => {
     const el = previewBoxRef.current;
@@ -1265,6 +1385,206 @@ const PosterRegister: React.FC = () => {
     printFontWeight,
     printFontSizePt,
   ]);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!bannerDraggingRef.current) return;
+      if (!bannerImageBox) return;
+      const container = bannerPreviewBoxRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const target = bannerDragTargetRef.current;
+      const textEl =
+        target === "address"
+            ? bannerAddressTextRef.current
+            : target === "phone"
+              ? bannerPhoneTextRef.current
+              : bannerCenterTextRef.current;
+      const textRect = textEl ? textEl.getBoundingClientRect() : null;
+      const textW = (textRect && textRect.width) || 0;
+      const textH = (textRect && textRect.height) || 0;
+
+      const natW = bannerImageNaturalSize?.w || 0;
+      const natH = bannerImageNaturalSize?.h || 0;
+      const scale = bannerScale || 1;
+      if (!natW || !natH || !scale) return;
+
+      const pointerXImg = (e.clientX - rect.left - bannerImageBox.left) / scale;
+      const pointerYImg = (e.clientY - rect.top - bannerImageBox.top) / scale;
+
+      const textWImg = textW / scale;
+      const textHImg = textH / scale;
+
+      const maxX = Math.max(0, natW - textWImg);
+      const maxY = Math.max(0, natH - textHImg);
+
+      let nextX = pointerXImg - bannerDragOffsetRef.current.x;
+      let nextY = pointerYImg - bannerDragOffsetRef.current.y;
+      nextX = Math.min(Math.max(0, nextX), maxX);
+      nextY = Math.min(Math.max(0, nextY), maxY);
+
+      // Figma/Photoshop 스타일 중앙 정렬 가이드(근접 시 표시 + 스냅)
+      const snapThreshold = 6; // px
+      const snapThresholdImg = snapThreshold / scale;
+      const centerTargetX = (natW - textWImg) / 2;
+      const centerTargetY = (natH - textHImg) / 2;
+
+      const snapV = Math.abs(nextX - centerTargetX) <= snapThresholdImg;
+      const snapH = Math.abs(nextY - centerTargetY) <= snapThresholdImg;
+
+      if (snapV) nextX = Math.min(Math.max(0, centerTargetX), maxX);
+      if (snapH) nextY = Math.min(Math.max(0, centerTargetY), maxY);
+
+      setBannerShowGuides((prev) =>
+        prev.v === snapV && prev.h === snapH ? prev : { v: snapV, h: snapH }
+      );
+
+      nextX = Math.round(nextX);
+      nextY = Math.round(nextY);
+      if (target === "address") {
+        setBannerAddressPos({ x: nextX, y: nextY });
+      } else if (target === "phone") {
+        setBannerPhonePos({ x: nextX, y: nextY });
+      } else {
+        setBannerTextPos({ x: nextX, y: nextY });
+      }
+    };
+
+    const onMouseUp = () => {
+      bannerDraggingRef.current = false;
+      bannerDragTargetRef.current = null;
+      setBannerShowGuides((prev) => (prev.v || prev.h ? { v: false, h: false } : prev));
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [
+    bannerImageBox,
+    bannerImageNaturalSize?.w,
+    bannerImageNaturalSize?.h,
+    bannerScale,
+    user,
+    bannerFontFamily,
+    bannerFontWeight,
+    bannerFontSizePt,
+  ]);
+
+  useEffect(() => {
+    if (!bannerImageBox) return;
+    if (!bannerImageNaturalSize?.w || !bannerImageNaturalSize?.h) return;
+    const canvas = bannerOverlayCanvasRef.current;
+    if (!canvas) return;
+    const drawSeq = ++bannerOverlayDrawSeqRef.current;
+
+    const run = async () => {
+      try {
+        if (showBannerCenterLine && centerTextValue) await ensureFontLoaded(bannerFontFamily || "");
+        if (showBannerAddressLine && addressTextValue) await ensureFontLoaded(bannerAddressFontFamily || "");
+        if (showBannerPhoneLine && phoneTextValue) await ensureFontLoaded(bannerPhoneFontFamily || "");
+      } catch {}
+      if (drawSeq !== bannerOverlayDrawSeqRef.current) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = Math.max(1, Math.round(bannerImageBox.width));
+      const cssH = Math.max(1, Math.round(bannerImageBox.height));
+      const cssWpx = `${cssW}px`;
+      const cssHpx = `${cssH}px`;
+      const nextW = Math.round(cssW * dpr);
+      const nextH = Math.round(cssH * dpr);
+      if (
+        canvas.width !== nextW ||
+        canvas.height !== nextH ||
+        canvas.style.width !== cssWpx ||
+        canvas.style.height !== cssHpx
+      ) {
+        canvas.style.width = cssWpx;
+        canvas.style.height = cssHpx;
+        canvas.width = nextW;
+        canvas.height = nextH;
+      }
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssW, cssH);
+
+      const scale = bannerScale || 1;
+      if (!scale) return;
+
+      ctx.save();
+      ctx.textBaseline = "top";
+
+      if (showBannerCenterLine && centerTextValue) {
+        const size = ((Number(bannerFontSizePt || 600) * 4) / 3) * scale;
+        ctx.fillStyle = bannerFontColor || "#ffffff";
+        ctx.font = `${Number(bannerFontWeight || 400)} ${size}px "${bannerFontFamily || ""}"`;
+        ctx.fillText(
+          String(centerTextValue || ""),
+          Math.round(Number(bannerTextPos.x || 0) * scale),
+          Math.round(Number(bannerTextPos.y || 0) * scale)
+        );
+      }
+      if (showBannerAddressLine && addressTextValue) {
+        const size = ((Number(bannerAddressFontSizePt || 300) * 4) / 3) * scale;
+        ctx.fillStyle = bannerAddressFontColor || "#ffffff";
+        ctx.font = `${Number(bannerAddressFontWeight || 400)} ${size}px "${bannerAddressFontFamily || ""}"`;
+        ctx.fillText(
+          String(addressTextValue || ""),
+          Math.round(Number(bannerAddressPos.x || 0) * scale),
+          Math.round(Number(bannerAddressPos.y || 0) * scale)
+        );
+      }
+      if (showBannerPhoneLine && phoneTextValue) {
+        const size = ((Number(bannerPhoneFontSizePt || 600) * 4) / 3) * scale;
+        ctx.fillStyle = bannerPhoneFontColor || "#ffffff";
+        ctx.font = `${Number(bannerPhoneFontWeight || 400)} ${size}px "${bannerPhoneFontFamily || ""}"`;
+        ctx.fillText(
+          String(phoneTextValue || ""),
+          Math.round(Number(bannerPhonePos.x || 0) * scale),
+          Math.round(Number(bannerPhonePos.y || 0) * scale)
+        );
+      }
+      ctx.restore();
+    };
+
+    requestAnimationFrame(() => run());
+  }, [
+    bannerImageBox,
+    bannerImageNaturalSize?.w,
+    bannerImageNaturalSize?.h,
+    bannerScale,
+    bannerTextPos.x,
+    bannerTextPos.y,
+    bannerAddressPos.x,
+    bannerAddressPos.y,
+    bannerPhonePos.x,
+    bannerPhonePos.y,
+    bannerFontColor,
+    bannerFontFamily,
+    bannerFontSizePt,
+    bannerFontWeight,
+    bannerAddressFontColor,
+    bannerAddressFontFamily,
+    bannerAddressFontSizePt,
+    bannerAddressFontWeight,
+    bannerPhoneFontColor,
+    bannerPhoneFontFamily,
+    bannerPhoneFontSizePt,
+    bannerPhoneFontWeight,
+    centerTextValue,
+    addressTextValue,
+    phoneTextValue,
+    showBannerCenterLine,
+    showBannerAddressLine,
+    showBannerPhoneLine,
+    user,
+    ensureFontLoaded,
+  ]);
   
   return (
     <div className="min-h-screen p-3 sm:p-10">
@@ -1290,22 +1610,22 @@ const PosterRegister: React.FC = () => {
           <button
             type="button"
             className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-              posterView.web && posterView.print
+              isAllView
                 ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
                 : "text-gray-700 hover:bg-slate-50"
             }`}
-            onClick={() => setPosterView({ web: true, print: true })}
+            onClick={() => setPosterView({ web: true, print: true, banner: true })}
           >
             전체
           </button>
           <button
             type="button"
             className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-              posterView.web && !posterView.print
+              posterView.web && !posterView.print && !posterView.banner
                 ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
                 : "text-gray-700 hover:bg-slate-50"
             }`}
-            onClick={() => setPosterView({ web: true, print: false })}
+            onClick={() => setPosterView({ web: true, print: false, banner: false })}
           >
             웹용
           </button>
@@ -1316,9 +1636,20 @@ const PosterRegister: React.FC = () => {
                 ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
                 : "text-gray-700 hover:bg-slate-50"
             }`}
-            onClick={() => setPosterView({ web: false, print: true })}
+            onClick={() => setPosterView({ web: false, print: true, banner: false })}
           >
-            인쇄용
+            전단지용
+          </button>
+          <button
+            type="button"
+            className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
+              posterView.banner && !posterView.web && !posterView.print
+                ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
+                : "text-gray-700 hover:bg-slate-50"
+            }`}
+            onClick={() => setPosterView({ web: false, print: false, banner: true })}
+          >
+            배너용
           </button>
         </div>
           </div>
@@ -1859,7 +2190,7 @@ const PosterRegister: React.FC = () => {
             isBothView ? "lg:col-span-1 order-2" : "lg:col-span-1 order-1"
           } bg-white shadow-md sm:rounded-lg p-4`}
         >
-          <div className="text-2xl font-extrabold mb-2">인쇄용</div>
+          <div className="text-2xl font-extrabold mb-2">전단지용</div>
           <div className="font-bold text-base mb-2">기본 템플릿</div>
           <input
             id="poster-print-template-image-input"
@@ -1885,6 +2216,16 @@ const PosterRegister: React.FC = () => {
           <div className="mt-2 text-xs text-gray-500">
             PNG/JPG, 최대 100MB, DPI 200 이상
           </div>
+
+          <div className="mt-3 font-bold text-base">전단지 타입</div>
+          <select
+            className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm"
+            value={flyerType}
+            onChange={(e) => setFlyerType(e.target.value)}
+          >
+            <option value="A4">A4</option>
+            <option value="A5">A5</option>
+          </select>
 
           <div className="mt-3 text-sm text-gray-800">
             <div className="font-semibold">파일명</div>
@@ -2324,6 +2665,472 @@ const PosterRegister: React.FC = () => {
           </div>
         </div>
         ) : null}
+
+        {posterView.banner ? (
+        <div
+          className={`${
+            isBothView ? "lg:col-span-1 order-2" : "lg:col-span-1 order-1"
+          } bg-white shadow-md sm:rounded-lg p-4`}
+        >
+          <div className="text-2xl font-extrabold mb-2">배너용</div>
+          <div className="font-bold text-base mb-2">기본 템플릿</div>
+          <input
+            id="poster-banner-template-image-input"
+            type="file"
+            accept=".png,.jpg,.jpeg"
+            onChange={handleBannerTemplateImageChange}
+            className="hidden"
+          />
+
+          <button
+            type="button"
+            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-bold hover:bg-blue-700"
+            onClick={() => {
+              const input = document.getElementById(
+                "poster-banner-template-image-input"
+              ) as HTMLInputElement | null;
+              input?.click();
+            }}
+          >
+            이미지 선택
+          </button>
+
+          <div className="mt-2 text-xs text-gray-500">
+            PNG/JPG
+          </div>
+
+          <div className="mt-3 text-sm text-gray-800">
+            <div className="font-semibold">파일명</div>
+            {bannerTemplateFile ? (
+              <div className="break-all">{bannerTemplateFile.name}</div>
+            ) : (
+              <div className="text-red-500">이미지를 업로드 해주세요.</div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {showBannerCenterLine ? (
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <div className="font-bold text-base">지점명</div>
+                  <div className="mt-3 font-bold text-base">지점명 폰트</div>
+                  <select
+                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                    value={bannerFontFamily}
+                    onChange={(e) => setBannerFontFamily(e.target.value)}
+                    disabled={!bannerTemplateFile}
+                  >
+                    <option value="" disabled>
+                      선택
+                    </option>
+                    {FONT_OPTIONS.map((f) => (
+                      <option key={`banner__${f.family}__${f.url}`} value={f.family}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="mt-4 font-bold text-base">지점명 폰트 굵기</div>
+                  <select
+                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                    value={bannerFontWeight}
+                    onChange={(e) => setBannerFontWeight(Number(e.target.value))}
+                    disabled={!bannerTemplateFile}
+                  >
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={300}>300</option>
+                    <option value={400}>400 (일반)</option>
+                    <option value={500}>500</option>
+                    <option value={600}>600</option>
+                    <option value={700}>700 (굵게)</option>
+                    <option value={800}>800</option>
+                    <option value={900}>900</option>
+                  </select>
+
+                  <div className="mt-4 font-bold text-base">지점명 폰트 크기</div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={300}
+                      step={1}
+                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                      value={bannerFontSizePt}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setBannerFontSizePt(v === "" ? 12 : Number(v));
+                      }}
+                      disabled={!bannerTemplateFile}
+                    />
+                    <span className="text-sm text-gray-600">pt</span>
+                  </div>
+
+                  <div className="mt-4 font-bold text-base">지점명 색상</div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <input
+                      type="color"
+                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                      value={bannerFontColor}
+                      onChange={(e) => setBannerFontColor(e.target.value)}
+                      disabled={!bannerTemplateFile}
+                    />
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                      value={bannerFontColor}
+                      placeholder="#RRGGBB"
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        const next = raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                          setBannerFontColor(next);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!/^#[0-9a-fA-F]{6}$/.test(bannerFontColor)) {
+                          setBannerFontColor("#ffffff");
+                        } else {
+                          setBannerFontColor(bannerFontColor.toLowerCase());
+                        }
+                      }}
+                      disabled={!bannerTemplateFile}
+                    />
+                  </div>
+
+                  <div className="mt-4 font-bold text-base">지점명 위치</div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                        value={Math.round(bannerTextPos.x * (bannerScale || 1))}
+                        onChange={(e) =>
+                          setBannerTextPos((prev) => ({
+                            ...prev,
+                            x: Number(e.target.value || 0) / (bannerScale || 1),
+                          }))
+                        }
+                        disabled={!bannerTemplateFile}
+                      />
+                      <span className="shrink-0 text-sm text-gray-600">px</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                        value={Math.round(bannerTextPos.y * (bannerScale || 1))}
+                        onChange={(e) =>
+                          setBannerTextPos((prev) => ({
+                            ...prev,
+                            y: Number(e.target.value || 0) / (bannerScale || 1),
+                          }))
+                        }
+                        disabled={!bannerTemplateFile}
+                      />
+                      <span className="shrink-0 text-sm text-gray-600">px</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {showBannerAddressLine ? (
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <div className="font-bold text-base">주소</div>
+                  <div className="mt-3 font-bold text-base">주소 폰트</div>
+                  <select
+                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                    value={bannerAddressFontFamily}
+                    onChange={(e) => setBannerAddressFontFamily(e.target.value)}
+                    disabled={!bannerTemplateFile}
+                  >
+                    <option value="" disabled>
+                      선택
+                    </option>
+                    {FONT_OPTIONS.map((f) => (
+                      <option key={`banner_addr__${f.family}__${f.url}`} value={f.family}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="mt-4 font-bold text-base">주소 폰트 굵기</div>
+                  <select
+                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                    value={bannerAddressFontWeight}
+                    onChange={(e) => setBannerAddressFontWeight(Number(e.target.value))}
+                    disabled={!bannerTemplateFile}
+                  >
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={300}>300</option>
+                    <option value={400}>400 (일반)</option>
+                    <option value={500}>500</option>
+                    <option value={600}>600</option>
+                    <option value={700}>700 (굵게)</option>
+                    <option value={800}>800</option>
+                    <option value={900}>900</option>
+                  </select>
+
+                  <div className="mt-4 font-bold text-base">주소 폰트 크기</div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={300}
+                      step={1}
+                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                      value={bannerAddressFontSizePt}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setBannerAddressFontSizePt(v === "" ? 12 : Number(v));
+                      }}
+                      disabled={!bannerTemplateFile}
+                    />
+                    <span className="text-sm text-gray-600">pt</span>
+                  </div>
+
+                  <div className="mt-4 font-bold text-base">주소 색상</div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <input
+                      type="color"
+                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                      value={bannerAddressFontColor}
+                      onChange={(e) => setBannerAddressFontColor(e.target.value)}
+                      disabled={!bannerTemplateFile}
+                    />
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                      value={bannerAddressFontColor}
+                      placeholder="#RRGGBB"
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        const next = raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                          setBannerAddressFontColor(next);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!/^#[0-9a-fA-F]{6}$/.test(bannerAddressFontColor)) {
+                          setBannerAddressFontColor("#ffffff");
+                        } else {
+                          setBannerAddressFontColor(bannerAddressFontColor.toLowerCase());
+                        }
+                      }}
+                      disabled={!bannerTemplateFile}
+                    />
+                  </div>
+
+                  <div className="mt-4 font-bold text-base">주소 위치</div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                        value={Math.round(bannerAddressPos.x * (bannerScale || 1))}
+                        onChange={(e) =>
+                          setBannerAddressPos((prev) => ({
+                            ...prev,
+                            x: Number(e.target.value || 0) / (bannerScale || 1),
+                          }))
+                        }
+                        disabled={!bannerTemplateFile}
+                      />
+                      <span className="shrink-0 text-sm text-gray-600">px</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                        value={Math.round(bannerAddressPos.y * (bannerScale || 1))}
+                        onChange={(e) =>
+                          setBannerAddressPos((prev) => ({
+                            ...prev,
+                            y: Number(e.target.value || 0) / (bannerScale || 1),
+                          }))
+                        }
+                        disabled={!bannerTemplateFile}
+                      />
+                      <span className="shrink-0 text-sm text-gray-600">px</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {showBannerPhoneLine ? (
+                <div className="rounded-lg border border-gray-200 bg-white p-3">
+                  <div className="font-bold text-base">매장번호</div>
+                  <div className="mt-3 font-bold text-base">매장번호 폰트</div>
+                  <select
+                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                    value={bannerPhoneFontFamily}
+                    onChange={(e) => setBannerPhoneFontFamily(e.target.value)}
+                    disabled={!bannerTemplateFile}
+                  >
+                    <option value="" disabled>
+                      선택
+                    </option>
+                    {FONT_OPTIONS.map((f) => (
+                      <option key={`banner_phone__${f.family}__${f.url}`} value={f.family}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="mt-4 font-bold text-base">매장번호 폰트 굵기</div>
+                  <select
+                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                    value={bannerPhoneFontWeight}
+                    onChange={(e) => setBannerPhoneFontWeight(Number(e.target.value))}
+                    disabled={!bannerTemplateFile}
+                  >
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={300}>300</option>
+                    <option value={400}>400 (일반)</option>
+                    <option value={500}>500</option>
+                    <option value={600}>600</option>
+                    <option value={700}>700 (굵게)</option>
+                    <option value={800}>800</option>
+                    <option value={900}>900</option>
+                  </select>
+
+                  <div className="mt-4 font-bold text-base">매장번호 폰트 크기</div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={300}
+                      step={1}
+                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                      value={bannerPhoneFontSizePt}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setBannerPhoneFontSizePt(v === "" ? 12 : Number(v));
+                      }}
+                      disabled={!bannerTemplateFile}
+                    />
+                    <span className="text-sm text-gray-600">pt</span>
+                  </div>
+
+                  <div className="mt-4 font-bold text-base">매장번호 색상</div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <input
+                      type="color"
+                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                      value={bannerPhoneFontColor}
+                      onChange={(e) => setBannerPhoneFontColor(e.target.value)}
+                      disabled={!bannerTemplateFile}
+                    />
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                      value={bannerPhoneFontColor}
+                      placeholder="#RRGGBB"
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        const next = raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                          setBannerPhoneFontColor(next);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!/^#[0-9a-fA-F]{6}$/.test(bannerPhoneFontColor)) {
+                          setBannerPhoneFontColor("#ffffff");
+                        } else {
+                          setBannerPhoneFontColor(bannerPhoneFontColor.toLowerCase());
+                        }
+                      }}
+                      disabled={!bannerTemplateFile}
+                    />
+                  </div>
+
+                  <div className="mt-4 font-bold text-base">매장번호 위치</div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                        value={Math.round(bannerPhonePos.x * (bannerScale || 1))}
+                        onChange={(e) =>
+                          setBannerPhonePos((prev) => ({
+                            ...prev,
+                            x: Number(e.target.value || 0) / (bannerScale || 1),
+                          }))
+                        }
+                        disabled={!bannerTemplateFile}
+                      />
+                      <span className="shrink-0 text-sm text-gray-600">px</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                        value={Math.round(bannerPhonePos.y * (bannerScale || 1))}
+                        onChange={(e) =>
+                          setBannerPhonePos((prev) => ({
+                            ...prev,
+                            y: Number(e.target.value || 0) / (bannerScale || 1),
+                          }))
+                        }
+                        disabled={!bannerTemplateFile}
+                      />
+                      <span className="shrink-0 text-sm text-gray-600">px</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-4 font-bold text-base">표시 항목</div>
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={showBannerCenterLine}
+                  onChange={(e) => setShowBannerCenterLine(e.target.checked)}
+                />
+                <span className="whitespace-pre-wrap break-words">
+                  센터명 : {((user as any)?.center_name) || ""}
+                </span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={showBannerAddressLine}
+                  onChange={(e) => setShowBannerAddressLine(e.target.checked)}
+                />
+                <span className="whitespace-pre-wrap break-words">
+                  주소 : {String(
+                    [centerInfo?.address, centerInfo?.address_detail]
+                      .filter(Boolean)
+                      .join(" ")
+                  )}
+                </span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={showBannerPhoneLine}
+                  onChange={(e) => setShowBannerPhoneLine(e.target.checked)}
+                />
+                <span className="whitespace-pre-wrap break-words">
+                  매장번호 : {String(
+                    centerInfo?.phone_number ||
+                      centerInfo?.phone ||
+                      centerInfo?.tel ||
+                      centerInfo?.center_tel ||
+                      ""
+                  )}
+                </span>
+              </label>
+            </div>
+
+          </div>
+        </div>
+        ) : null}
         </>
         ) : null}
 
@@ -2336,11 +3143,702 @@ const PosterRegister: React.FC = () => {
               : "order-1 lg:col-span-2 space-y-4"
           }`}
         >
-          {isBothView ? (
+          {isAllView ? (
+            <div className="bg-white shadow-md sm:rounded-lg p-4 flex flex-col h-[calc(88vh-240px)]">
+              <div className="grid grid-cols-3 gap-4 mb-2">
+                <div className="font-bold text-base">웹용</div>
+                <div className="font-bold text-base">전단지용</div>
+                <div className="font-bold text-base">배너용</div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
+                <div className="w-full border rounded-lg bg-gray-50 overflow-hidden min-h-0">
+                  {mainPreviewUrl ? (
+                    <div
+                      ref={previewBoxRef}
+                      className="relative w-full h-full bg-black overflow-hidden"
+                    >
+                      <img
+                        ref={previewImgRef}
+                        src={mainPreviewUrl}
+                        alt="웹용 포스터 미리보기"
+                        className="w-full h-full object-contain"
+                        onLoad={() => {
+                          const el = previewBoxRef.current;
+                          const img = previewImgRef.current;
+                          if (!el || !img) return;
+                          const cw = el.clientWidth;
+                          const ch = el.clientHeight;
+                          if (!cw || !ch) return;
+                          if (!img.naturalWidth || !img.naturalHeight) return;
+
+                          const scale = Math.min(
+                            cw / img.naturalWidth,
+                            ch / img.naturalHeight
+                          );
+                          const w = img.naturalWidth * scale;
+                          const h = img.naturalHeight * scale;
+                          const left = (cw - w) / 2;
+                          const top = (ch - h) / 2;
+                          setImageBox({ left, top, width: w, height: h });
+                          setImageNaturalSize({
+                            w: img.naturalWidth,
+                            h: img.naturalHeight,
+                          });
+                        }}
+                      />
+
+                      {imageBox ? (
+                        <canvas
+                          ref={webOverlayCanvasRef}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: imageBox.left,
+                            top: imageBox.top,
+                            zIndex: 10,
+                          }}
+                        />
+                      ) : null}
+
+                      {isAdmin && imageBox && showWebCenterLine && centerTextValue ? (
+                        <div
+                          ref={centerTextRef}
+                          className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                            templateFile ? "cursor-move" : "cursor-not-allowed"
+                          }`}
+                          style={{
+                            left: imageBox.left + textPos.x * webScale,
+                            top: imageBox.top + textPos.y * webScale,
+                            zIndex: 20,
+                            color: fontColor,
+                            fontSize: `${fontSizePx * webScale}px`,
+                            fontFamily: fontFamily ? `"${fontFamily}"` : undefined,
+                            fontWeight: fontWeight,
+                            padding: 0,
+                            lineHeight: 1,
+                            whiteSpace: "pre",
+                          }}
+                          onMouseDown={async (e) => {
+                            if (!templateFile) return;
+                            if (!imageBox) return;
+                            const container = previewBoxRef.current;
+                            if (!container) return;
+                            e.preventDefault();
+                            try {
+                              await ensureFontLoaded(fontFamily || "");
+                            } catch {}
+
+                            draggingRef.current = true;
+                            dragTargetRef.current = "center";
+                            setShowGuides({ v: false, h: false });
+                            const rect = container.getBoundingClientRect();
+                            const scale = webScale || 1;
+                            const pointerXImg =
+                              (e.clientX - rect.left - imageBox.left) / scale;
+                            const pointerYImg =
+                              (e.clientY - rect.top - imageBox.top) / scale;
+                            dragOffsetRef.current = {
+                              x: pointerXImg - (textPos.x || 0),
+                              y: pointerYImg - (textPos.y || 0),
+                            };
+                          }}
+                        >
+                          {String(centerTextValue || "")}
+                        </div>
+                      ) : null}
+
+                      {isAdmin && imageBox && showWebAddressLine && addressTextValue ? (
+                        <div
+                          ref={addressTextRef}
+                          className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                            templateFile ? "cursor-move" : "cursor-not-allowed"
+                          }`}
+                          style={{
+                            left: imageBox.left + addressPos.x * webScale,
+                            top: imageBox.top + addressPos.y * webScale,
+                            zIndex: 20,
+                            color: addressFontColor,
+                            fontSize: `${((addressFontSizePt * 4) / 3) * webScale}px`,
+                            fontFamily: addressFontFamily ? `"${addressFontFamily}"` : undefined,
+                            fontWeight: addressFontWeight,
+                            padding: 0,
+                            lineHeight: 1,
+                            whiteSpace: "pre",
+                          }}
+                          onMouseDown={async (e) => {
+                            if (!templateFile) return;
+                            if (!imageBox) return;
+                            const container = previewBoxRef.current;
+                            if (!container) return;
+                            e.preventDefault();
+                            try {
+                              await ensureFontLoaded(addressFontFamily || "");
+                            } catch {}
+
+                            draggingRef.current = true;
+                            dragTargetRef.current = "address";
+                            setShowGuides({ v: false, h: false });
+                            const rect = container.getBoundingClientRect();
+                            const scale = webScale || 1;
+                            const pointerXImg =
+                              (e.clientX - rect.left - imageBox.left) / scale;
+                            const pointerYImg =
+                              (e.clientY - rect.top - imageBox.top) / scale;
+                            dragOffsetRef.current = {
+                              x: pointerXImg - (addressPos.x || 0),
+                              y: pointerYImg - (addressPos.y || 0),
+                            };
+                          }}
+                        >
+                          {String(addressTextValue || "")}
+                        </div>
+                      ) : null}
+
+                      {isAdmin && imageBox && showWebPhoneLine && phoneTextValue ? (
+                        <div
+                          ref={phoneTextRef}
+                          className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                            templateFile ? "cursor-move" : "cursor-not-allowed"
+                          }`}
+                          style={{
+                            left: imageBox.left + phonePos.x * webScale,
+                            top: imageBox.top + phonePos.y * webScale,
+                            zIndex: 20,
+                            color: phoneFontColor,
+                            fontSize: `${((phoneFontSizePt * 4) / 3) * webScale}px`,
+                            fontFamily: phoneFontFamily ? `"${phoneFontFamily}"` : undefined,
+                            fontWeight: phoneFontWeight,
+                            padding: 0,
+                            lineHeight: 1,
+                            whiteSpace: "pre",
+                          }}
+                          onMouseDown={async (e) => {
+                            if (!templateFile) return;
+                            if (!imageBox) return;
+                            const container = previewBoxRef.current;
+                            if (!container) return;
+                            e.preventDefault();
+                            try {
+                              await ensureFontLoaded(phoneFontFamily || "");
+                            } catch {}
+
+                            draggingRef.current = true;
+                            dragTargetRef.current = "phone";
+                            setShowGuides({ v: false, h: false });
+                            const rect = container.getBoundingClientRect();
+                            const scale = webScale || 1;
+                            const pointerXImg =
+                              (e.clientX - rect.left - imageBox.left) / scale;
+                            const pointerYImg =
+                              (e.clientY - rect.top - imageBox.top) / scale;
+                            dragOffsetRef.current = {
+                              x: pointerXImg - (phonePos.x || 0),
+                              y: pointerYImg - (phonePos.y || 0),
+                            };
+                          }}
+                        >
+                          {String(phoneTextValue || "")}
+                        </div>
+                      ) : null}
+
+                      {isAdmin && imageBox && (showGuides.v || showGuides.h) ? (
+                        <>
+                          {showGuides.v ? (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: imageBox.left + imageBox.width / 2,
+                                top: imageBox.top,
+                                height: imageBox.height,
+                                width: 1,
+                                background: "rgba(0, 255, 255, 0.9)",
+                                zIndex: 30,
+                              }}
+                            />
+                          ) : null}
+                          {showGuides.h ? (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: imageBox.left,
+                                top: imageBox.top + imageBox.height / 2,
+                                width: imageBox.width,
+                                height: 1,
+                                background: "rgba(0, 255, 255, 0.9)",
+                                zIndex: 30,
+                              }}
+                            />
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center text-gray-500">
+                      웹용 이미지를 업로드해주세요.
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full border rounded-lg bg-gray-50 overflow-hidden min-h-0">
+                  {printMainPreviewUrl ? (
+                    <div
+                      ref={printPreviewBoxRef}
+                      className="relative w-full h-full bg-black overflow-hidden"
+                    >
+                      <img
+                        ref={printPreviewImgRef}
+                        src={printMainPreviewUrl}
+                        alt="전단지용 포스터 미리보기"
+                        className="w-full h-full object-contain"
+                        onLoad={() => {
+                          const el = printPreviewBoxRef.current;
+                          const img = printPreviewImgRef.current;
+                          if (!el || !img) return;
+                          const cw = el.clientWidth;
+                          const ch = el.clientHeight;
+                          if (!cw || !ch) return;
+                          if (!img.naturalWidth || !img.naturalHeight) return;
+
+                          const scale = Math.min(
+                            cw / img.naturalWidth,
+                            ch / img.naturalHeight
+                          );
+                          const w = img.naturalWidth * scale;
+                          const h = img.naturalHeight * scale;
+                          const left = (cw - w) / 2;
+                          const top = (ch - h) / 2;
+                          setPrintImageBox({ left, top, width: w, height: h });
+                          setPrintImageNaturalSize({
+                            w: img.naturalWidth,
+                            h: img.naturalHeight,
+                          });
+                        }}
+                      />
+
+                      {printImageBox ? (
+                        <canvas
+                          ref={printOverlayCanvasRef}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: printImageBox.left,
+                            top: printImageBox.top,
+                            zIndex: 10,
+                          }}
+                        />
+                      ) : null}
+
+                      {isAdmin && printImageBox && showPrintCenterLine && centerTextValue ? (
+                        <div
+                          ref={printCenterTextRef}
+                          className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                            printTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                          }`}
+                          style={{
+                            left: printImageBox.left + printTextPos.x * printScale,
+                            top: printImageBox.top + printTextPos.y * printScale,
+                            zIndex: 20,
+                            color: printFontColor,
+                            fontSize: `${printFontSizePx * printScale}px`,
+                            fontFamily: printFontFamily ? `"${printFontFamily}"` : undefined,
+                            fontWeight: printFontWeight,
+                            padding: 0,
+                            lineHeight: 1,
+                            whiteSpace: "pre",
+                          }}
+                          onMouseDown={async (e) => {
+                            if (!printTemplateFile) return;
+                            if (!printImageBox) return;
+                            const container = printPreviewBoxRef.current;
+                            if (!container) return;
+                            e.preventDefault();
+                            try {
+                              await ensureFontLoaded(printFontFamily || "");
+                            } catch {}
+
+                            printDraggingRef.current = true;
+                            printDragTargetRef.current = "center";
+                            setPrintShowGuides({ v: false, h: false });
+                            const rect = container.getBoundingClientRect();
+                            const scale = printScale || 1;
+                            const pointerXImg =
+                              (e.clientX - rect.left - printImageBox.left) / scale;
+                            const pointerYImg =
+                              (e.clientY - rect.top - printImageBox.top) / scale;
+                            printDragOffsetRef.current = {
+                              x: pointerXImg - (printTextPos.x || 0),
+                              y: pointerYImg - (printTextPos.y || 0),
+                            };
+                          }}
+                        >
+                          {String(centerTextValue || "")}
+                        </div>
+                      ) : null}
+
+                    {isAdmin && printImageBox && showPrintAddressLine && addressTextValue ? (
+                      <div
+                        ref={printAddressTextRef}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                          printTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                        }`}
+                        style={{
+                          left: printImageBox.left + printAddressPos.x * printScale,
+                          top: printImageBox.top + printAddressPos.y * printScale,
+                          zIndex: 20,
+                          color: printAddressFontColor,
+                          fontSize: `${((printAddressFontSizePt * 4) / 3) * printScale}px`,
+                          fontFamily: printAddressFontFamily ? `"${printAddressFontFamily}"` : undefined,
+                          fontWeight: printAddressFontWeight,
+                          padding: 0,
+                          lineHeight: 1,
+                          whiteSpace: "pre",
+                        }}
+                        onMouseDown={async (e) => {
+                          if (!printTemplateFile) return;
+                          if (!printImageBox) return;
+                          const container = printPreviewBoxRef.current;
+                          if (!container) return;
+                          e.preventDefault();
+                          try {
+                            await ensureFontLoaded(printAddressFontFamily || "");
+                          } catch {}
+
+                          printDraggingRef.current = true;
+                          printDragTargetRef.current = "address";
+                          setPrintShowGuides({ v: false, h: false });
+                          const rect = container.getBoundingClientRect();
+                          const scale = printScale || 1;
+                          const pointerXImg =
+                            (e.clientX - rect.left - printImageBox.left) / scale;
+                          const pointerYImg =
+                            (e.clientY - rect.top - printImageBox.top) / scale;
+                          printDragOffsetRef.current = {
+                            x: pointerXImg - (printAddressPos.x || 0),
+                            y: pointerYImg - (printAddressPos.y || 0),
+                          };
+                        }}
+                      >
+                        {String(addressTextValue || "")}
+                      </div>
+                    ) : null}
+
+                    {isAdmin && printImageBox && showPrintPhoneLine && phoneTextValue ? (
+                      <div
+                        ref={printPhoneTextRef}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                          printTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                        }`}
+                        style={{
+                          left: printImageBox.left + printPhonePos.x * printScale,
+                          top: printImageBox.top + printPhonePos.y * printScale,
+                          zIndex: 20,
+                          color: printPhoneFontColor,
+                          fontSize: `${((printPhoneFontSizePt * 4) / 3) * printScale}px`,
+                          fontFamily: printPhoneFontFamily ? `"${printPhoneFontFamily}"` : undefined,
+                          fontWeight: printPhoneFontWeight,
+                          padding: 0,
+                          lineHeight: 1,
+                          whiteSpace: "pre",
+                        }}
+                        onMouseDown={async (e) => {
+                          if (!printTemplateFile) return;
+                          if (!printImageBox) return;
+                          const container = printPreviewBoxRef.current;
+                          if (!container) return;
+                          e.preventDefault();
+                          try {
+                            await ensureFontLoaded(printPhoneFontFamily || "");
+                          } catch {}
+
+                          printDraggingRef.current = true;
+                          printDragTargetRef.current = "phone";
+                          setPrintShowGuides({ v: false, h: false });
+                          const rect = container.getBoundingClientRect();
+                          const scale = printScale || 1;
+                          const pointerXImg =
+                            (e.clientX - rect.left - printImageBox.left) / scale;
+                          const pointerYImg =
+                            (e.clientY - rect.top - printImageBox.top) / scale;
+                          printDragOffsetRef.current = {
+                            x: pointerXImg - (printPhonePos.x || 0),
+                            y: pointerYImg - (printPhonePos.y || 0),
+                          };
+                        }}
+                      >
+                        {String(phoneTextValue || "")}
+                      </div>
+                    ) : null}
+
+                      {isAdmin && printImageBox && (printShowGuides.v || printShowGuides.h) ? (
+                        <>
+                          {printShowGuides.v ? (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: printImageBox.left + printImageBox.width / 2,
+                                top: printImageBox.top,
+                                height: printImageBox.height,
+                                width: 1,
+                                background: "rgba(0, 255, 255, 0.9)",
+                                zIndex: 30,
+                              }}
+                            />
+                          ) : null}
+                          {printShowGuides.h ? (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: printImageBox.left,
+                                top: printImageBox.top + printImageBox.height / 2,
+                                width: printImageBox.width,
+                                height: 1,
+                                background: "rgba(0, 255, 255, 0.9)",
+                                zIndex: 30,
+                              }}
+                            />
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center text-gray-500">
+                      전단지용 이미지를 업로드 해주세요.
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full border rounded-lg bg-gray-50 overflow-hidden min-h-0">
+                  {bannerMainPreviewUrl ? (
+                    <div
+                      ref={bannerPreviewBoxRef}
+                      className="relative w-full h-full bg-black overflow-hidden"
+                    >
+                      <img
+                        ref={bannerPreviewImgRef}
+                        src={bannerMainPreviewUrl}
+                        alt="배너용 포스터 미리보기"
+                        className="w-full h-full object-contain"
+                        onLoad={() => {
+                          const el = bannerPreviewBoxRef.current;
+                          const img = bannerPreviewImgRef.current;
+                          if (!el || !img) return;
+                          const cw = el.clientWidth;
+                          const ch = el.clientHeight;
+                          if (!cw || !ch) return;
+                          if (!img.naturalWidth || !img.naturalHeight) return;
+
+                          const scale = Math.min(
+                            cw / img.naturalWidth,
+                            ch / img.naturalHeight
+                          );
+                          const w = img.naturalWidth * scale;
+                          const h = img.naturalHeight * scale;
+                          const left = (cw - w) / 2;
+                          const top = (ch - h) / 2;
+                          setBannerImageBox({ left, top, width: w, height: h });
+                          setBannerImageNaturalSize({
+                            w: img.naturalWidth,
+                            h: img.naturalHeight,
+                          });
+                        }}
+                      />
+
+                      {bannerImageBox ? (
+                        <canvas
+                          ref={bannerOverlayCanvasRef}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: bannerImageBox.left,
+                            top: bannerImageBox.top,
+                            zIndex: 10,
+                          }}
+                        />
+                      ) : null}
+
+                      {isAdmin && bannerImageBox && showBannerCenterLine && centerTextValue ? (
+                        <div
+                          ref={bannerCenterTextRef}
+                          className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                            bannerTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                          }`}
+                          style={{
+                            left: bannerImageBox.left + bannerTextPos.x * bannerScale,
+                            top: bannerImageBox.top + bannerTextPos.y * bannerScale,
+                            zIndex: 20,
+                            color: bannerFontColor,
+                            fontSize: `${bannerFontSizePx * bannerScale}px`,
+                            fontFamily: bannerFontFamily ? `"${bannerFontFamily}"` : undefined,
+                            fontWeight: bannerFontWeight,
+                            padding: 0,
+                            lineHeight: 1,
+                            whiteSpace: "pre",
+                          }}
+                          onMouseDown={async (e) => {
+                            if (!bannerTemplateFile) return;
+                            if (!bannerImageBox) return;
+                            const container = bannerPreviewBoxRef.current;
+                            if (!container) return;
+                            e.preventDefault();
+                            try {
+                              await ensureFontLoaded(bannerFontFamily || "");
+                            } catch {}
+
+                            bannerDraggingRef.current = true;
+                            bannerDragTargetRef.current = "center";
+                            setBannerShowGuides({ v: false, h: false });
+                            const rect = container.getBoundingClientRect();
+                            const scale = bannerScale || 1;
+                            const pointerXImg =
+                              (e.clientX - rect.left - bannerImageBox.left) / scale;
+                            const pointerYImg =
+                              (e.clientY - rect.top - bannerImageBox.top) / scale;
+                            bannerDragOffsetRef.current = {
+                              x: pointerXImg - (bannerTextPos.x || 0),
+                              y: pointerYImg - (bannerTextPos.y || 0),
+                            };
+                          }}
+                        >
+                          {String(centerTextValue || "")}
+                        </div>
+                      ) : null}
+
+                      {isAdmin && bannerImageBox && showBannerAddressLine && addressTextValue ? (
+                        <div
+                          ref={bannerAddressTextRef}
+                          className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                            bannerTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                          }`}
+                          style={{
+                            left: bannerImageBox.left + bannerAddressPos.x * bannerScale,
+                            top: bannerImageBox.top + bannerAddressPos.y * bannerScale,
+                            zIndex: 20,
+                            color: bannerAddressFontColor,
+                            fontSize: `${bannerAddressFontSizePx * bannerScale}px`,
+                            fontFamily: bannerAddressFontFamily ? `"${bannerAddressFontFamily}"` : undefined,
+                            fontWeight: bannerAddressFontWeight,
+                            padding: 0,
+                            lineHeight: 1,
+                            whiteSpace: "pre",
+                          }}
+                          onMouseDown={async (e) => {
+                            if (!bannerTemplateFile) return;
+                            if (!bannerImageBox) return;
+                            const container = bannerPreviewBoxRef.current;
+                            if (!container) return;
+                            e.preventDefault();
+                            try {
+                              await ensureFontLoaded(bannerAddressFontFamily || "");
+                            } catch {}
+
+                            bannerDraggingRef.current = true;
+                            bannerDragTargetRef.current = "address";
+                            setBannerShowGuides({ v: false, h: false });
+                            const rect = container.getBoundingClientRect();
+                            const scale = bannerScale || 1;
+                            const pointerXImg =
+                              (e.clientX - rect.left - bannerImageBox.left) / scale;
+                            const pointerYImg =
+                              (e.clientY - rect.top - bannerImageBox.top) / scale;
+                            bannerDragOffsetRef.current = {
+                              x: pointerXImg - (bannerAddressPos.x || 0),
+                              y: pointerYImg - (bannerAddressPos.y || 0),
+                            };
+                          }}
+                        >
+                          {String(addressTextValue || "")}
+                        </div>
+                      ) : null}
+
+                      {isAdmin && bannerImageBox && showBannerPhoneLine && phoneTextValue ? (
+                        <div
+                          ref={bannerPhoneTextRef}
+                          className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                            bannerTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                          }`}
+                          style={{
+                            left: bannerImageBox.left + bannerPhonePos.x * bannerScale,
+                            top: bannerImageBox.top + bannerPhonePos.y * bannerScale,
+                            zIndex: 20,
+                            color: bannerPhoneFontColor,
+                            fontSize: `${bannerPhoneFontSizePx * bannerScale}px`,
+                            fontFamily: bannerPhoneFontFamily ? `"${bannerPhoneFontFamily}"` : undefined,
+                            fontWeight: bannerPhoneFontWeight,
+                            padding: 0,
+                            lineHeight: 1,
+                            whiteSpace: "pre",
+                          }}
+                          onMouseDown={async (e) => {
+                            if (!bannerTemplateFile) return;
+                            if (!bannerImageBox) return;
+                            const container = bannerPreviewBoxRef.current;
+                            if (!container) return;
+                            e.preventDefault();
+                            try {
+                              await ensureFontLoaded(bannerPhoneFontFamily || "");
+                            } catch {}
+
+                            bannerDraggingRef.current = true;
+                            bannerDragTargetRef.current = "phone";
+                            setBannerShowGuides({ v: false, h: false });
+                            const rect = container.getBoundingClientRect();
+                            const scale = bannerScale || 1;
+                            const pointerXImg =
+                              (e.clientX - rect.left - bannerImageBox.left) / scale;
+                            const pointerYImg =
+                              (e.clientY - rect.top - bannerImageBox.top) / scale;
+                            bannerDragOffsetRef.current = {
+                              x: pointerXImg - (bannerPhonePos.x || 0),
+                              y: pointerYImg - (bannerPhonePos.y || 0),
+                            };
+                          }}
+                        >
+                          {String(phoneTextValue || "")}
+                        </div>
+                      ) : null}
+
+                      {isAdmin && bannerImageBox && (bannerShowGuides.v || bannerShowGuides.h) ? (
+                        <>
+                          {bannerShowGuides.v ? (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: bannerImageBox.left + bannerImageBox.width / 2,
+                                top: bannerImageBox.top,
+                                height: bannerImageBox.height,
+                                width: 1,
+                                background: "rgba(0, 255, 255, 0.9)",
+                                zIndex: 30,
+                              }}
+                            />
+                          ) : null}
+                          {bannerShowGuides.h ? (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: bannerImageBox.left,
+                                top: bannerImageBox.top + bannerImageBox.height / 2,
+                                width: bannerImageBox.width,
+                                height: 1,
+                                background: "rgba(0, 255, 255, 0.9)",
+                                zIndex: 30,
+                              }}
+                            />
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center text-gray-500">
+                      배너용 이미지를 업로드 해주세요.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : isBothView ? (
             <div className="bg-white shadow-md sm:rounded-lg p-4 flex flex-col h-[calc(88vh-240px)]">
               <div className="grid grid-cols-2 gap-4 mb-2">
                 <div className="font-bold text-base">웹용</div>
-                <div className="font-bold text-base">인쇄용</div>
+                <div className="font-bold text-base">전단지용</div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
@@ -2580,7 +4078,7 @@ const PosterRegister: React.FC = () => {
                       <img
                         ref={printPreviewImgRef}
                         src={printMainPreviewUrl}
-                        alt="인쇄용 포스터 미리보기"
+                        alt="전단지용 포스터 미리보기"
                         className="w-full h-full object-contain"
                         onLoad={() => {
                           const el = printPreviewBoxRef.current;
@@ -2793,7 +4291,7 @@ const PosterRegister: React.FC = () => {
                     </div>
                   ) : (
                     <div className="p-10 text-center text-gray-500">
-                      인쇄용 이미지를 업로드 해주세요.
+                      전단지용 이미지를 업로드 해주세요.
                     </div>
                   )}
                 </div>
@@ -2801,7 +4299,7 @@ const PosterRegister: React.FC = () => {
             </div>
           ) : null}
 
-          {!isBothView && posterView.web ? (
+          {!isBothView && !isAllView && posterView.web ? (
             <div className={`bg-white shadow-md sm:rounded-lg p-4 flex flex-col ${isBothView ? "h-[calc(88vh-240px)]" : "h-[calc(100vh-180px)]"}`}>
           <div className="flex items-center justify-between mb-2">
                 <div className="font-bold text-base">웹용 미리보기</div>
@@ -3047,7 +4545,7 @@ const PosterRegister: React.FC = () => {
           {!isBothView && posterView.print ? (
             <div className={`bg-white shadow-md sm:rounded-lg p-4 flex flex-col ${isBothView ? "h-[calc(88vh-240px)]" : "h-[calc(100vh-180px)]"}`}>
               <div className="flex items-center justify-between mb-2">
-                <div className="font-bold text-base">인쇄용 미리보기</div>
+                <div className="font-bold text-base">전단지용 미리보기</div>
               </div>
 
               <div className="w-full border rounded-lg bg-gray-50 overflow-hidden flex-1 min-h-0">
@@ -3059,7 +4557,7 @@ const PosterRegister: React.FC = () => {
                     <img
                       ref={printPreviewImgRef}
                       src={printMainPreviewUrl}
-                      alt="인쇄용 포스터 미리보기"
+                      alt="전단지용 포스터 미리보기"
                       className="w-full h-full object-contain"
                       onLoad={() => {
                         const el = printPreviewBoxRef.current;
@@ -3274,7 +4772,246 @@ const PosterRegister: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-10 text-center text-gray-500">
-                    인쇄용 이미지를 업로드 해주세요.
+                    전단지용 이미지를 업로드 해주세요.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {!isBothView && posterView.banner ? (
+            <div className={`bg-white shadow-md sm:rounded-lg p-4 flex flex-col ${isBothView ? "h-[calc(88vh-240px)]" : "h-[calc(100vh-180px)]"}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-bold text-base">배너용 미리보기</div>
+              </div>
+
+              <div className="w-full border rounded-lg bg-gray-50 overflow-hidden flex-1 min-h-0">
+                {bannerMainPreviewUrl ? (
+                  <div
+                    ref={bannerPreviewBoxRef}
+                    className="relative w-full h-full bg-black overflow-hidden"
+                  >
+                    <img
+                      ref={bannerPreviewImgRef}
+                      src={bannerMainPreviewUrl}
+                      alt="배너용 포스터 미리보기"
+                      className="w-full h-full object-contain"
+                      onLoad={() => {
+                        const el = bannerPreviewBoxRef.current;
+                        const img = bannerPreviewImgRef.current;
+                        if (!el || !img) return;
+                        const cw = el.clientWidth;
+                        const ch = el.clientHeight;
+                        if (!cw || !ch) return;
+                        if (!img.naturalWidth || !img.naturalHeight) return;
+
+                        const scale = Math.min(
+                          cw / img.naturalWidth,
+                          ch / img.naturalHeight
+                        );
+                        const w = img.naturalWidth * scale;
+                        const h = img.naturalHeight * scale;
+                        const left = (cw - w) / 2;
+                        const top = (ch - h) / 2;
+                        setBannerImageBox({ left, top, width: w, height: h });
+                        setBannerImageNaturalSize({
+                          w: img.naturalWidth,
+                          h: img.naturalHeight,
+                        });
+                      }}
+                    />
+
+                    {bannerImageBox ? (
+                      <canvas
+                        ref={bannerOverlayCanvasRef}
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: bannerImageBox.left,
+                          top: bannerImageBox.top,
+                          zIndex: 10,
+                        }}
+                      />
+                    ) : null}
+
+                    {/* 지점명 텍스트 (드래그로 위치 조정 / 폰트·크기·색상 적용) */}
+                    {isAdmin && bannerImageBox && showBannerCenterLine && centerTextValue ? (
+                      <div
+                        ref={bannerCenterTextRef}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                          bannerTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                        }`}
+                        style={{
+                          left: bannerImageBox.left + bannerTextPos.x * bannerScale,
+                          top: bannerImageBox.top + bannerTextPos.y * bannerScale,
+                          zIndex: 20,
+                          color: bannerFontColor,
+                          fontSize: `${bannerFontSizePx * bannerScale}px`,
+                          fontFamily: bannerFontFamily ? `"${bannerFontFamily}"` : undefined,
+                          fontWeight: bannerFontWeight,
+                          padding: 0,
+                          lineHeight: 1,
+                          whiteSpace: "pre",
+                        }}
+                        onMouseDown={async (e) => {
+                          if (!bannerTemplateFile) return;
+                          if (!bannerImageBox) return;
+                          const container = bannerPreviewBoxRef.current;
+                          if (!container) return;
+                          e.preventDefault();
+                          try {
+                            await ensureFontLoaded(bannerFontFamily || "");
+                          } catch {}
+
+                          bannerDraggingRef.current = true;
+                          bannerDragTargetRef.current = "center";
+                          setBannerShowGuides({ v: false, h: false });
+                          const rect = container.getBoundingClientRect();
+                          const scale = bannerScale || 1;
+                          const pointerXImg =
+                            (e.clientX - rect.left - bannerImageBox.left) / scale;
+                          const pointerYImg =
+                            (e.clientY - rect.top - bannerImageBox.top) / scale;
+                          bannerDragOffsetRef.current = {
+                            x: pointerXImg - (bannerTextPos.x || 0),
+                            y: pointerYImg - (bannerTextPos.y || 0),
+                          };
+                        }}
+                      >
+                        {String(centerTextValue || "")}
+                      </div>
+                    ) : null}
+
+                    {/* 주소 텍스트 */}
+                    {isAdmin && bannerImageBox && showBannerAddressLine && addressTextValue ? (
+                      <div
+                        ref={bannerAddressTextRef}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                          bannerTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                        }`}
+                        style={{
+                          left: bannerImageBox.left + bannerAddressPos.x * bannerScale,
+                          top: bannerImageBox.top + bannerAddressPos.y * bannerScale,
+                          zIndex: 20,
+                          color: bannerAddressFontColor,
+                          fontSize: `${bannerAddressFontSizePx * bannerScale}px`,
+                          fontFamily: bannerAddressFontFamily ? `"${bannerAddressFontFamily}"` : undefined,
+                          fontWeight: bannerAddressFontWeight,
+                          padding: 0,
+                          lineHeight: 1,
+                          whiteSpace: "pre",
+                        }}
+                        onMouseDown={async (e) => {
+                          if (!bannerTemplateFile) return;
+                          if (!bannerImageBox) return;
+                          const container = bannerPreviewBoxRef.current;
+                          if (!container) return;
+                          e.preventDefault();
+                          try {
+                            await ensureFontLoaded(bannerAddressFontFamily || "");
+                          } catch {}
+
+                          bannerDraggingRef.current = true;
+                          bannerDragTargetRef.current = "address";
+                          setBannerShowGuides({ v: false, h: false });
+                          const rect = container.getBoundingClientRect();
+                          const scale = bannerScale || 1;
+                          const pointerXImg =
+                            (e.clientX - rect.left - bannerImageBox.left) / scale;
+                          const pointerYImg =
+                            (e.clientY - rect.top - bannerImageBox.top) / scale;
+                          bannerDragOffsetRef.current = {
+                            x: pointerXImg - (bannerAddressPos.x || 0),
+                            y: pointerYImg - (bannerAddressPos.y || 0),
+                          };
+                        }}
+                      >
+                        {String(addressTextValue || "")}
+                      </div>
+                    ) : null}
+
+                    {/* 매장번호 텍스트 */}
+                    {isAdmin && bannerImageBox && showBannerPhoneLine && phoneTextValue ? (
+                      <div
+                        ref={bannerPhoneTextRef}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
+                          bannerTemplateFile ? "cursor-move" : "cursor-not-allowed"
+                        }`}
+                        style={{
+                          left: bannerImageBox.left + bannerPhonePos.x * bannerScale,
+                          top: bannerImageBox.top + bannerPhonePos.y * bannerScale,
+                          zIndex: 20,
+                          color: bannerPhoneFontColor,
+                          fontSize: `${bannerPhoneFontSizePx * bannerScale}px`,
+                          fontFamily: bannerPhoneFontFamily ? `"${bannerPhoneFontFamily}"` : undefined,
+                          fontWeight: bannerPhoneFontWeight,
+                          padding: 0,
+                          lineHeight: 1,
+                          whiteSpace: "pre",
+                        }}
+                        onMouseDown={async (e) => {
+                          if (!bannerTemplateFile) return;
+                          if (!bannerImageBox) return;
+                          const container = bannerPreviewBoxRef.current;
+                          if (!container) return;
+                          e.preventDefault();
+                          try {
+                            await ensureFontLoaded(bannerPhoneFontFamily || "");
+                          } catch {}
+
+                          bannerDraggingRef.current = true;
+                          bannerDragTargetRef.current = "phone";
+                          setBannerShowGuides({ v: false, h: false });
+                          const rect = container.getBoundingClientRect();
+                          const scale = bannerScale || 1;
+                          const pointerXImg =
+                            (e.clientX - rect.left - bannerImageBox.left) / scale;
+                          const pointerYImg =
+                            (e.clientY - rect.top - bannerImageBox.top) / scale;
+                          bannerDragOffsetRef.current = {
+                            x: pointerXImg - (bannerPhonePos.x || 0),
+                            y: pointerYImg - (bannerPhonePos.y || 0),
+                          };
+                        }}
+                      >
+                        {String(phoneTextValue || "")}
+                      </div>
+                    ) : null}
+
+                    {/* 중앙 정렬 가이드라인 */}
+                    {isAdmin && bannerImageBox && (bannerShowGuides.v || bannerShowGuides.h) ? (
+                      <>
+                        {bannerShowGuides.v ? (
+                          <div
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: bannerImageBox.left + bannerImageBox.width / 2,
+                              top: bannerImageBox.top,
+                              height: bannerImageBox.height,
+                              width: 1,
+                              background: "rgba(0, 255, 255, 0.9)",
+                              zIndex: 30,
+                            }}
+                          />
+                        ) : null}
+                        {bannerShowGuides.h ? (
+                          <div
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: bannerImageBox.left,
+                              top: bannerImageBox.top + bannerImageBox.height / 2,
+                              width: bannerImageBox.width,
+                              height: 1,
+                              background: "rgba(0, 255, 255, 0.9)",
+                              zIndex: 30,
+                            }}
+                          />
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="p-10 text-center text-gray-500">
+                    배너용 이미지를 업로드 해주세요.
                   </div>
                 )}
               </div>

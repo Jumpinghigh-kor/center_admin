@@ -20,7 +20,7 @@ const {
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB 제한
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB 제한
   fileFilter: (req, file, cb) => {
     if (
       file.mimetype === "image/png" ||
@@ -39,7 +39,29 @@ router.get("/:posterId", getPosterDetail);
 router.post("/createPosterBase", createPosterBase);
 router.post("/createPosterImage", createPosterImage);
 router.post("/createPosterText", createPosterText);
-router.post("/uploadPosterImage", upload.any(), uploadPosterImage);
+router.post("/uploadPosterImage", (req, res, next) => {
+  upload.any()(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            error: '파일 크기가 너무 큽니다. 최대 100MB까지 업로드 가능합니다.',
+            statusCode: '413'
+          });
+        }
+        return res.status(400).json({
+          error: `파일 업로드 오류: ${err.message}`,
+          statusCode: '400'
+        });
+      }
+      return res.status(400).json({
+        error: err.message || '파일 업로드 오류',
+        statusCode: '400'
+      });
+    }
+    next();
+  });
+}, uploadPosterImage);
 router.post("/updatePosterBase", updatePosterBase);
 router.post("/updatePosterImage", updatePosterImage);
 router.post("/updatePosterText", updatePosterText);
