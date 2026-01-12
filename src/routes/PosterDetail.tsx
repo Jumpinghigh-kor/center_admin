@@ -66,6 +66,8 @@ const PosterDetail: React.FC = () => {
 
   const posterIdNum = useMemo(() => Number(posterId || 0), [posterId]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloadingWeb, setIsDownloadingWeb] = useState(false);
+  const [isDownloadingPrint, setIsDownloadingPrint] = useState(false);
   const [centerInfo, setCenterInfo] = useState<any>(null);
   const [posterView, setPosterView] = useState<{ web: boolean; print: boolean }>({
     web: true,
@@ -346,6 +348,12 @@ const PosterDetail: React.FC = () => {
       const url = type === "WEB" ? webPosterDisplayUrl : printPosterDisplayUrl;
       if (!row || !url) return alert("등록된 이미지가 없습니다.");
 
+      if (type === "WEB") {
+        setIsDownloadingWeb(true);
+      } else {
+        setIsDownloadingPrint(true);
+      }
+
       try {
         // Use the SAME values that the preview uses (state), so the download matches 1:1.
         const centerName = String(centerTextValue || "");
@@ -364,25 +372,73 @@ const PosterDetail: React.FC = () => {
         }
 
         // Fetch as blob to avoid CORS tainting the canvas.
-        const res = await axios.get(url, { responseType: "blob" });
+        let res;
+        try {
+          res = await axios.get(url, { responseType: "blob" });
+        } catch (fetchErr) {
+          throw new Error(`이미지 다운로드 실패: ${fetchErr instanceof Error ? fetchErr.message : "알 수 없는 오류"}`);
+        }
         const blob = res.data as Blob;
+        if (!blob || !(blob instanceof Blob)) {
+          throw new Error("다운로드된 데이터가 유효한 이미지 파일이 아닙니다");
+        }
         const objUrl = URL.createObjectURL(blob);
 
         try {
           const img = new Image();
           img.src = objUrl;
-          if ((img as any).decode) {
-            await (img as any).decode();
-          } else {
-            await new Promise<void>((resolve, reject) => {
-              img.onload = () => resolve();
-              img.onerror = () => reject(new Error("image load failed"));
-            });
+          
+          // 타임아웃 추가 (10초)
+          const timeoutPromise = new Promise<void>((_, reject) => {
+            setTimeout(() => reject(new Error("이미지 로드 타임아웃")), 10000);
+          });
+
+          try {
+            if ((img as any).decode) {
+              await Promise.race([(img as any).decode(), timeoutPromise]);
+            } else {
+              await Promise.race([
+                new Promise<void>((resolve, reject) => {
+                  img.onload = () => {
+                    if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                      reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+                    } else {
+                      resolve();
+                    }
+                  };
+                  img.onerror = () => reject(new Error("이미지 로드 실패"));
+                }),
+                timeoutPromise,
+              ]);
+            }
+          } catch (decodeErr) {
+            // decode 실패 시 onload/onerror로 폴백
+            await Promise.race([
+              new Promise<void>((resolve, reject) => {
+                if (img.complete) {
+                  if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                    reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+                  } else {
+                    resolve();
+                  }
+                } else {
+                  img.onload = () => {
+                    if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                      reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+                    } else {
+                      resolve();
+                    }
+                  };
+                  img.onerror = () => reject(new Error("이미지 로드 실패"));
+                }
+              }),
+              timeoutPromise,
+            ]);
           }
 
           const w = img.naturalWidth || 0;
           const h = img.naturalHeight || 0;
-          if (!w || !h) throw new Error("invalid image size");
+          if (!w || !h) throw new Error("이미지 크기 정보를 확인할 수 없습니다");
 
           const canvas = document.createElement("canvas");
           canvas.width = w;
@@ -486,8 +542,22 @@ const PosterDetail: React.FC = () => {
           }
 
           // Preserve original image DPI (metadata) in the downloaded PNG if possible.
-          const sourceDpi = await getImageDpiFromBlob(blob, (blob as any)?.type);
-          const outBlob = await canvasToPngBlobWithSourceDpi(canvas, sourceDpi);
+          let sourceDpi: number | null = null;
+          try {
+            sourceDpi = await getImageDpiFromBlob(blob, (blob as any)?.type);
+          } catch (dpiErr) {
+            console.warn("DPI 정보를 가져오는데 실패했습니다:", dpiErr);
+            // DPI 정보가 없어도 계속 진행
+          }
+          
+          let outBlob: Blob;
+          try {
+            outBlob = await canvasToPngBlobWithSourceDpi(canvas, sourceDpi);
+          } catch (blobErr) {
+            console.error("PNG Blob 생성 실패:", blobErr);
+            throw new Error(`PNG 파일 생성 실패: ${blobErr instanceof Error ? blobErr.message : "알 수 없는 오류"}`);
+          }
+          
           const outUrl = URL.createObjectURL(outBlob);
 
           const a = document.createElement("a");
@@ -503,8 +573,15 @@ const PosterDetail: React.FC = () => {
           URL.revokeObjectURL(objUrl);
         }
       } catch (e) {
-        console.log(e);
-        alert("다운로드에 실패했습니다.");
+        console.error("다운로드 오류:", e);
+        const errMsg = e instanceof Error ? e.message : "알 수 없는 오류";
+        alert(`다운로드에 실패했습니다.\n${errMsg}`);
+      } finally {
+        if (type === "WEB") {
+          setIsDownloadingWeb(false);
+        } else {
+          setIsDownloadingPrint(false);
+        }
       }
     },
     [
@@ -1240,9 +1317,9 @@ const PosterDetail: React.FC = () => {
       return;
     }
 
-    // 일단은: 너무 빡빡하지 않게 10MB 제한
-    if (file.size > 10 * 1024 * 1024) {
-      alert("파일 크기는 10MB 이하만 허용됩니다.");
+    // 일단은: 너무 빡빡하지 않게 100MB 제한
+    if (file.size > 100 * 1024 * 1024) {
+      alert("파일 크기는 100MB 이하만 허용됩니다.");
       e.target.value = "";
       return;
     }
@@ -1264,17 +1341,63 @@ const PosterDetail: React.FC = () => {
     try {
       const img = new Image();
       img.src = tmpUrl;
-      if ((img as any).decode) {
-        await (img as any).decode();
-      } else {
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error("image load failed"));
-        });
+      
+      // 타임아웃 추가 (10초)
+      const timeoutPromise = new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error("이미지 로드 타임아웃")), 10000);
+      });
+
+      try {
+        if ((img as any).decode) {
+          await Promise.race([(img as any).decode(), timeoutPromise]);
+        } else {
+          await Promise.race([
+            new Promise<void>((resolve, reject) => {
+              img.onload = () => {
+                if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                  reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+                } else {
+                  resolve();
+                }
+              };
+              img.onerror = () => reject(new Error("이미지 로드 실패"));
+            }),
+            timeoutPromise,
+          ]);
+        }
+      } catch (decodeErr) {
+        // decode 실패 시 onload/onerror로 폴백
+        await Promise.race([
+          new Promise<void>((resolve, reject) => {
+            if (img.complete) {
+              if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+              } else {
+                resolve();
+              }
+            } else {
+              img.onload = () => {
+                if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                  reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+                } else {
+                  resolve();
+                }
+              };
+              img.onerror = () => reject(new Error("이미지 로드 실패"));
+            }
+          }),
+          timeoutPromise,
+        ]);
       }
 
       const w = img.naturalWidth || 0;
       const h = img.naturalHeight || 0;
+      if (w === 0 || h === 0) {
+        URL.revokeObjectURL(tmpUrl);
+        alert("이미지 크기 정보를 확인할 수 없습니다. 다른 이미지를 선택해주세요.");
+        e.target.value = "";
+        return;
+      }
       if (Math.max(w, h) < 1000) {
         URL.revokeObjectURL(tmpUrl);
         alert("이미지는 가로/세로 중 하나가 1000px 이상이어야 업로드 가능합니다.");
@@ -1283,7 +1406,8 @@ const PosterDetail: React.FC = () => {
       }
     } catch (err) {
       URL.revokeObjectURL(tmpUrl);
-      alert("이미지 정보를 확인할 수 없습니다. 다른 이미지를 선택해주세요.");
+      const errMsg = err instanceof Error ? err.message : "알 수 없는 오류";
+      alert(`이미지 정보를 확인할 수 없습니다. (${errMsg}) 다른 이미지를 선택해주세요.`);
       e.target.value = "";
       return;
     }
@@ -1307,9 +1431,9 @@ const PosterDetail: React.FC = () => {
       return;
     }
 
-    // 일단은: 너무 빡빡하지 않게 10MB 제한
-    if (file.size > 10 * 1024 * 1024) {
-      alert("파일 크기는 10MB 이하만 허용됩니다.");
+    // 일단은: 너무 빡빡하지 않게 100MB 제한
+    if (file.size > 100 * 1024 * 1024) {
+      alert("파일 크기는 100MB 이하만 허용됩니다.");
       e.target.value = "";
       return;
     }
@@ -1331,17 +1455,63 @@ const PosterDetail: React.FC = () => {
     try {
       const img = new Image();
       img.src = tmpUrl;
-      if ((img as any).decode) {
-        await (img as any).decode();
-      } else {
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error("image load failed"));
-        });
+      
+      // 타임아웃 추가 (10초)
+      const timeoutPromise = new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error("이미지 로드 타임아웃")), 10000);
+      });
+
+      try {
+        if ((img as any).decode) {
+          await Promise.race([(img as any).decode(), timeoutPromise]);
+        } else {
+          await Promise.race([
+            new Promise<void>((resolve, reject) => {
+              img.onload = () => {
+                if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                  reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+                } else {
+                  resolve();
+                }
+              };
+              img.onerror = () => reject(new Error("이미지 로드 실패"));
+            }),
+            timeoutPromise,
+          ]);
+        }
+      } catch (decodeErr) {
+        // decode 실패 시 onload/onerror로 폴백
+        await Promise.race([
+          new Promise<void>((resolve, reject) => {
+            if (img.complete) {
+              if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+              } else {
+                resolve();
+              }
+            } else {
+              img.onload = () => {
+                if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                  reject(new Error("이미지 크기 정보를 확인할 수 없습니다"));
+                } else {
+                  resolve();
+                }
+              };
+              img.onerror = () => reject(new Error("이미지 로드 실패"));
+            }
+          }),
+          timeoutPromise,
+        ]);
       }
 
       const w = img.naturalWidth || 0;
       const h = img.naturalHeight || 0;
+      if (w === 0 || h === 0) {
+        URL.revokeObjectURL(tmpUrl);
+        alert("이미지 크기 정보를 확인할 수 없습니다. 다른 이미지를 선택해주세요.");
+        e.target.value = "";
+        return;
+      }
       if (Math.max(w, h) < 1000) {
         URL.revokeObjectURL(tmpUrl);
         alert("이미지는 가로/세로 중 하나가 1000px 이상이어야 업로드 가능합니다.");
@@ -1350,7 +1520,8 @@ const PosterDetail: React.FC = () => {
       }
     } catch (err) {
       URL.revokeObjectURL(tmpUrl);
-      alert("이미지 정보를 확인할 수 없습니다. 다른 이미지를 선택해주세요.");
+      const errMsg = err instanceof Error ? err.message : "알 수 없는 오류";
+      alert(`이미지 정보를 확인할 수 없습니다. (${errMsg}) 다른 이미지를 선택해주세요.`);
       e.target.value = "";
       return;
     }
@@ -1854,21 +2025,23 @@ const PosterDetail: React.FC = () => {
           {hasWeb && (
             <button
               type="button"
-              className="rounded-lg px-4 py-2 text-sm text-white shadow-sm hover:opacity-80"
+              className="rounded-lg px-4 py-2 text-sm text-white shadow-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#0C4A60' }}
               onClick={() => downloadPosterImage("WEB")}
+              disabled={isDownloadingWeb || isDownloadingPrint}
             >
-              웹용 다운로드
+              {isDownloadingWeb ? "다운로드 중..." : "웹용 다운로드"}
             </button>
           )}
           {hasPrint && (
             <button
               type="button"
-              className="rounded-lg px-4 py-2 text-sm text-white shadow-sm hover:opacity-80"
+              className="rounded-lg px-4 py-2 text-sm text-white shadow-sm hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#0C4A60' }}
               onClick={() => downloadPosterImage("PRINT")}
+              disabled={isDownloadingWeb || isDownloadingPrint}
             >
-              인쇄용 다운로드
+              {isDownloadingPrint ? "다운로드 중..." : "인쇄용 다운로드"}
             </button>
           )}
         </div>
@@ -2023,7 +2196,7 @@ const PosterDetail: React.FC = () => {
           </button>
 
           <div className="mt-2 text-xs text-gray-500">
-            PNG/JPG, 최대 10MB, DPI 100 이하
+            PNG/JPG, 최대 100MB, DPI 100 이하
           </div>
 
           <div className="mt-3 text-sm text-gray-800">
@@ -2486,7 +2659,7 @@ const PosterDetail: React.FC = () => {
           </button>
 
           <div className="mt-2 text-xs text-gray-500">
-            PNG/JPG, 최대 10MB, DPI 200 이상
+            PNG/JPG, 최대 100MB, DPI 200 이상
           </div>
 
           <div className="mt-3 text-sm text-gray-800">

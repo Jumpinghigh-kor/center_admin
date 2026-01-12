@@ -59,7 +59,7 @@ exports.selectExerciseAppList = (req, res) => {
           ELSE	'여자'
       END AS mem_gender
       , mea.exercise_app_id
-      , mea.mem_id
+      , maa.account_app_id
       , DATE_FORMAT(mea.exercise_dt, '%Y-%m-%d') AS exercise_dt
       , mea.jumping_exercise_time
       , CASE
@@ -74,7 +74,8 @@ exports.selectExerciseAppList = (req, res) => {
       , DATE_FORMAT(mea.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
       , mea.reg_id
     FROM		    members m
-    INNER JOIN	member_exercise_app mea	ON m.mem_id = mea.mem_id
+    INNER JOIN	member_account_app maa	ON m.mem_id = maa.mem_id
+    INNER JOIN	member_exercise_app mea	ON maa.account_app_id = mea.account_app_id
     WHERE       m.center_id = ?
     ${addCondition}
     ORDER BY    mea.exercise_dt DESC

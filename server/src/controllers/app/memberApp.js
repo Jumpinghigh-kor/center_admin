@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 
 // 어플 회원 목록 조회
 exports.selectMemberAppList = (req, res) => {
-    const { mem_name, center_id, mem_app_status, mem_gender, start_app_reg_dt, end_app_reg_dt, start_recent_dt, end_recent_dt, is_reservation } = req.body;
+    const { mem_name, center_id, status, mem_gender, start_app_reg_dt, end_app_reg_dt, start_recent_dt, end_recent_dt, is_reservation } = req.body;
 
     let addCondition = '';
     let params = [];
@@ -13,12 +13,12 @@ exports.selectMemberAppList = (req, res) => {
       return date.replace(/-/g, '');
     }
 
-    if(mem_app_status) {
-      if(mem_app_status === 'NON_MEMBER') {
-        addCondition += ` AND m.mem_app_status IS NULL`;
+    if(status) {
+      if(status === 'NON_MEMBER') {
+        addCondition += ` AND maa.status IS NULL`;
       } else {
-        addCondition += ` AND m.mem_app_status = ?`;
-        params.push(mem_app_status);
+        addCondition += ` AND maa.status = ?`;
+        params.push(status);
       }
     }
 
@@ -38,24 +38,24 @@ exports.selectMemberAppList = (req, res) => {
     }
 
     if(start_app_reg_dt && end_app_reg_dt) {
-      addCondition += ` AND DATE_FORMAT(m.app_reg_dt, '%Y%m%d') BETWEEN ? AND ?`;
+      addCondition += ` AND DATE_FORMAT(maa.reg_dt, '%Y%m%d') BETWEEN ? AND ?`;
       params.push(formatDate(start_app_reg_dt), formatDate(end_app_reg_dt));
     } else if(start_app_reg_dt) {
-      addCondition += ` AND DATE_FORMAT(m.app_reg_dt, '%Y%m%d') >= ?`;
+      addCondition += ` AND DATE_FORMAT(maa.reg_dt, '%Y%m%d') >= ?`;
       params.push(formatDate(start_app_reg_dt));
     } else if(end_app_reg_dt) {
-      addCondition += ` AND DATE_FORMAT(m.app_reg_dt, '%Y%m%d') <= ?`;
+      addCondition += ` AND DATE_FORMAT(maa.reg_dt, '%Y%m%d') <= ?`;
       params.push(formatDate(end_app_reg_dt));
     }
 
     if(start_recent_dt && end_recent_dt) {
-      addCondition += ` AND DATE_FORMAT(m.recent_dt, '%Y%m%d') BETWEEN ? AND ?`;
+      addCondition += ` AND DATE_FORMAT(maa.recent_dt, '%Y%m%d') BETWEEN ? AND ?`;
       params.push(formatDate(start_recent_dt), formatDate(end_recent_dt));
     } else if(start_recent_dt) {
-      addCondition += ` AND DATE_FORMAT(m.recent_dt, '%Y%m%d') >= ?`;
+      addCondition += ` AND DATE_FORMAT(maa.recent_dt, '%Y%m%d') >= ?`;
       params.push(formatDate(start_recent_dt));
     } else if(end_recent_dt) {
-      addCondition += ` AND DATE_FORMAT(m.recent_dt, '%Y%m%d') <= ?`;
+      addCondition += ` AND DATE_FORMAT(maa.recent_dt, '%Y%m%d') <= ?`;
       params.push(formatDate(end_recent_dt));
     }
 
@@ -81,23 +81,24 @@ exports.selectMemberAppList = (req, res) => {
         , m.mem_id
         , m.mem_name
         , m.mem_phone
-        , m.mem_app_id
-        , m.mem_role
+        , m.mem_sch_id
         , CASE
-            WHEN m.mem_gender = 0 THEN '여자'
-            ELSE '남자'
+        WHEN m.mem_gender = 0 THEN '여자'
+        ELSE '남자'
         END AS mem_gender
-        , m.mem_app_status
+        , maa.account_app_id
+        , maa.login_id
+        , maa.status
+        , maa.mem_role
+        , DATE_FORMAT(maa.recent_dt, '%Y-%m-%d %H:%i:%s') AS recent_dt
+        , DATE_FORMAT(maa.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
+        , DATE_FORMAT(maa.exit_dt, '%Y-%m-%d %H:%i:%s') AS exit_dt
         , (
             SELECT
               sch_time
             FROM	schedule s
             WHERE	s.sch_id = m.mem_sch_id
         ) AS sch_time
-        , m.mem_sch_id
-        , DATE_FORMAT(m.recent_dt, '%Y-%m-%d %H:%i:%s') AS recent_dt
-        , DATE_FORMAT(m.app_reg_dt, '%Y-%m-%d %H:%i:%s') AS app_reg_dt
-        , DATE_FORMAT(m.app_exit_dt, '%Y-%m-%d %H:%i:%s') AS app_exit_dt
         , (
             SELECT 
               COALESCE(SUM(
@@ -107,13 +108,14 @@ exports.selectMemberAppList = (req, res) => {
                       ELSE 0
                   END
               ), 0)
-            FROM member_point_app smpa
-            WHERE smpa.mem_id = m.mem_id
-            AND smpa.del_yn = 'N'
+            FROM  member_point_app smpa
+            WHERE smpa.account_app_id = maa.account_app_id
+            AND   smpa.del_yn = 'N'
           ) AS point_amount
-      FROM		  centers c
-      LEFT JOIN	members m ON c.center_id = m.center_id
-      WHERE		  m.mem_status = 1
+      FROM		    centers c
+      LEFT JOIN	  members m               ON c.center_id = m.center_id
+      LEFT JOIN   member_account_app maa  ON (m.mem_id = maa.mem_id AND         (maa.del_yn = 'N' OR maa.del_yn IS NULL))
+      WHERE		    m.mem_status = 1
       ${addCondition}
       ORDER BY	  c.center_id, mem_name DESC
     `;
@@ -131,9 +133,9 @@ exports.selectMemberAppList = (req, res) => {
 exports.createMemberApp = async (req, res) => {
   const {
     mem_id,
-    mem_app_id,
-    mem_app_password,
-    mem_role,
+    login_id,
+    password,
+    mem_role
   } = req.body;
 
   try {
@@ -141,14 +143,16 @@ exports.createMemberApp = async (req, res) => {
       `
         SELECT
           COUNT(*) AS cnt
-        FROM  members
-        WHERE mem_status = 1
-        AND   mem_app_id = ?
+        FROM        members m
+        INNER JOIN  member_account_app maa ON m.mem_id = maa.mem_id
+        WHERE       mem_status = 1
+        AND         maa.login_id = ?
+        AND         maa.del_yn = 'N'
       `;
 
     db.query(
       checkDuplicateQuery,
-      [String(mem_app_id || '').trim()],
+      [String(login_id || '').trim()],
       async (err, result) => {
         if (err) {
           console.log(err);
@@ -166,26 +170,53 @@ exports.createMemberApp = async (req, res) => {
         try {
           // 비밀번호 해시화
           const saltRounds = 10;
-          const hashedPassword = await bcrypt.hash(mem_app_password, saltRounds);
+          const hashedPassword = await bcrypt.hash(password, saltRounds);
 
           const query = 
             `
-              UPDATE members SET
-                mem_app_id = ?
-                , mem_app_password = ?
-                , mem_app_status = 'PROCEED'
-                , mem_role = ?
-                , app_reg_dt = DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
-                , app_reg_id = ?
-              WHERE mem_id = ?
+              INSERT INTO member_account_app (
+                mem_id
+                , nickname
+                , login_id
+                , password
+                , status
+                , mem_role
+                , push_yn
+                , push_token
+                , recent_dt
+                , active_dt
+                , exit_dt
+                , del_yn
+                , reg_dt
+                , reg_id
+                , mod_dt
+                , mod_id
+              ) VALUES (
+                ?
+                , null
+                , ?
+                , ?
+                , 'PROCEED'
+                , ?
+                , null
+                , null
+                , null
+                , null
+                , null
+                , 'N'
+                , DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
+                , ?
+                , null
+                , null
+              )
             `;
           db.query(
             query,
             [
-              mem_app_id,
+              mem_id,
+              login_id,
               hashedPassword,
               mem_role,
-              mem_id,
               mem_id,
             ],
             (err, result) => {
@@ -220,7 +251,7 @@ exports.createMemberApp = async (req, res) => {
 // 어플 회원 정보 수정
 exports.updateMemberAppInfo = (req, res) => {
   try {
-    const { mem_id, mem_app_id, mem_role } = req.body;
+    const { userId, login_id, mem_role, account_app_id } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
@@ -228,16 +259,19 @@ exports.updateMemberAppInfo = (req, res) => {
 
     // 아이디 중복 체크 (본인 제외)
     const checkDuplicateQuery = `
-      SELECT COUNT(*) AS cnt
-      FROM members
-      WHERE mem_status = 1
-      AND mem_app_id = ?
-      AND mem_id <> ?
+      SELECT
+        COUNT(*) AS cnt
+      FROM        members m
+      INNER JOIN  member_account_app maa ON m.mem_id = maa.mem_id
+      WHERE       m.mem_status = 1
+      AND         maa.login_id = ?
+      AND         maa.account_app_id <> ?
+      AND         maa.del_yn = 'N'
     `;
 
     db.query(
       checkDuplicateQuery,
-      [String(mem_app_id || "").trim(), mem_id],
+      [String(login_id || "").trim(), account_app_id],
       (dupErr, dupRows) => {
         if (dupErr) {
           console.error("어플 회원 정보 수정(중복체크) 오류:", dupErr);
@@ -251,22 +285,22 @@ exports.updateMemberAppInfo = (req, res) => {
 
         // members 테이블에 어플 회원 정보 수정
         const memberUpdateQuery = `
-          UPDATE members SET
-            mem_app_id = ?,
-            mem_role = ?,
-            app_mod_dt = ?,
-            app_mod_id = ?
-          WHERE mem_id = ?
+          UPDATE member_account_app SET
+            login_id = ?
+            , mem_role = ?
+            , mod_dt = ?
+            , mod_id = ?
+          WHERE account_app_id = ?
         `;
 
         db.query(
           memberUpdateQuery,
           [
-            String(mem_app_id || "").trim(),
+            String(login_id || "").trim(),
             mem_role,
             app_mod_dt,
-            mem_id,
-            mem_id,
+            userId,
+            account_app_id,
           ],
           (err, result) => {
             if (err) {
@@ -292,7 +326,7 @@ exports.updateMemberAppInfo = (req, res) => {
 // 어플 회원 비밀번호 수정
 exports.updateMemberAppPassword = (req, res) => {
   try {
-    const { mem_id, mem_app_password } = req.body;
+    const { userId, password, account_app_id } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
@@ -301,15 +335,15 @@ exports.updateMemberAppPassword = (req, res) => {
     // 비밀번호 해시화
     const bcrypt = require("bcrypt");
     const saltRounds = 10;
-    const hashedPassword = bcrypt.hashSync(mem_app_password, saltRounds);
+    const hashedPassword = bcrypt.hashSync(password, saltRounds);
 
     // members 테이블에 어플 회원 비밀번호 정보 수정
     const memberUpdateQuery = `
-      UPDATE members SET
-        mem_app_password = ?
-        , app_mod_dt = ?
-        , app_mod_id = ?
-      WHERE mem_id = ?
+      UPDATE member_account_app SET
+        password = ?
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE account_app_id = ?
     `;
 
     db.query(
@@ -317,8 +351,8 @@ exports.updateMemberAppPassword = (req, res) => {
       [
         hashedPassword,
         app_mod_dt,
-        mem_id,
-        mem_id,
+        userId,
+        account_app_id,
       ],
       (err, result) => {
         if (err) {
@@ -342,18 +376,24 @@ exports.updateMemberAppPassword = (req, res) => {
 // 회원 앱 상태 활성화 (탈퇴 해제)
 exports.updateMemberActive = (req, res) => {
   try {
-    const { mem_id } = req.body;
-    
+    const { mem_id, account_app_id } = req.body;
+
+    // 현재 날짜 형식화
+    const now = dayjs();
+    const mod_dt = now.format("YYYYMMDDHHmmss");
+
     const query = `
-      UPDATE members SET
-        mem_app_status = 'ACTIVE'
-        , app_exit_dt = NULL
-      WHERE mem_id = ?
+      UPDATE member_account_app SET
+        status = 'ACTIVE'
+        , exit_dt = NULL
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE account_app_id = ?
     `;
 
     db.query(
       query,
-      [mem_id],
+      [mod_dt, mem_id, account_app_id],
       (err, result) => {
         if (err) {
           console.error("회원 활성화 오류:", err);
@@ -373,81 +413,28 @@ exports.updateMemberActive = (req, res) => {
 // 회원 앱 삭제
 exports.deleteMemberApp = (req, res) => {
   try {
-    const { mem_id } = req.body;
+    const { mem_id, account_app_id } = req.body;
     
+    // 현재 날짜 형식화
+    const now = dayjs();
+    const mod_dt = now.format("YYYYMMDDHHmmss");
+
     const query = `
-      UPDATE members SET
-        mem_nickname= NULL
-        , mem_app_id = NULL
-        , mem_app_password = NULL
-        , mem_app_status = NULL
-        , push_yn = NULL
-        , push_token = NULL
-        , recent_dt = NULL
-        , app_active_dt = NULL
-        , app_exit_dt = NULL
-        , app_reg_dt = NULL
-        , app_reg_id = NULL
-        , app_mod_dt = NULL
-        , app_mod_id = NULL
-      WHERE mem_id = ?
+      UPDATE member_account_app SET
+        del_yn = 'Y'
+        , mod_dt = ?
+        , mod_id = ?
+      WHERE account_app_id = ?
     `;
 
     db.query(
       query,
-      [mem_id],
+      [mod_dt, mem_id, account_app_id],
       (err, result) => {
         if (err) {
           console.error("회원 삭제 오류:", err);
           return res.status(500).json({ error: "회원 삭제 중 오류가 발생했습니다." });
         }
-
-        const now = dayjs();
-        const mod_dt = now.format("YYYYMMDDHHmmss");
-
-        const updateMemberOrderAppQuery = `
-          UPDATE member_order_app SET
-            del_yn = 'Y'
-            , mod_dt = ?
-            , mod_id = ?
-          WHERE mem_id = ?
-          AND   del_yn = 'N'
-        `;
-
-        db.query(
-          updateMemberOrderAppQuery,
-          [mod_dt, mem_id, mem_id],
-          (orderErr, orderResult) => {
-            if (orderErr) {
-              console.error("주문 삭제 오류:", orderErr);
-              return res.status(500).json({ error: "주문 삭제 중 오류가 발생했습니다." });
-            }
-
-            const updateMemberPointAppQuery = `
-              UPDATE member_point_app SET
-                del_yn = 'Y'
-                , mod_dt = ?
-                , mod_id = ?
-              WHERE mem_id = ?
-              AND   del_yn = 'N'
-            `;
-
-            db.query(
-              updateMemberPointAppQuery,
-              [mod_dt, mem_id, mem_id],
-              (pointErr, pointResult) => {
-                if (pointErr) {
-                  console.error("포인트 삭제 오류:", pointErr);
-                  return res.status(500).json({ error: "포인트 삭제 중 오류가 발생했습니다." });
-                }
-
-                return res.status(200).json({
-                  message: "회원 삭제가 성공적으로 완료되었습니다.",
-                });
-              }
-            );
-          }
-        );
       }
     );
   } catch (error) {

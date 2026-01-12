@@ -11,12 +11,12 @@ export interface Member {
   mem_locker_number_old?: string;
   mem_checkin_number?: string;
   mem_gender?: number;
-  mem_app_id?: string;
-  mem_app_status?: string;
+  login_id?: string;
+  status?: string;
   mem_role?: string;
   push_yn?: string;
   push_token?: string;
-  app_reg_dt?: string;
+  reg_dt?: string;
   app_active_dt?: string;
   center_id: number;
   center_name: string;

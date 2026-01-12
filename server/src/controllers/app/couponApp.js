@@ -160,7 +160,7 @@ exports.selectMemberCouponAppList = (req, res) => {
 
   const query = `
     SELECt
-      m.mem_id
+      maa.account_app_id
       , m.mem_name
       , mca.member_coupon_app_id
       , mca.coupon_app_id
@@ -168,10 +168,11 @@ exports.selectMemberCouponAppList = (req, res) => {
       , mca.use_dt
       , DATE_FORMAT(mca.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
     FROM		    members m
-    INNER JOIN	member_coupon_app mca 	ON m.mem_id = mca.mem_id
-    INNER JOIN	coupon_app ca 			ON mca.coupon_app_id = ca.coupon_app_id
+    INNER JOIN	member_account_app maa  ON m.mem_id = maa.mem_id
+    INNER JOIN	member_coupon_app mca   ON maa.account_app_id = mca.account_app_id
+    INNER JOIN	coupon_app ca 			    ON mca.coupon_app_id = ca.coupon_app_id
     WHERE		    ca.coupon_app_id = ?
-    ORDER BY	  ca.coupon_app_id, m.mem_id DESC
+    ORDER BY	  ca.coupon_app_id, maa.account_app_id DESC
   `;
 
   db.query(query, [coupon_app_id], (err, result) => {

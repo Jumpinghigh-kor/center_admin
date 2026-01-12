@@ -4,7 +4,7 @@ import { useUserStore } from "../../../store/store";
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface InquiryShoppingApp {
-  mem_id: number;
+  account_app_id: string;
   inquiry_shopping_app_id: number;
   inquiry_phone_number: number;
   product_name: string;

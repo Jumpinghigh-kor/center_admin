@@ -10,7 +10,7 @@ import { useSearch } from "../../../hooks/useSearch";
 interface PointApp {
   point_app_id: number;
   mem_name: string;
-  mem_app_status: string;
+  status: string;
   point_type: string;
   point_amount: number;
   point_memo: string;
@@ -32,10 +32,11 @@ interface CenterItem {
 
 interface MemberAppItem {
   mem_id: number;
+  account_app_id: number;
   mem_name: string;
   mem_phone: string;
   mem_gender: string;
-  mem_app_status: string;
+  status: string;
   center_name: string;
   point_amount: number;
 }
@@ -131,7 +132,7 @@ const PointAppList: React.FC = () => {
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/memberApp/selectMemberAppList`,
         {
-          mem_app_status: 'ACTIVE',
+          status: 'ACTIVE',
         }
       );
       const list: MemberAppItem[] = response.data?.result || [];
@@ -369,7 +370,7 @@ const PointAppList: React.FC = () => {
                       </td>
                       <td className="pl-4 text-center">{pointList.length - (pagination.startIndex + index)}</td>
                       <td className="text-center px-2">{point.mem_name}</td>
-                      <td className="text-center px-2">{point.mem_app_status}</td>
+                      <td className="text-center px-2">{point.status}</td>
                       <td className="text-center px-2">{point.point_type}</td>
                       <td className="text-center px-2">{point.point_amount.toLocaleString()}</td>
                       <td className="text-center px-2">{point.point_status}</td>
@@ -478,22 +479,22 @@ const PointAppList: React.FC = () => {
                           </tr>
                         )}
                         {registerMembers.map((m) => {
-                          const checked = selectedMemberIds.has(m.mem_id);
+                          const checked = selectedMemberIds.has(m.account_app_id);
                           const isMinus = pointStatus === 'POINT_MINUS';
                           const isDisabled = isMinus && (!m.point_amount || m.point_amount <= 0);
                           return (
                             <tr
-                              key={m.mem_id}
+                              key={m.account_app_id}
                               className={`border-t hover:bg-gray-50 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                               onClick={() => {
                                 if (isDisabled) return;
                                 setSelectedMemberIds((prev) => {
                                   if (isMinus) {
-                                    return new Set<number>([m.mem_id]);
+                                    return new Set<number>([m.account_app_id]);
                                   }
                                   const next = new Set(prev);
-                                  if (next.has(m.mem_id)) next.delete(m.mem_id);
-                                  else next.add(m.mem_id);
+                                  if (next.has(m.account_app_id)) next.delete(m.account_app_id);
+                                  else next.add(m.account_app_id);
                                   return next;
                                 });
                               }}
@@ -509,11 +510,11 @@ const PointAppList: React.FC = () => {
                                     if (isDisabled) return;
                                     setSelectedMemberIds((prev) => {
                                       if (isMinus) {
-                                        return new Set<number>([m.mem_id]);
+                                        return new Set<number>([m.account_app_id]);
                                       }
                                       const next = new Set(prev);
-                                      if (next.has(m.mem_id)) next.delete(m.mem_id);
-                                      else next.add(m.mem_id);
+                                      if (next.has(m.account_app_id)) next.delete(m.account_app_id);
+                                      else next.add(m.account_app_id);
                                       return next;
                                     });
                                   }}
@@ -522,7 +523,7 @@ const PointAppList: React.FC = () => {
                               </td>
                               <td className="px-4 py-2">{m.mem_name}</td>
                               <td className="px-4 py-2">{m.mem_phone ? m.mem_phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</td>
-                              <td className="px-4 py-2">{m.mem_app_status === 'ACTIVE' ? '활동' : m.mem_app_status === 'PROCEED' ? '진행중' : '탈퇴'}</td>
+                              <td className="px-4 py-2">{m.status === 'ACTIVE' ? '활동' : m.status === 'PROCEED' ? '진행중' : '탈퇴'}</td>
                               <td className="px-4 py-2">{m.point_amount ? m.point_amount.toLocaleString() : '-'}</td>
                               <td className="px-4 py-2">{m.center_name}</td>
                             </tr>
@@ -591,7 +592,7 @@ const PointAppList: React.FC = () => {
 
                   // 차감 시 보유 포인트 체크
                   if (pointStatus === 'POINT_MINUS') {
-                    const selected = registerMembers.filter((m) => selectedMemberIds.has(m.mem_id));
+                    const selected = registerMembers.filter((m) => selectedMemberIds.has(m.account_app_id));
                     const hasInsufficient = selected.some((m) => {
                       const balance = Number(m.point_amount || 0);
                       return amountNum > balance;
@@ -619,10 +620,11 @@ const PointAppList: React.FC = () => {
                       uniqueIds.map((memId) =>
                         axios.post(`${process.env.REACT_APP_API_URL}/app/pointApp/insertPointApp`, {
                           point_type: pointStatus === 'POINT_ADD' ? 'POINT_ADMIN_ADD' : 'POINT_ADMIN_MINUS',
-                          userId: memId,
+                          userId: user.index,
                           point_amount: amountNum,
                           point_memo: pointMemo,
                           point_status: pointStatus,
+                          account_app_id: selectedMemberIds.size === 1 ? selectedMemberIds.values().next().value : null,
                         })
                       )
                     );

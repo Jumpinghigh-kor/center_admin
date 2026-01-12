@@ -32,7 +32,7 @@ interface CouponApp {
 
 interface CouponMember {
   member_coupon_app_id: number;
-  mem_id: string;
+  account_app_id: string;
   mem_name: string;
   coupon_app_id: number;
   use_yn: string;
@@ -465,7 +465,7 @@ const CouponAppDetail: React.FC = () => {
                 {memberCouponList.map((ele, index) => (
                   <tr key={ele.member_coupon_app_id} className="h-16 border-b border-gray-200 hover:bg-gray-50">
                     <td className="pl-4 text-center">{memberCouponList.length - index}</td>
-                    <td className="text-center px-2">{ele.mem_id}</td>
+                    <td className="text-center px-2">{ele.account_app_id}</td>
                     <td className="text-center px-2">{ele.mem_name}</td>
                     <td className="text-center px-2">{ele.use_yn === 'Y' ? '사용' : '미사용'}</td>
                     <td className="text-center px-2">{ele.use_dt ? ele.use_dt : '-'}</td>

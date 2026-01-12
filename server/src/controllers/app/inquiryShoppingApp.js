@@ -9,13 +9,15 @@ exports.selectInquiryShoppingAppList = (req, res) => {
     SELECT
       m.mem_id
       , m.mem_name
+      , maa.account_app_id
       , isa.inquiry_shopping_app_id
       , isa.content
       , DATE_FORMAT(isa.reg_dt, '%Y-%m-%d %H:%i:%s')  AS reg_dt
       , pa.product_name
       , pa.inquiry_phone_number
     FROM		    members m
-    INNER JOIN	inquiry_shopping_app isa  ON m.mem_id = isa.mem_id
+    INNER JOIN  member_account_app maa    ON m.mem_id = maa.mem_id
+    INNER JOIN	inquiry_shopping_app isa  ON maa.account_app_id = isa.account_app_id
     LEFT JOIN   product_app pa            ON isa.product_app_id = pa.product_app_id
     WHERE		    isa.del_yn = 'N'
     AND			    m.center_id = ?

@@ -4,7 +4,7 @@ const dayjs = require("dayjs");
 // 회원 취소/반품/교환 접수
 exports.insertMemberReturnApp = (req, res) => {
   try {
-    const { order_detail_app_id, order_address_id, mem_id, return_reason_type, reason, quantity } = req.body;
+    const { order_detail_app_id, order_address_id, userId, return_reason_type, reason, quantity, account_app_id } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
@@ -15,7 +15,7 @@ exports.insertMemberReturnApp = (req, res) => {
       INSERT INTO member_return_app (
         order_detail_app_id
         , order_address_id
-        , mem_id
+        , account_app_id
         , return_applicator
         , return_reason_type
         , reason
@@ -58,7 +58,7 @@ exports.insertMemberReturnApp = (req, res) => {
       [
         order_detail_app_id,
         order_address_id,
-        mem_id,
+        account_app_id,
         'ADMIN',
         return_reason_type,
         reason,
@@ -71,7 +71,7 @@ exports.insertMemberReturnApp = (req, res) => {
         'N',
         'N',
         reg_dt,
-        mem_id,
+        userId,
         null,
         null,
       ],

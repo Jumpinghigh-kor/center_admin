@@ -5,7 +5,8 @@ interface OrderDetail {
   mem_name: string;
   mem_birth: string;
   mem_phone: string;
-  mem_app_id: string;
+  login_id: string;
+  account_app_id: number;
   order_app_id: number;
   order_status: string;
   order_quantity: number;
@@ -73,7 +74,7 @@ const OrderPrintModal: React.FC<OrderPrintModalProps> = ({ orderDetail, isOpen, 
 
   // 주문 배열로 변환 (단일 주문인 경우 배열로 변환)
   const orders = Array.isArray(orderDetail) ? orderDetail : [orderDetail];
-  console.log(orders.length, orders.map(o => o.order_dt + o.order_app_id))
+  
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white w-[800px] max-h-[90vh] overflow-y-auto">
@@ -150,7 +151,7 @@ const OrderPrintModal: React.FC<OrderPrintModalProps> = ({ orderDetail, isOpen, 
                         <h3 className="font-bold text-xs mb-3">주문자 정보</h3>
                         <div className="space-y-1">
                           <p className="text-xs">{order.mem_name}</p>
-                          <p className="text-xs">{order.mem_app_id}</p>
+                          <p className="text-xs">{order.login_id}</p>
                           <p className="text-xs">{order.mem_phone?.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')}</p>
                         </div>
                       </div>

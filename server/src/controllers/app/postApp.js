@@ -64,13 +64,14 @@ exports.selectMemberPostAppList = (req, res) => {
         , p.content
         , p.all_send_yn
         , p.push_send_yn
-        , m.mem_id
+        , maa.account_app_id
         , m.mem_name
         , mpa.member_post_app_id
       FROM		  	post_app p
-      LEFT JOIN		member_post_app mpa	ON 	p.post_app_id = mpa.post_app_id
-      LEFT JOIN		members m 			    ON	mpa.mem_id = m.mem_id
-      WHERE		  	  p.post_app_id = ?
+      LEFT JOIN		member_post_app mpa	    ON 	p.post_app_id = mpa.post_app_id
+      LEFT JOIN		member_account_app maa	ON	mpa.account_app_id = maa.account_app_id
+      LEFT JOIN		members m 			        ON	maa.mem_id = m.mem_id
+      WHERE		  	p.post_app_id = ?
   `;
 
   db.query(query, [post_app_id], (err, result) => {
@@ -84,7 +85,7 @@ exports.selectMemberPostAppList = (req, res) => {
 // 우편함 등록
 exports.insertPostApp = (req, res) => {
   try {
-    const { post_type, title, content, all_send_yn, userId, push_send_yn, mem_id, memberList } = req.body;
+    const { post_type, title, content, all_send_yn, userId, push_send_yn, memberList } = req.body;
     // 현재 날짜 형식화
     const now = dayjs();
     const reg_dt = now.format("YYYYMMDDHHmmss");
@@ -111,8 +112,8 @@ exports.insertPostApp = (req, res) => {
         , 'N'
         , ?
         , ?
-        , NULL
-        , NULL
+        , ?
+        , ?
       )
     `;
 
@@ -130,34 +131,62 @@ exports.insertPostApp = (req, res) => {
         // 등록 성공 후 푸시 발송 (옵션)
         if (push_send_yn === 'Y') {
           try {
-            let tokenWhere = "WHERE m.push_yn = 'Y' AND m.push_token IS NOT NULL";
+            let tokenWhere = "WHERE maa.push_yn = 'Y' AND maa.push_token IS NOT NULL";
             const params = [];
 
             if (all_send_yn === 'N' && memberList && memberList.length > 0) {
-                tokenWhere += ` AND m.mem_id IN (${memberList.map(() => '?').join(',')})`;
+                tokenWhere += ` AND maa.account_app_id IN (${memberList.map(() => '?').join(',')})`;
                 params.push(...memberList);
             }
 
             const tokenQuery = `
               SELECT
-                m.push_token
-              FROM members m
+                maa.push_token
+                , maa.account_app_id
+              FROM member_account_app maa
               ${tokenWhere}
             `;
 
-            const tokens = await new Promise((resolve, reject) => {
+            const tokenRows = await new Promise((resolve, reject) => {
               db.query(tokenQuery, params, (err, rows) => {
                 if (err) return reject(err);
-                resolve(rows.map((r) => r.push_token).filter(Boolean));
+                resolve(rows.filter((r) => r.push_token));
               });
             });
 
-            if (Array.isArray(tokens) && tokens.length) {
-              await sendPush(tokens, {
+            if (Array.isArray(tokenRows) && tokenRows.length) {
+              const tokens = tokenRows.map((r) => r.push_token);
+              const tokenToAccountIdMap = new Map(
+                tokenRows.map((r) => [r.push_token, r.account_app_id])
+              );
+
+              const pushResult = await sendPush(tokens, {
                 title: title || '알림',
                 body: content || '',
                 data: { type: 'POST_APP', post_type: post_type || '' },
               });
+
+              // 무효한 토큰을 DB에서 제거
+              if (pushResult.invalidTokens && pushResult.invalidTokens.length > 0) {
+                const invalidAccountIds = pushResult.invalidTokens
+                  .map((token) => tokenToAccountIdMap.get(token))
+                  .filter(Boolean);
+
+                if (invalidAccountIds.length > 0) {
+                  const updateQuery = `
+                    UPDATE member_account_app 
+                    SET push_token = NULL 
+                    WHERE account_app_id IN (${invalidAccountIds.map(() => '?').join(',')})
+                  `;
+                  db.query(updateQuery, invalidAccountIds, (updateErr) => {
+                    if (updateErr) {
+                      console.error('무효한 토큰 제거 오류:', updateErr);
+                    } else {
+                      console.log(`[Push] ${invalidAccountIds.length}개의 무효한 토큰이 DB에서 제거되었습니다.`);
+                    }
+                  });
+                }
+              }
             }
           } catch (pushErr) {
             console.error('푸시 발송 오류:', pushErr);
@@ -179,15 +208,15 @@ exports.insertPostApp = (req, res) => {
 // 회원 우편함 등록
 exports.insertMemberPostApp = (req, res) => {
   try {
-    const { post_app_id, mem_id, userId } = req.body;
-
+    const { post_app_id, account_app_id, userId } = req.body;
+    
     const now = dayjs();
     const reg_dt = now.format("YYYYMMDDHHmmss");
 
     const memberPostAppInsertQuery = `
       INSERT INTO member_post_app (
         post_app_id
-        , mem_id
+        , account_app_id
         , read_yn
         , read_dt
         , del_yn
@@ -210,7 +239,7 @@ exports.insertMemberPostApp = (req, res) => {
 
     db.query(
       memberPostAppInsertQuery,
-      [post_app_id, mem_id, reg_dt, userId],
+      [post_app_id, account_app_id, reg_dt, userId],
       (memberPostAppErr, memberPostAppResult) => {
         if (memberPostAppErr) {
           console.error("우편함 등록 오류:", memberPostAppErr);

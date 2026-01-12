@@ -11,16 +11,17 @@ import { Member } from "../../../utils/types";
 
 interface MemberApp {
   mem_id: number;
+  account_app_id: string;
   center_name: string;
   mem_phone: string;
   mem_gender: string;
   mem_sch_id: number;
   mem_name: string;
-  mem_app_status: string;
+  status: string;
   point_amount: number;
   recent_dt: string;
-  app_reg_dt: string; 
-  app_exit_dt: string;
+  reg_dt: string; 
+  exit_dt: string;
 }
 
 interface CenterItem {
@@ -94,7 +95,7 @@ const MemberList: React.FC = () => {
     onSearch: selectMemberAppList,
     initialSearchData: {
       mem_name: "",
-      mem_app_status: "",
+      status: "",
       mem_gender: "",
       start_recent_dt: "",
       end_recent_dt: "",
@@ -123,12 +124,12 @@ const MemberList: React.FC = () => {
       setDeleting(true);
       await axios.post(
         `${process.env.REACT_APP_API_URL}/app/memberApp/deleteMemberApp`,
-        { mem_id: selectedMember.mem_id },
+        { account_app_id: selectedMember.account_app_id },
         { withCredentials: true }
       );
-      alert("어플 계정이 삭제되었습니다.");
       setSelectedMember(undefined);
-      await selectMemberAppList(searchData);
+      selectMemberAppList(searchData);
+      alert("어플 계정이 삭제되었습니다.");
     } catch (err) {
       console.error("어플 계정 삭제 오류:", err);
       alert("어플 계정 삭제 중 오류가 발생했습니다.");
@@ -158,12 +159,12 @@ const MemberList: React.FC = () => {
                   alert("회원을 선택하세요.");
                   return;
                 }
-                setPopupMode(selectedMember?.mem_app_status ? "emailChange" : "create");
+                setPopupMode(selectedMember?.status ? "emailChange" : "create");
                 setPopupToggle(true);
               }}
-              className={`px-4 py-2 text-sm font-medium text-white ${selectedMember?.mem_app_status ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"} border border-transparent rounded`}
+              className={`px-4 py-2 text-sm font-medium text-white ${selectedMember?.status ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"} border border-transparent rounded`}
               >
-              {selectedMember?.mem_app_status ? "어플 계정 변경" : "어플 계정 생성"}
+              {selectedMember?.status ? "어플 계정 변경" : "어플 계정 생성"}
             </button>
           </div>
         </div>
@@ -189,10 +190,10 @@ const MemberList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value=""
-                        checked={searchData.mem_app_status === ''}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === ''}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -200,10 +201,10 @@ const MemberList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value="ACTIVE"
-                        checked={searchData.mem_app_status === 'ACTIVE'}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === 'ACTIVE'}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">활동회원</span>
@@ -211,10 +212,10 @@ const MemberList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value="EXIT"
-                        checked={searchData.mem_app_status === 'EXIT'}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === 'EXIT'}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">탈퇴회원</span>
@@ -222,10 +223,10 @@ const MemberList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value="PROCEED"
-                        checked={searchData.mem_app_status === 'PROCEED'}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === 'PROCEED'}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">가입중 회원</span>
@@ -233,10 +234,10 @@ const MemberList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value="NON_MEMBER"
-                        checked={searchData.mem_app_status === 'NON_MEMBER'}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === 'NON_MEMBER'}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">미가입 회원</span>
@@ -443,14 +444,14 @@ const MemberList: React.FC = () => {
                       </td>
                       <td className="text-center px-2">{member.mem_name}</td>
                       <td className="text-center px-2">
-                        {member.mem_app_status === 'ACTIVE' ? '활동 회원' : member.mem_app_status === 'PROCEED' ? '가입 진행중 회원' : member.mem_app_status === 'EXIT' ? '탈퇴 회원' : '미가입 회원'}
+                        {member.status === 'ACTIVE' ? '활동 회원' : member.status === 'PROCEED' ? '가입 진행중 회원' : member.status === 'EXIT' ? '탈퇴 회원' : '미가입 회원'}
                       </td>
                       <td className="text-center px-2">{member.mem_gender ? member.mem_gender : '-'}</td>
                       <td className="text-center px-2">{member.mem_phone ? member.mem_phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</td>
                       <td className="text-center px-2">{member.point_amount ? member.point_amount.toLocaleString() : '-'}</td>
                       <td className="text-center">{member.recent_dt ? member.recent_dt : '-'}</td>
-                      <td className="text-center">{member.app_reg_dt ? member.app_reg_dt : '-'}</td>
-                      <td className="text-center">{member.app_exit_dt ? member.app_exit_dt : '-'}</td>
+                      <td className="text-center">{member.reg_dt ? member.reg_dt : '-'}</td>
+                      <td className="text-center">{member.exit_dt ? member.exit_dt : '-'}</td>
                       {user.usr_role === 'admin' && (
                         <td className="text-center px-2">{member.center_name ? member.center_name : '-'}</td>
                       )}

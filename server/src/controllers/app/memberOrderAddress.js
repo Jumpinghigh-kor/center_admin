@@ -25,13 +25,14 @@ exports.selectMemberOrderAddress = (req, res) => {
             FROM	extra_shipping_area sesa
             WHERE	sesa.zip_code = moad.zip_code
         ) AS extra_zip_code
-      FROM		  members m
-      LEFT JOIN	member_order_app moa		      ON m.mem_id = moa.mem_id
-      LEFT JOIN	member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id
-      LEFT JOIN	member_order_address moad		  ON moda.order_detail_app_id = moad.order_detail_app_id
-      WHERE		  m.center_id = ?
-      AND			  moa.del_yn = 'N'
-      AND			  moad.use_yn = 'Y'
+      FROM		    members m
+      INNER JOIN  member_account_app maa        ON m.mem_id = maa.mem_id
+      LEFT JOIN	  member_order_app moa		      ON maa.account_app_id = moa.account_app_id
+      LEFT JOIN	  member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id
+      LEFT JOIN	  member_order_address moad		  ON moda.order_detail_app_id = moad.order_detail_app_id
+      WHERE		    m.center_id = ?
+      AND			    moa.del_yn = 'N'
+      AND			    moad.use_yn = 'Y'
   `;
 
   db.query(query, [center_id], (err, result) => {
@@ -126,7 +127,7 @@ exports.deleteMemberOrderAddress = (req, res) => {
 // 회원 주문 주소지 등록
 exports.insertMemberOrderAddress = (req, res) => {
   try {
-    const { order_detail_app_id, order_address_type, mem_id, receiver_name, receiver_phone, address, address_detail, zip_code, enter_way, enter_memo, delivery_request, use_yn } = req.body;
+    const { order_detail_app_id, order_address_type, account_app_id, receiver_name, receiver_phone, address, address_detail, zip_code, enter_way, enter_memo, delivery_request, use_yn } = req.body;
     
     // 현재 날짜 형식화
     const now = dayjs();
@@ -148,7 +149,7 @@ exports.insertMemberOrderAddress = (req, res) => {
       INSERT INTO member_order_address (
         order_detail_app_id
         , order_address_type
-        , mem_id
+        , account_app_id
         , receiver_name
         , receiver_phone
         , address
@@ -184,7 +185,7 @@ exports.insertMemberOrderAddress = (req, res) => {
 
     db.query(
       deactivatePrevQuery,
-      [mod_dt, mem_id, order_detail_app_id],
+      [mod_dt, account_app_id, order_detail_app_id],
       (deErr) => {
         if (deErr) {
           console.error('기존 주소 비활성화 오류:', deErr);
@@ -196,7 +197,7 @@ exports.insertMemberOrderAddress = (req, res) => {
           INSERT INTO member_order_address (
             order_detail_app_id
             , order_address_type
-            , mem_id
+            , account_app_id
             , receiver_name
             , receiver_phone
             , address
@@ -214,7 +215,7 @@ exports.insertMemberOrderAddress = (req, res) => {
           SELECT
             ?
             , 'ORDER'
-            , COALESCE(moad.mem_id, ?)
+            , COALESCE(moad.account_app_id, ?)
             , COALESCE(moad.receiver_name, '')
             , COALESCE(moad.receiver_phone, '')
             , COALESCE(moad.address, '')
@@ -241,7 +242,7 @@ exports.insertMemberOrderAddress = (req, res) => {
             [
               order_detail_app_id,
               order_address_type,
-              mem_id,
+              account_app_id,
               receiver_name || '',
               receiver_phone || '',
               address || '',
@@ -252,7 +253,7 @@ exports.insertMemberOrderAddress = (req, res) => {
               delivery_request || null,
               use_yn || 'Y',
               reg_dt,
-              mem_id,
+              account_app_id,
             ],
             (err, result) => {
               if (err) {
@@ -269,7 +270,7 @@ exports.insertMemberOrderAddress = (req, res) => {
         if (String(order_address_type || '').toUpperCase() === 'ORDER') {
           db.query(
             tryCopyOriginalOrderQuery,
-            [order_detail_app_id, mem_id, reg_dt, mem_id, order_detail_app_id],
+            [order_detail_app_id, account_app_id, reg_dt, account_app_id, order_detail_app_id],
             (copyErr, copyRes) => {
               if (copyErr) {
                 console.error('최초 ORDER 주소 복사 오류:', copyErr);

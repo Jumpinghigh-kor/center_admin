@@ -3,8 +3,7 @@ const dayjs = require("dayjs");
 
 // 파일 정보 등록
 exports.insertCommonFile = (req, res) => {
-  const { file_name, file_path, file_division, reg_id, mod_dt, mod_id } =
-    req.body;
+  const { file_name, file_path, file_division, reg_id, mod_dt, mod_id } = req.body;
 
   const reg_dt = dayjs().format("YYYYMMDDHHmmss");
 

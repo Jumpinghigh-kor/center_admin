@@ -128,7 +128,7 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
       const key = `kr.cjlogistics::${tn}`;
       if (!deliveredPairs.has(key)) continue;
 
-      const memId = Number(r && r.mem_id);
+      const accountAppId = Number(r && r.account_app_id);
       const memName = String(((r && r.mem_name) || '')).trim();
       const productName = String(((r && r.product_name) || '')).trim();
       const title = `${memName}님께서 주문하신 ${productName} 상품이 배송 완료 되었습니다.`;
@@ -160,7 +160,7 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
             , NULL
           )
         `;
-        db.query(insertPost, [title, content, now, memId], (err, result) => resolve(err ? null : (result && result.insertId)));
+        db.query(insertPost, [title, content, now, accountAppId], (err, result) => resolve(err ? null : (result && result.insertId)));
       });
       if (!postAppId) continue;
 
@@ -168,7 +168,7 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
         const insertMemberPostSelect = `
           INSERT INTO member_post_app (
             post_app_id
-            , mem_id
+            , account_app_id
             , read_yn
             , read_dt
             , del_yn
@@ -188,7 +188,7 @@ const syncGeneric = async ({ selectQuery, extractTrackingNumberFromRow, statusTo
             , NULL
             , NULL
         `;
-        db.query(insertMemberPostSelect, [postAppId, memId, now, 1], (err) => {
+        db.query(insertMemberPostSelect, [postAppId, accountAppId, now, 1], (err) => {
           if (err) console.error('[member_post_app insert error]', err);
           resolve();
         });
@@ -210,14 +210,16 @@ module.exports = {
         , pa.product_name
         , m.mem_name
         , m.mem_id
-      FROM      members m
-      LEFT JOIN member_order_app moa          ON m.mem_id = moa.mem_id
-      LEFT JOIN member_order_detail_app moda  ON moa.order_app_id = moda.order_app_id
-      LEFT JOIN product_detail_app pda        ON moda.product_detail_app_id = pda.product_detail_app_id
-      LEFT JOIN product_app pa                ON pda.product_app_id = pa.product_app_id
-      WHERE     moda.order_status = 'SHIPPINGING'
-      AND       pa.consignment_yn = 'N'
-      AND       moa.del_yn = 'N'
+        , maa.account_app_id
+      FROM        members m
+      INNER JOIN  member_account_app maa        ON (m.mem_id = maa.mem_id AND maa.del_yn = 'N')
+      LEFT JOIN   member_order_app moa          ON maa.account_app_id = moa.account_app_id
+      LEFT JOIN   member_order_detail_app moda  ON moa.order_app_id = moda.order_app_id
+      LEFT JOIN   product_detail_app pda        ON moda.product_detail_app_id = pda.product_detail_app_id
+      LEFT JOIN   product_app pa                ON pda.product_app_id = pa.product_app_id
+      WHERE       moda.order_status = 'SHIPPINGING'
+      AND         pa.consignment_yn = 'N'
+      AND         moa.del_yn = 'N'
     `;
     await syncGeneric({
       selectQuery,
@@ -234,15 +236,17 @@ module.exports = {
         , pa.product_name
         , m.mem_name
         , m.mem_id
-      FROM      members m
-      LEFT JOIN member_order_app moa          ON m.mem_id = moa.mem_id
-      LEFT JOIN member_order_detail_app moda  ON moa.order_app_id = moda.order_app_id
-      LEFT JOIN product_detail_app pda        ON moda.product_detail_app_id = pda.product_detail_app_id
-      LEFT JOIN product_app pa                ON pda.product_app_id = pa.product_app_id
-      LEFT JOIN member_return_app mra         ON moda.order_detail_app_id = mra.order_detail_app_id
-      WHERE     moda.order_status = 'EXCHANGE_SHIPPINGING'
-      AND       mra.del_yn = 'N'
-      AND       moa.del_yn = 'N'
+        , maa.account_app_id
+      FROM        members m
+      INNER JOIN  member_account_app maa        ON (m.mem_id = maa.mem_id AND maa.del_yn = 'N')
+      LEFT JOIN   member_order_app moa          ON maa.account_app_id = moa.account_app_id
+      LEFT JOIN   member_order_detail_app moda  ON moa.order_app_id = moda.order_app_id
+      LEFT JOIN   product_detail_app pda        ON moda.product_detail_app_id = pda.product_detail_app_id
+      LEFT JOIN   product_app pa                ON pda.product_app_id = pa.product_app_id
+      LEFT JOIN   member_return_app mra         ON moda.order_detail_app_id = mra.order_detail_app_id
+      WHERE       moda.order_status = 'EXCHANGE_SHIPPINGING'
+      AND         mra.del_yn = 'N'
+      AND         moa.del_yn = 'N'
     `;
     await syncGeneric({
       selectQuery,

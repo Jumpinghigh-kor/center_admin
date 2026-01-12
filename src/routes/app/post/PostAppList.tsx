@@ -14,7 +14,7 @@ interface PostApp {
   post_type: string;
   all_send_yn: string;
   push_send_yn: string;
-  mem_id: string;
+  account_app_id: string;
   reg_dt: string;
 }
 
@@ -62,7 +62,6 @@ const PostAppList: React.FC = () => {
       push_send_yn: ""
     }
   });
-
 
   // 선택 삭제 처리
   const handleDeleteSelected = async () => {

@@ -128,9 +128,9 @@ const MemberReviewApp: React.FC = () => {
       // 관리자 삭제 성공 시 작성자에게 안내 우편 발송
       try {
         const calls = (selectedReviewObjs || []).map(async (rv: any) => {
-          const memId = rv?.mem_id;
+          const accountAppId = rv?.account_app_id;
           const productName = String(rv?.product_title || '').trim();
-          if (!memId || !productName) return;
+          if (!accountAppId || !productName) return;
           const title = '운영정책 위반으로 리뷰가 삭제되었습니다.';
           const content = `주문하신 ${productName} 상품에 등록하신 리뷰가 운영정책(부적절한 표현/홍보성 내용/개인정보 노출 등) 위반으로 삭제되었습니다. 자세한 문의는 고객센터로 연락 부탁드립니다.`;
           const postRes = await axios.post(
@@ -142,14 +142,13 @@ const MemberReviewApp: React.FC = () => {
               all_send_yn: 'N',
               push_send_yn: 'Y',
               userId: user?.index,
-              mem_id: String(memId),
             }
           );
           const postAppId = postRes.data?.postAppId;
           if (postAppId) {
             await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
               post_app_id: postAppId,
-              mem_id: memId,
+              account_app_id: accountAppId,
               userId: user?.index,
             });
           }

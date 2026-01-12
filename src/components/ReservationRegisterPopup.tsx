@@ -11,9 +11,10 @@ interface MemberAppItem {
   mem_name: string;
   mem_phone: string;
   mem_gender: string;
-  mem_app_status: string;
+  status: string;
   mem_sch_id: number;
   sch_time: string;
+  account_app_id: number;
 }
 
 interface ReservationRegisterPopupProps {
@@ -48,7 +49,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
     const dd = String(now.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
   }, []);
-
+  
   const isScheduleTimePast = (schTime: string): boolean => {
     if (date !== todayStr) return false;
     try {
@@ -81,7 +82,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
           `${process.env.REACT_APP_API_URL}/app/memberApp/selectMemberAppList`,
           { 
             center_id: user?.center_id
-            , mem_app_status: 'ACTIVE'
+            , status: 'ACTIVE'
             , is_reservation: true
           }
         );
@@ -122,9 +123,9 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
         const dupRes = await axios.post(`${process.env.REACT_APP_API_URL}/schedule/getReservationMemberListByDate`, {
           sch_dt: schDt,
         });
-        const alreadyReserved: Array<{ mem_id: number; mem_name: string }> = dupRes.data?.result || [];
-        const reservedIdSet = new Set(alreadyReserved.map((r) => r.mem_id));
-        const duplicatedNames = selectedMembers.filter((m) => reservedIdSet.has(m.mem_id)).map((m) => m.mem_name);
+        const alreadyReserved: Array<{ account_app_id: number; mem_name: string }> = dupRes.data?.result || [];
+        const reservedIdSet = new Set(alreadyReserved.map((r) => r.account_app_id));
+        const duplicatedNames = selectedMembers.filter((m) => reservedIdSet.has(m.account_app_id)).map((m) => m.mem_name);
         if (!active) return;
         setDuplicateWarning(
           duplicatedNames.length > 0
@@ -167,10 +168,10 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
       const dupRes = await axios.post(`${process.env.REACT_APP_API_URL}/schedule/getReservationMemberListByDate`, {
         sch_dt: schDt,
       });
-      const alreadyReserved: Array<{ mem_id: number; mem_name: string }> = dupRes.data?.result || [];
+      const alreadyReserved: Array<{ account_app_id: number; mem_name: string }> = dupRes.data?.result || [];
       if (Array.isArray(alreadyReserved) && alreadyReserved.length > 0) {
-        const reservedIdSet = new Set(alreadyReserved.map((r) => r.mem_id));
-        const duplicatedNames = selectedMembers.filter((m) => reservedIdSet.has(m.mem_id)).map((m) => m.mem_name);
+        const reservedIdSet = new Set(alreadyReserved.map((r) => r.account_app_id));
+        const duplicatedNames = selectedMembers.filter((m) => reservedIdSet.has(m.account_app_id)).map((m) => m.mem_name);
         if (duplicatedNames.length > 0) {
           setDuplicateWarning(`이미 해당 일자에 예약된 회원이 있습니다: ${duplicatedNames.join(', ')}님`);
           return;
@@ -181,7 +182,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
       await Promise.all(
         selectedMembers.map((m) =>
           axios.post(`${process.env.REACT_APP_API_URL}/schedule/insertMemberScheduleApp`, {
-            mem_id: m.mem_id,
+            account_app_id: m.account_app_id,
             original_sch_id: m.mem_sch_id || null,
             reservation_sch_id: selectedScheduleId,
             sch_dt: schDt,
@@ -192,7 +193,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
 
       // 2) 우편/푸시 발송 (선택 회원 전원)
       try {
-        const selectedMemIds = selectedMembers.map((m) => m.mem_id);
+        const selectedMemIds = selectedMembers.map((m) => m.account_app_id);
         const [yyyy, mm, dd] = date.split('-');
         const krDate = yyyy && mm && dd ? `${yyyy}년 ${mm}월 ${dd}일` : date;
         const actionText = '등록';
@@ -206,17 +207,17 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
             all_send_yn: 'N',
             push_send_yn: 'Y',
             userId: user?.index,
-            mem_id: selectedMemIds.join(','),
+            account_app_id: selectedMemIds.join(','),
           }
         );
 
         const postAppId = postRes.data?.postAppId;
         if (postAppId && Array.isArray(selectedMemIds) && selectedMemIds.length > 0) {
           await Promise.all(
-            selectedMemIds.map((mid) =>
+            selectedMemIds.map((accountAppId) =>
               axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                 post_app_id: postAppId,
-                mem_id: mid,
+                account_app_id: accountAppId,
                 userId: user?.index,
               })
             )
@@ -353,7 +354,7 @@ const ReservationRegisterPopup: React.FC<ReservationRegisterPopupProps> = ({
                           members.map((m, idx) => {
                             const checked = checkedItems[idx] || false;
                             return (
-                              <tr key={m.mem_id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => handleIndividualCheck(idx, !checked)}>
+                              <tr key={m.account_app_id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => handleIndividualCheck(idx, !checked)}>
                                 <td className="px-3 py-2 text-center">
                                   <input
                                     type="checkbox"

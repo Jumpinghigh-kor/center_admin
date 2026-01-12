@@ -6,7 +6,8 @@ const bcrypt = require("bcrypt");
 exports.getMember = (req, res) => {
   const { center_id } = req.query.user;
   const { sortOption } = req.query;
-
+console.log("center_id::", center_id);
+console.log("sortOption::", sortOption);
   let queryParams = [center_id];
   let baseQuery = "";
   let orderClause = "";
@@ -26,15 +27,17 @@ exports.getMember = (req, res) => {
         , m.mem_sch_id
         , m.mem_memo
         , m.mem_status
-        , m.mem_app_id
-        , m.mem_app_status
-        , m.mem_role
-        , m.push_yn
-        , m.push_token
-        , DATE_FORMAT(m.app_reg_dt, '%Y-%m-%d %H:%i:%s') AS app_reg_dt
-        , DATE_FORMAT(m.app_active_dt, '%Y-%m-%d %H:%i:%s') AS app_active_dt
-        , m.center_id
         , m.mem_locker_number AS mem_locker_number_old
+        , m.center_id
+        , maa.account_app_id
+        , maa.login_id
+        , maa.status
+        , maa.mem_role
+        , maa.push_yn
+        , maa.push_token
+        , DATE_FORMAT(maa.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
+        , DATE_FORMAT(maa.active_dt, '%Y-%m-%d %H:%i:%s') AS active_dt
+        , DATE_FORMAT(maa.exit_dt, '%Y-%m-%d %H:%i:%s') AS exit_dt
         , (
             SELECT
               smo.memo_pro_name
@@ -120,7 +123,8 @@ exports.getMember = (req, res) => {
             WHERE		  ms.sch_id = m.mem_sch_id
         ) AS sch_time
       FROM        members m
-      INNER JOIN  schedule s ON s.sch_id = m.mem_sch_id 
+      LEFT JOIN   member_account_app maa   ON (m.mem_id = maa.mem_id AND maa.del_yn = 'N')
+      INNER JOIN  schedule s              ON s.sch_id = m.mem_sch_id 
     `;
 
   let commonConditions = `

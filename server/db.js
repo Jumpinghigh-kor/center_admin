@@ -7,6 +7,9 @@ const db = mysql.createPool({
   database: process.env.DB_DATABASE,
   port: process.env.DB_PORT,
   charset: "utf8mb4",
+  connectionLimit: 20,
+  queueLimit: 0,
+  waitForConnections: true,
 });
 
 // 데이터베이스 연결

@@ -7,24 +7,25 @@ interface Member {
   mem_name?: string;
   mem_phone?: string;
   mem_birth?: any;
-  mem_app_id?: string;
   mem_gender?: boolean | number;
   mem_locker?: boolean | number;
   mem_locker_number?: string;
   mem_checkin_number?: string;
   mem_manager?: string;
   mem_memo?: string;
-  mem_app_status?: string;
+  account_app_id?: string;
+  center_id?: number;
+  login_id?: string;
+  status?: string;
   mem_role?: string;
   push_yn?: string;
   push_token?: string;
-  app_reg_dt?: string;
-  center_id?: number;
+  reg_dt?: string;
 }
 
 interface AppAccount {
-  mem_app_id: string;
-  mem_app_password: string;
+  login_id: string;
+  password: string;
   confirmPassword: string;
   mem_role: string;
 }
@@ -50,8 +51,8 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
   const [activeTab, setActiveTab] = useState<"info" | "password">("info");
   
   const [formData, setFormData] = useState<AppAccount>({
-    mem_app_id: selectedMember?.mem_app_id || "",
-    mem_app_password: "",
+    login_id: selectedMember?.login_id || "",
+    password: "",
     confirmPassword: "",
     mem_role: selectedMember?.mem_role || "USER",
   });
@@ -97,7 +98,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
     if (!isOpen) return;
     setFormData((prev) => ({
       ...prev,
-      mem_app_id: selectedMember?.mem_app_id || "",
+      login_id: selectedMember?.login_id || "",
       mem_role: selectedMember?.mem_role || prev.mem_role,
     }));
   }, [isOpen, selectedMember]);
@@ -125,14 +126,14 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
   const validateForm = (): boolean => {
     // 이메일 검증 (계정 생성 또는 이메일 변경 모드)
     if ((effectiveMode === "create" || effectiveMode === "emailChange")) {
-      if (!formData.mem_app_id.trim()) {
+      if (!formData.login_id.trim()) {
         setErrorMessage("아이디를 입력해주세요.");
         return false;
       }
 
       // 아이디는 영문/숫자만 허용 (특수문자 불가)
       const idRegex = /^[A-Za-z0-9]+$/;
-      if (!idRegex.test(formData.mem_app_id.trim())) {
+      if (!idRegex.test(formData.login_id.trim())) {
         setErrorMessage("아이디는 영문과 숫자만 입력 가능합니다.");
         return false;
       }
@@ -140,19 +141,19 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
 
     // 비밀번호 검증 (계정 생성 또는 비밀번호 변경 모드)
     if ((effectiveMode === "create" || effectiveMode === "passwordChange")) {
-      if (!formData.mem_app_password) {
+      if (!formData.password) {
         setErrorMessage("비밀번호를 입력해주세요.");
         return false;
       }
 
       // 최소 8자, 대문자/소문자/숫자/특수문자 각 1자 이상 포함
       const passwordPolicyRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-      if (!passwordPolicyRegex.test(formData.mem_app_password)) {
+      if (!passwordPolicyRegex.test(formData.password)) {
         setErrorMessage("비밀번호는 8자 이상이며, 대문자, 소문자, 숫자, 특수문자를 각각 1자 이상 포함해야 합니다.");
         return false;
       }
 
-      if (formData.mem_app_password !== formData.confirmPassword) {
+      if (formData.password !== formData.confirmPassword) {
         setErrorMessage("비밀번호가 일치하지 않습니다.");
         return false;
       }
@@ -187,29 +188,31 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         apiEndpoint = `${process.env.REACT_APP_API_URL}/app/memberApp/createMemberApp`;
         accountData = {
           mem_id: selectedMember?.mem_id,
-          mem_app_id: formData.mem_app_id.trim(),
-          mem_app_password: formData.mem_app_password,
+          login_id: formData.login_id.trim(),
+          password: formData.password,
           mem_role: formData.mem_role,
         };
         successMessage = "앱 계정이 성공적으로 생성되었습니다.";
       } else if (effectiveMode === "passwordChange") {
         apiEndpoint = `${process.env.REACT_APP_API_URL}/app/memberApp/updateMemberAppPassword`;
         accountData = {
-          mem_id: selectedMember?.mem_id,
-          mem_app_password: formData.mem_app_password,
+          userId: user?.index,
+          account_app_id: selectedMember?.account_app_id,
+          password: formData.password,
         };
         successMessage = "비밀번호가 성공적으로 변경되었습니다.";
       } else if (effectiveMode === "emailChange") {
         apiEndpoint = `${process.env.REACT_APP_API_URL}/app/memberApp/updateMemberAppInfo`;
         accountData = {
-          mem_id: selectedMember?.mem_id,
-          mem_app_id: formData.mem_app_id.trim(),
+          userId: user?.index,
+          account_app_id: selectedMember?.account_app_id,
+          login_id: formData.login_id.trim(),
           mem_role: formData.mem_role,
         };
         successMessage = "앱 계정 정보가 성공적으로 변경되었습니다.";
       }
 
-      await axios.post(
+      const createResponse = await axios.post(
         apiEndpoint,
         accountData,
         {
@@ -220,8 +223,15 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         }
       );
 
+      // 계정 생성 시 생성된 account_app_id 추출
+      let createdAccountAppId: string | undefined;
+      if (effectiveMode === "create") {
+        createdAccountAppId = (createResponse as any)?.data?.result?.insertId?.toString() || 
+                              selectedMember?.account_app_id;
+      }
+
       // 탈퇴 해재 요청 (선택된 회원이 EXIT이고 '예' 선택 시)
-      if (selectedMember?.mem_app_status === 'EXIT' && reactivateExit === 'Y') {
+      if (selectedMember?.status === 'EXIT' && reactivateExit === 'Y') {
         await axios.post(
           `${process.env.REACT_APP_API_URL}/app/memberApp/updateMemberActive`,
           { mem_id: selectedMember?.mem_id },
@@ -240,8 +250,9 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
       // 계정 생성 시 환영 우편 발송 (베스트 에포트)
       if (effectiveMode === "create") {
         try {
-          const memId = selectedMember?.mem_id;
-          if (memId) {
+          const accountAppId = createdAccountAppId || selectedMember?.account_app_id;
+          
+          if (accountAppId) {
             const postRes = await axios.post(
               `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
               {
@@ -250,15 +261,14 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
                 content: '회원님께 더 큰 만족을 드릴 수 있도록 항상 노력하겠습니다.',
                 all_send_yn: 'N',
                 push_send_yn: 'Y',
-                userId: user?.index,
-                mem_id: String(memId),
+                userId: user?.index
               }
             );
             const postAppId = (postRes as any)?.data?.postAppId;
             if (postAppId) {
               await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                 post_app_id: postAppId,
-                mem_id: memId,
+                account_app_id: accountAppId,
                 userId: user?.index,
               });
             }
@@ -276,8 +286,8 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
       
       // 폼 초기화
       setFormData({
-        mem_app_id: "",
-        mem_app_password: "",
+        login_id: "",
+        password: "",
         confirmPassword: "",
         mem_role: "USER",
       });
@@ -380,8 +390,8 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
                   </label>
                   <input
                     type="text"
-                    name="mem_app_id"
-                    value={formData.mem_app_id}
+                    name="login_id"
+                    value={formData.login_id}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     placeholder="아이디를 입력하세요."
@@ -400,8 +410,8 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
-                      name="mem_app_password"
-                      value={formData.mem_app_password}
+                      name="password"
+                      value={formData.password}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 pr-16"
                       placeholder="비밀번호를 입력하세요"
@@ -470,7 +480,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
                     <option value="FRANCHISEE">가맹점주</option>
                   </select>
 
-                  {selectedMember?.mem_app_status === "EXIT" && (
+                  {selectedMember?.status === "EXIT" && (
                     <div className="mt-4">
                       <p className="block text-sm font-medium text-gray-700 mb-2">
                         탈퇴 해재

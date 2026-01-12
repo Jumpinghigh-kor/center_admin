@@ -14,16 +14,16 @@ exports.selectMemberCount = (req, res) => {
 
   const query = `
     SELECT 
-      s.status AS mem_app_status
-      , COUNT(m.mem_id) AS count
+      s.status AS status
+      , COUNT(maa.account_app_id) AS count
       , SUM(
             CASE 
-              WHEN DATE_FORMAT(m.recent_dt, '%Y%m%d') = DATE_FORMAT(NOW(), '%Y%m%d') THEN 1 
+              WHEN DATE_FORMAT(maa.recent_dt, '%Y%m%d') = DATE_FORMAT(NOW(), '%Y%m%d') THEN 1 
               ELSE 0 
             END) AS recent_cnt
       , SUM(
             CASE 
-              WHEN DATE_FORMAT(m.app_reg_dt, '%Y%m') = DATE_FORMAT(NOW(), '%Y%m') THEN 1 
+              WHEN DATE_FORMAT(maa.reg_dt, '%Y%m') = DATE_FORMAT(NOW(), '%Y%m') THEN 1 
               ELSE 0 
             END) AS reg_cnt
     FROM (
@@ -33,7 +33,8 @@ exports.selectMemberCount = (req, res) => {
           UNION ALL
           SELECT 'EXIT'
         ) s
-    LEFT JOIN 	members m	ON m.mem_app_status = s.status
+    LEFT JOIN 	member_account_app maa	ON (maa.status = s.status AND maa.del_yn = 'N')
+    LEFT JOIN 	members m               ON maa.mem_id = m.mem_id
     ${addConditions}
     GROUP BY    s.status
   `;
@@ -53,41 +54,44 @@ exports.selectMemberList = (req, res) => {
   let addConditions = '';
   
   if(status_app_type === "ACTIVE") {
-    addConditions = 'AND mem_app_status = "ACTIVE"';
+    addConditions = 'AND maa.status = "ACTIVE"';
   } else if(status_app_type === "PROCEED") {
-    addConditions = 'AND mem_app_status = "PROCEED"';
+    addConditions = 'AND maa.status = "PROCEED"';
   } else if(status_app_type === "EXIT") {
-    addConditions = 'AND mem_app_status = "EXIT"';
+    addConditions = 'AND maa.status = "EXIT"';
   } else {
-    addConditions = 'AND mem_app_status IS NOT NULL';
+    addConditions = 'AND maa.status IS NOT NULL';
   }
 
   if(recent_yn === "Y") {
-    addConditions = 'AND DATE_FORMAT(recent_dt, "%Y%m%d") = DATE_FORMAT(NOW(), "%Y%m%d")';
+    addConditions = 'AND DATE_FORMAT(maa.recent_dt, "%Y%m%d") = DATE_FORMAT(NOW(), "%Y%m%d")';
   }
 
   if(month_reg_yn === "Y") {
-    addConditions = 'AND DATE_FORMAT(app_reg_dt, "%Y%m") = DATE_FORMAT(NOW(), "%Y%m")';
+    addConditions = 'AND DATE_FORMAT(maa.reg_dt, "%Y%m") = DATE_FORMAT(NOW(), "%Y%m")';
   }
 
   const query = `
     SELECT
-      mem_id
-      , mem_name
-      , mem_nickname
-      , mem_app_id
-      , CONCAT(SUBSTRING(mem_phone, 1, 3), '-', SUBSTRING(mem_phone, 4, 4), '-', SUBSTRING(mem_phone, 8, 4)) AS mem_phone
-      , mem_app_status
-      , mem_gender
-      , mem_birth
-      , mem_role
-      , DATE_FORMAT(app_reg_dt, '%Y-%m-%d %H:%i:%s') AS app_reg_dt
-      , app_exit_dt
-    FROM  members
-    WHERE mem_status = 1
-    AND   center_id = ?
+      m.mem_id
+      , m.mem_name
+      , m.mem_gender
+      , m.mem_birth
+      , m.mem_role
+      , CONCAT(SUBSTRING(m.mem_phone, 1, 3), '-', SUBSTRING(m.mem_phone, 4, 4), '-', SUBSTRING(m.mem_phone, 8, 4)) AS mem_phone
+      , maa.account_app_id
+      , maa.nickname
+      , maa.login_id
+      , maa.status AS status
+      , DATE_FORMAT(maa.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
+      , DATE_FORMAT(maa.exit_dt, '%Y-%m-%d %H:%i:%s') AS exit_dt
+    FROM        members m
+    LEFT JOIN 	member_account_app maa	ON maa.mem_id = m.mem_id
+    WHERE       m.mem_status = 1
+    AND         m.center_id = ?
+    AND         maa.del_yn = 'N'
     ${addConditions}
-    ORDER BY mem_app_status, mem_id DESC
+    ORDER BY maa.status, maa.account_app_id DESC
   `;
 
   db.query(query, [center_id], (err, result) => {
@@ -113,22 +117,24 @@ exports.selectMonthlyMemberList = (req, res) => {
   const query = `
     SELECT 
       CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) AS month_num
-      , COUNT(CASE WHEN m.mem_app_status = 'ACTIVE'   AND LEFT(m.app_reg_dt, 6)   = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS active_count
-      , COUNT(CASE WHEN m.mem_app_status = 'PROCEED'  AND LEFT(m.app_reg_dt, 6)   = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS proceed_count
-      , COUNT(CASE WHEN m.mem_app_status = 'EXIT'     AND LEFT(m.app_exit_dt, 6)  = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS exit_count
+      , COUNT(CASE WHEN maa.status = 'ACTIVE'   AND LEFT(maa.reg_dt, 6)   = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS active_count
+      , COUNT(CASE WHEN maa.status = 'PROCEED'  AND LEFT(maa.reg_dt, 6)   = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS proceed_count
+      , COUNT(CASE WHEN maa.status = 'EXIT'     AND LEFT(maa.exit_dt, 6)  = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) THEN 1 END) AS exit_count
     FROM (
             SELECT 1  AS mn 		UNION ALL SELECT 2 	UNION ALL SELECT 3
             UNION ALL SELECT 4 	UNION ALL SELECT 5 	UNION ALL SELECT 6
             UNION ALL SELECT 7 	UNION ALL SELECT 8 	UNION ALL SELECT 9
             UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
           ) mn
-    LEFT JOIN 	members m ON (
-                                (LEFT(m.app_reg_dt, 6) = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) AND m.mem_app_status IN ('ACTIVE', 'PROCEED'))
-                                OR 
-                                (LEFT(m.app_exit_dt, 6) = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) AND m.mem_app_status = 'EXIT')
-                              )
+    LEFT JOIN 	member_account_app maa  ON ((
+                                            (LEFT(maa.reg_dt, 6) = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) AND maa.status IN ('ACTIVE', 'PROCEED'))
+                                            OR 
+                                            (LEFT(maa.exit_dt, 6) = CONCAT(YEAR(NOW()), RIGHT(CONCAT('0', mn.mn), 2)) AND maa.status = 'EXIT')
+                                          ) AND maa.del_yn = 'N')
+    LEFT JOIN 	members m               ON m.mem_id = maa.mem_id
     AND 		    m.mem_status = 1
-    AND 		    m.mem_app_status IS NOT NULL
+    AND 		    maa.status IS NOT NULL
+    
     ${addConditions}
     GROUP BY 	  month_num
     ORDER BY 	  month_num
@@ -175,14 +181,15 @@ exports.selectSalesList = (req, res) => {
       LEFT JOIN (
                   SELECT
                     moa.order_app_id
-                    , moa.mem_id
+                    , moa.account_app_id
                     , moa.order_dt
                   FROM        member_order_app moa
-                  INNER JOIN  members m ON m.mem_id = moa.mem_id
+                  INNER JOIN  member_account_app maa  ON moa.account_app_id = maa.account_app_id
+                  INNER JOIN  members m               ON maa.mem_id = m.mem_id
                   ${addConditions}
                   WHERE       moa.del_yn = 'N'
                 ) AS moa
-      ON moa.order_dt >= cal.calendar_date
+      ON  moa.order_dt >= cal.calendar_date
       AND moa.order_dt <  cal.calendar_date + INTERVAL 1 DAY
       LEFT JOIN (
                   SELECT
@@ -225,14 +232,15 @@ exports.selectSalesList = (req, res) => {
       LEFT JOIN (
                   SELECT
                     moa.order_app_id
-                    , moa.mem_id
+                    , moa.account_app_id
                     , moa.order_dt
                   FROM        member_order_app moa
-                  INNER JOIN  members m ON m.mem_id = moa.mem_id
+                  INNER JOIN  member_account_app maa  ON moa.account_app_id = maa.account_app_id
+                  INNER JOIN  members m               ON maa.mem_id = m.mem_id
                   ${addConditions}
                   WHERE       moa.del_yn = 'N'
                 ) AS moa
-      ON moa.order_dt >= weekinfo.calendar_date
+      ON  moa.order_dt >= weekinfo.calendar_date
       AND moa.order_dt <  weekinfo.calendar_date + INTERVAL 1 DAY
       LEFT JOIN (
                   SELECT
@@ -271,10 +279,11 @@ exports.selectSalesList = (req, res) => {
       LEFT JOIN (
                   SELECT
                     moa.order_app_id
-                    , moa.mem_id
+                    , moa.account_app_id
                     , moa.order_dt
                   FROM        member_order_app moa
-                  INNER JOIN  members m ON m.mem_id = moa.mem_id
+                  INNER JOIN  member_account_app maa  ON moa.account_app_id = maa.account_app_id
+                  INNER JOIN  members m               ON maa.mem_id = m.mem_id
                   ${addConditions}
                   WHERE       moa.del_yn = 'N'
                 ) AS moa
@@ -310,10 +319,11 @@ exports.selectSalesList = (req, res) => {
       LEFT JOIN (
         SELECT
           moa.order_app_id
-          , moa.mem_id
+          , moa.account_app_id
           , moa.order_dt
         FROM        member_order_app moa
-        INNER JOIN  members m  ON m.mem_id = moa.mem_id
+        INNER JOIN  member_account_app maa  ON moa.account_app_id = maa.account_app_id
+        INNER JOIN  members m               ON maa.mem_id = m.mem_id
         ${addConditions}
         WHERE       moa.del_yn = 'N'
       ) AS moa
@@ -388,8 +398,9 @@ exports.selectPaymentAnalysisList = (req, res) => {
               smoa.order_app_id,
               SUM(smpa.payment_amount) AS total_amount
             FROM        member_order_app smoa
-            INNER JOIN  members sm   ON sm.mem_id = smoa.mem_id
-            INNER JOIN  member_payment_app smpa ON smpa.order_app_id = smoa.order_app_id
+            INNER JOIN  member_account_app smmaa  ON smoa.account_app_id = smmaa.account_app_id
+            INNER JOIN  member_payment_app smpa   ON smpa.order_app_id = smoa.order_app_id
+            INNER JOIN  members smm               ON smmaa.mem_id = smm.mem_id
             WHERE       smoa.del_yn = 'N'
             AND         smpa.payment_status = 'PAYMENT_COMPLETE'
             ${addSubConditions}
@@ -400,10 +411,12 @@ exports.selectPaymentAnalysisList = (req, res) => {
           (
             SELECT COUNT(*)
             FROM (
-              SELECT DISTINCT smoa.order_app_id
+              SELECT
+                DISTINCT smoa.order_app_id
               FROM        member_order_app smoa
-              INNER JOIN  member_payment_app smpa ON smoa.order_app_id = smpa.order_app_id
-              INNER JOIN  members sm              ON sm.mem_id = smoa.mem_id
+              INNER JOIN  member_payment_app smpa   ON smoa.order_app_id = smpa.order_app_id
+              INNER JOIN  member_account_app smmaa  ON smoa.account_app_id = smmaa.account_app_id
+              INNER JOIN  members smm               ON smmaa.mem_id = smm.mem_id
               WHERE       smoa.del_yn = 'N'
               AND         smpa.payment_status = 'PAYMENT_REFUND'
               AND         smpa.payment_type = 'PRODUCT_BUY'
@@ -415,8 +428,9 @@ exports.selectPaymentAnalysisList = (req, res) => {
             FROM (
               SELECT DISTINCT smoa.order_app_id
               FROM        member_order_app smoa
-              INNER JOIN  member_payment_app smpa ON smoa.order_app_id = smpa.order_app_id
-              INNER JOIN  members sm              ON sm.mem_id = smoa.mem_id
+              INNER JOIN  member_payment_app smpa   ON smoa.order_app_id = smpa.order_app_id
+              INNER JOIN  member_account_app smmaa  ON smoa.account_app_id = smmaa.account_app_id
+              INNER JOIN  members smm               ON smmaa.mem_id = smm.mem_id
               WHERE       smoa.del_yn = 'N'
               AND         smpa.payment_type = 'PRODUCT_BUY'
               ${addSubConditions}
@@ -425,7 +439,8 @@ exports.selectPaymentAnalysisList = (req, res) => {
         ) AS refund_rate_percent
     FROM 		    member_order_app moa
     INNER JOIN 	member_payment_app mpa  ON moa.order_app_id = mpa.order_app_id
-    INNER JOIN 	members m				        ON m.mem_id = moa.mem_id
+    INNER JOIN 	member_account_app maa  ON moa.account_app_id = maa.account_app_id
+    INNER JOIN 	members m               ON maa.mem_id = m.mem_id
     WHERE		    moa.del_yn = 'N'
     ${addConditions};
   `;
@@ -455,11 +470,12 @@ exports.selectPaymentMethodList = (req, res) => {
         ELSE mpa.card_name
       END AS card_name
       , COUNT(*) AS card_count
-    FROM 		  members m
-    LEFT JOIN	member_order_app moa 	  ON m.mem_id = moa.mem_id
-    LEFT JOIN	member_payment_app mpa 	ON moa.order_app_id = mpa.order_app_id
-    WHERE		  moa.del_yn = 'N'
-    AND			  mpa.payment_status = 'PAYMENT_COMPLETE'
+    FROM 		    member_account_app maa
+    INNER JOIN 	members m               ON maa.mem_id = m.mem_id
+    LEFT JOIN	  member_order_app moa 	  ON maa.account_app_id = moa.account_app_id
+    LEFT JOIN	  member_payment_app mpa 	ON moa.order_app_id = mpa.order_app_id
+    WHERE		    moa.del_yn = 'N'
+    AND			    mpa.payment_status = 'PAYMENT_COMPLETE'
     ${addConditions}
     GROUP BY  mpa.card_name
     ORDER BY  card_count DESC;
@@ -495,18 +511,19 @@ exports.selectCategorySalesList = (req, res) => {
             WHERE payment_status = 'PAYMENT_COMPLETE'
             GROUP BY order_app_id
           ) po
-    INNER JOIN member_order_app o ON o.order_app_id = po.order_app_id
+    INNER JOIN  member_order_app moa ON moa.order_app_id = po.order_app_id
     INNER JOIN  (
                   SELECT DISTINCT
-                    d.order_app_id
-                    , pa.big_category
-                  FROM        member_order_detail_app d
-                  INNER JOIN  product_detail_app pda ON pda.product_detail_app_id = d.product_detail_app_id
-                  INNER JOIN  product_app pa ON pa.product_app_id = pda.product_app_id
-                ) oc ON oc.order_app_id = o.order_app_id
-    INNER JOIN  members m ON m.mem_id = o.mem_id
-    INNER JOIN  common_code cc ON cc.common_code = oc.big_category
-    WHERE       o.del_yn = 'N'
+                    smod.order_app_id
+                    , spa.big_category
+                  FROM        member_order_detail_app smod
+                  INNER JOIN  product_detail_app spda ON spda.product_detail_app_id = smod.product_detail_app_id
+                  INNER JOIN  product_app spa ON spa.product_app_id = spda.product_app_id
+                ) oc ON oc.order_app_id = moa.order_app_id
+    INNER JOIN  member_account_app maa  ON moa.account_app_id = maa.account_app_id
+    INNER JOIN  members m               ON maa.mem_id = m.mem_id
+    INNER JOIN  common_code cc          ON cc.common_code = oc.big_category
+    WHERE       moa.del_yn = 'N'
     ${addConditions}
     GROUP BY oc.big_category
     ORDER BY cc.common_code_name DESC;
@@ -565,12 +582,14 @@ exports.selectHourlySalesList = (req, res) => {
             SELECT 23
           ) AS t
       LEFT JOIN (
-                  SELECT o.order_app_id, o.order_dt
-                  FROM member_order_app AS o
-                  INNER JOIN members AS m
-                  ON m.mem_id = o.mem_id
+                  SELECT
+                    moa.order_app_id
+                    , moa.order_dt
+                  FROM        member_order_app moa
+                  INNER JOIN  member_account_app maa  ON moa.account_app_id = maa.account_app_id
+                  INNER JOIN  members m               ON maa.mem_id = m.mem_id
                   ${addConditions}
-                  WHERE o.del_yn = 'N'
+                  WHERE moa.del_yn = 'N'
                 ) AS moa
     ON HOUR(moa.order_dt) = t.start_hour
     LEFT JOIN (

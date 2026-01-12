@@ -367,9 +367,9 @@ exports.insertProductApp = async (req, res) => {
   try {
     const { productApp, productDetailApp, imageData, returnExchangeData } = req.body;
 
-    if (!productApp || !productApp.mem_id) {
+    if (!productApp) {
       return res.status(400).json({
-        message: "필수 파라미터가 누락되었습니다. (productApp, mem_id)",
+        message: "필수 파라미터가 누락되었습니다. (productApp, userId)",
       });
     }
 
@@ -459,7 +459,7 @@ exports.insertProductApp = async (req, res) => {
               "product",
               "N",
               reg_dt,
-              productApp.mem_id,
+              productApp.userId,
               null,
               null
             ],
@@ -577,7 +577,7 @@ exports.insertProductApp = async (req, res) => {
           "Y",
           "N",
           reg_dt,
-          productApp.mem_id,
+          productApp.userId,
           null,
           null
         ],
@@ -630,7 +630,7 @@ exports.insertProductApp = async (req, res) => {
               "Y",
               "N",
               reg_dt,
-              productApp.mem_id,
+              productApp.userId,
               null,
               null
             ],
@@ -689,7 +689,7 @@ exports.insertProductApp = async (req, res) => {
               detail.use_yn || "Y",
               detail.del_yn || "N",
               reg_dt,
-              productApp.mem_id,
+              productApp.userId,
               null,
               null
             ],
@@ -745,7 +745,7 @@ exports.insertProductApp = async (req, res) => {
               policy.use_yn || "Y",
               policy.del_yn || "N",
               reg_dt,
-              productApp.mem_id,
+              productApp.userId,
               null,
               null
             ],
@@ -775,14 +775,14 @@ exports.updateProductApp = async (req, res) => {
   try {
     const { product_app_id, productApp, user_id, imageData, productDetailApp } = req.body;
 
-    if (!product_app_id || !productApp || !(user_id || productApp.mem_id)) {
+    if (!product_app_id || !productApp || !(user_id || productApp.userId)) {
       return res.status(400).json({
-        message: "필수 파라미터가 누락되었습니다. (product_app_id, productApp, user_id/mem_id)",
+        message: "필수 파라미터가 누락되었습니다. (product_app_id, productApp, user_id)",
       });
     }
 
     const mod_dt = dayjs().format("YYYYMMDDHHmmss");
-    const mod_id = user_id || productApp.mem_id;
+    const mod_id = user_id || productApp.userId;
 
     // 날짜/시간 포맷 정규화 (insert와 동일 규칙)
     const normalizeDateTime = (dt) =>
@@ -935,7 +935,7 @@ exports.updateProductApp = async (req, res) => {
               "product",
               "N",
               reg_dt,
-              mod_id,
+              productApp.userId,
               null,
               null,
             ],
@@ -980,7 +980,7 @@ exports.updateProductApp = async (req, res) => {
               "Y",
               "N",
               reg_dt,
-              mod_id,
+              productApp.userId,
               null,
               null,
             ],
@@ -1071,7 +1071,7 @@ exports.updateProductApp = async (req, res) => {
           d.quantity || null,
           d.use_yn || "Y",
           mod_dt,
-          mod_id,
+          productApp.userId,
           d.product_detail_app_id,
         ];
         // eslint-disable-next-line no-await-in-loop
@@ -1122,7 +1122,7 @@ exports.updateProductApp = async (req, res) => {
           d.use_yn || "Y",
           "N",
           reg_dt_for_detail,
-          mod_id,
+          productApp.userId,
           null,
           null,
         ];

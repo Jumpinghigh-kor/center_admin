@@ -16,6 +16,7 @@ interface Schedule {
   reserved_count: number;
   sch_app_id: number;
   current_count: number;
+  account_app_id: number;
 }
 
 const ReservationManagement: React.FC = () => {

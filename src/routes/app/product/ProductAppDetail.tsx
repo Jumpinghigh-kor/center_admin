@@ -539,7 +539,7 @@ const ProductAppDetail: React.FC = () => {
       
       // product_app 데이터
       const productAppData = {
-        mem_id: user?.index,
+        userId: user?.index,
         brand_name: formData.brand_name,
         product_name: formData.product_name,
         big_category: formData.big_category,

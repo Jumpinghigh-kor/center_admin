@@ -38,9 +38,9 @@ exports.selectPointAppList = (req, res) => {
       m.mem_id
       , m.mem_name
       , CASE
-        WHEN	m.mem_app_status = 'ACTIVE' THEN '활동회원'
-        ELSE 	'탈퇴회원'
-      END AS mem_app_status
+          WHEN	maa.status = 'ACTIVE' THEN '활동회원'
+          ELSE 	'탈퇴회원'
+        END AS status
       , (
           SELECT
             scc.common_code_name
@@ -52,7 +52,7 @@ exports.selectPointAppList = (req, res) => {
       , CASE
           WHEN	mpa.point_status = 'POINT_ADD' THEN '획득'
           ELSE	'차감'
-      END	AS point_status
+        END	AS point_status
       , mpa.point_amount
       , mpa.point_memo
       , DATE_FORMAT(mpa.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
@@ -69,8 +69,10 @@ exports.selectPointAppList = (req, res) => {
           WHERE	sc.center_id = m.center_id
         ) AS center_name
     FROM		    members m
-    INNER JOIN	member_point_app mpa ON m.mem_id = mpa.mem_id
+    INNER JOIN  member_account_app maa  ON m.mem_id = maa.mem_id
+    INNER JOIN	member_point_app mpa    ON maa.account_app_id = mpa.account_app_id
     WHERE		    mpa.del_yn = 'N'
+    AND         maa.del_yn = 'N'
     ${addCondition}
     ORDER BY	  mpa.point_app_id DESC
   `;
@@ -85,14 +87,14 @@ exports.selectPointAppList = (req, res) => {
 
 // 포인트 등록
 exports.insertPointApp = (req, res) => {
-  const { point_type, point_status, point_amount, point_memo, userId } = req.body;
+  const { point_type, point_status, point_amount, point_memo, userId, account_app_id } = req.body;
 
   const now = dayjs();
   const reg_dt = now.format("YYYYMMDDHHmmss");
 
   const pointAppInsertQuery = `
     INSERT INTO member_point_app (
-      mem_id
+      account_app_id
       , order_detail_app_id
       , point_type
       , point_status
@@ -118,7 +120,7 @@ exports.insertPointApp = (req, res) => {
     )
   `;
 
-  db.query(pointAppInsertQuery, [userId, null, point_type, point_status, point_amount, point_memo, 'N', reg_dt, userId, null, null], (err, result) => {
+  db.query(pointAppInsertQuery, [account_app_id, null, point_type, point_status, point_amount, point_memo, 'N', reg_dt, userId, null, null], (err, result) => {
     if (err) {
       return res.status(500).json(err);
     }

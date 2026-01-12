@@ -22,6 +22,7 @@ interface ExerciseApp {
   other_exercise_calory: number;
   reg_dt: string;
   reg_id: string;
+  account_app_id: string;
 }
 
 interface CommonCode {

@@ -266,7 +266,7 @@ useEffect(() => {
             onDeleteClick={() => setDeleteModalToggle(true)}
           />
 
-          {(!selectedMember?.mem_app_status || selectedMember?.mem_app_status === 'EXIT') ?
+          {/* {(!selectedMember?.status || selectedMember?.status === 'EXIT') ?
             (<div className="flex justify-end">
               <div className="flex flex-col items-end">
                 <button
@@ -310,7 +310,7 @@ useEffect(() => {
                 </button>
               </div>
             </div>
-          )}
+          )} */}
 
           {selectedMember ? (
             <>
@@ -523,17 +523,17 @@ useEffect(() => {
                           어플 아이디
                         </th>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black max-w-52">
-                          {selectedMember?.mem_app_id
-                            ? selectedMember?.mem_app_id
+                          {selectedMember?.login_id
+                            ? selectedMember?.login_id
                             : "-"}
                         </td>
                         <td className="text-base text-center p-2 bg-custom-C4C4C4 text-white">
                           어플 회원 상태
                         </td>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black">
-                          {selectedMember?.mem_app_status === 'ACTIVE' ? '활동'
-                                                                        : selectedMember?.mem_app_status === 'PROCEED' ? '진행중' 
-                                                                        : selectedMember?.mem_app_status === 'EXIT' ? '탈퇴' : '-'}
+                          {selectedMember?.status === 'ACTIVE' ? '활동'
+                                                                        : selectedMember?.status === 'PROCEED' ? '진행중' 
+                                                                        : selectedMember?.status === 'EXIT' ? '탈퇴' : '-'}
                         </td>
                       </tr>
                       <tr>
@@ -544,8 +544,8 @@ useEffect(() => {
                           어플 가입일시
                         </th>
                         <td className="px-1 sm:px-2 lg:px-6 py-2 bg-white text-black max-w-52">
-                          {selectedMember?.app_reg_dt
-                            ? selectedMember?.app_reg_dt
+                          {selectedMember?.reg_dt
+                            ? selectedMember?.reg_dt
                             : "-"}
                         </td>
                         <th

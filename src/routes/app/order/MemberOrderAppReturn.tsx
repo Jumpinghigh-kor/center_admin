@@ -82,9 +82,9 @@ const MemberOrderAppReturn: React.FC = () => {
     return isWithinDays(it?.purchase_confirm_dt, 3);
   };
   // 취소완료 알림 발송
-  const sendCancelCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
+  const sendCancelCompleteNotification = async (accountAppId: string | number, memName: string, productName: string) => {
     try {
-      if (!memId || !memName || !productName) return;
+      if (!accountAppId || !memName || !productName) return;
       const title = `${memName}고객님께서 주문하신 ${productName} 상품이 취소 완료되었습니다.`;
       const content = '고객님의 주문이 취소 처리되었습니다. 환불 및 상세 정보는 취소•반품•교환 내역에서 확인하실 수 있습니다.';
       const postRes = await axios.post(
@@ -96,14 +96,14 @@ const MemberOrderAppReturn: React.FC = () => {
           all_send_yn: 'N',
           push_send_yn: 'Y',
           userId: user?.index,
-          mem_id: String(memId),
+          account_app_id: accountAppId,
         }
       );
       const postAppId = postRes.data?.postAppId;
       if (postAppId) {
         await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
           post_app_id: postAppId,
-          mem_id: memId,
+          account_app_id: accountAppId,
           userId: user?.index,
         });
       }
@@ -113,9 +113,9 @@ const MemberOrderAppReturn: React.FC = () => {
   };
 
   // 반품완료 알림 발송
-  const sendReturnCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
+  const sendReturnCompleteNotification = async (accountAppId: string | number, memName: string, productName: string) => {
     try {
-      if (!memId || !memName || !productName) return;
+      if (!accountAppId || !memName || !productName) return;
       const title = `${memName}고객님께서 주문하신 ${productName}상품이 반품 완료되었습니다.`;
       const content = '고객님의 반품이 처리되었습니다. 환불 및 상세 정보는 취소•반품•교환 내역에서 확인하실 수 있습니다.';
       const postRes = await axios.post(
@@ -127,14 +127,14 @@ const MemberOrderAppReturn: React.FC = () => {
           all_send_yn: 'N',
           push_send_yn: 'Y',
           userId: user?.index,
-          mem_id: String(memId),
+          account_app_id: accountAppId,
         }
       );
       const postAppId = postRes.data?.postAppId;
       if (postAppId) {
         await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
           post_app_id: postAppId,
-          mem_id: memId,
+          account_app_id: accountAppId,
           userId: user?.index,
         });
       }
@@ -298,7 +298,7 @@ const MemberOrderAppReturn: React.FC = () => {
           const insertPayloads = itemsWithoutReturn.map(({ item, idx }: { item: any; idx: number }) => ({
             order_detail_app_id: item.order_detail_app_id,
             order_address_id: orderDetail?.shipping_address_id,
-            mem_id: orderDetail?.mem_id,
+            account_app_id: orderDetail?.account_app_id,
             return_reason_type: selectedReturnReasonType || null,
             reason: detailReason || null,
             quantity: quantityByIndex[idx] ?? 0,
@@ -394,7 +394,7 @@ const MemberOrderAppReturn: React.FC = () => {
               ]
             } as any;
             const gfRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/goodsflow/deliveries/shipping/return/deliveryItems`, body);
-            console.log('gfRes::', gfRes);
+ 
             try {
               const serviceId =
                 gfRes?.data?.data?.items?.[0]?.data?.serviceId ||
@@ -403,8 +403,7 @@ const MemberOrderAppReturn: React.FC = () => {
               const detailIdsForUpdate: number[] = Array.from(new Set(
                 selectedReturnApplyItems.map(({ item }: any) => item?.order_detail_app_id).filter((v: any) => v != null)
               ));
-              console.log('serviceId', serviceId)
-              console.log('detailIdsForUpdate', detailIdsForUpdate)
+              
               if (serviceId && detailIdsForUpdate.length > 0) {
                 await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/updateReturnGoodsflowId`, {
                   order_detail_app_id: detailIdsForUpdate,
@@ -412,7 +411,7 @@ const MemberOrderAppReturn: React.FC = () => {
                   userId: user?.index,
                 });
                 try {
-                  const memId = (orderDetail as any)?.mem_id;
+                  const accountAppId = (orderDetail as any)?.account_app_id;
                   const memName = (orderDetail as any)?.mem_name;
                   for (const { item } of selectedReturnApplyItems) {
                     const title = '반품 신청이 접수되었습니다.';
@@ -426,14 +425,14 @@ const MemberOrderAppReturn: React.FC = () => {
                         all_send_yn: 'N',
                         push_send_yn: 'Y',
                         userId: user?.index,
-                        mem_id: String(memId),
+                        account_app_id: accountAppId,
                       }
                     );
                     const postAppId = postRes.data?.postAppId;
                     if (postAppId) {
                       await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                         post_app_id: postAppId,
-                        mem_id: memId,
+                        account_app_id: accountAppId,
                         userId: user?.index,
                       });
                     }
@@ -495,7 +494,7 @@ const MemberOrderAppReturn: React.FC = () => {
                 const addressRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
                   order_detail_app_id: item.order_detail_app_id,
                   order_address_type: 'RETURN',
-                  mem_id: orderDetail?.mem_id,
+                  account_app_id: orderDetail?.account_app_id,
                   receiver_name,
                   receiver_phone,
                   address,
@@ -518,7 +517,7 @@ const MemberOrderAppReturn: React.FC = () => {
                 return axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/insertMemberReturnApp`, {
                   order_detail_app_id: item.order_detail_app_id,
                   order_address_id: newOrderAddressId,
-                  mem_id: orderDetail?.mem_id,
+                  account_app_id: orderDetail?.account_app_id,
                   return_reason_type: selectedReturnReasonType || null,
                   reason: detailReason || null,
                   quantity: quantityByIndex[idx] ?? 0,
@@ -541,7 +540,7 @@ const MemberOrderAppReturn: React.FC = () => {
                 const newAddrRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
                   order_detail_app_id: item.order_detail_app_id,
                   order_address_type: 'RETURN',
-                  mem_id: orderDetail?.mem_id,
+                  account_app_id: orderDetail?.account_app_id,
                   receiver_name,
                   receiver_phone,
                   address,
@@ -580,7 +579,7 @@ const MemberOrderAppReturn: React.FC = () => {
               const addressRes = await axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
                 order_detail_app_id: item.order_detail_app_id,
                 order_address_type: 'RETURN',
-                mem_id: orderDetail?.mem_id,
+                account_app_id: orderDetail?.account_app_id,
                 receiver_name,
                 receiver_phone,
                 address,
@@ -596,7 +595,7 @@ const MemberOrderAppReturn: React.FC = () => {
               return axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/insertMemberReturnApp`, {
                 order_detail_app_id: item.order_detail_app_id,
                 order_address_id: newOrderAddressId,
-                mem_id: orderDetail?.mem_id,
+                account_app_id: orderDetail?.account_app_id,
                 return_reason_type: selectedReturnReasonType || null,
                 reason: detailReason || null,
                 quantity: quantityByIndex[idx] ?? 0,
@@ -699,7 +698,7 @@ const MemberOrderAppReturn: React.FC = () => {
             userId: user?.index,
           });
           try {
-            const memId = (orderDetail as any)?.mem_id;
+            const accountAppId = (orderDetail as any)?.account_app_id;
             const memName = (orderDetail as any)?.mem_name;
             for (const si of selectedItems) {
               const title = '반품 신청이 접수되었습니다.';
@@ -713,14 +712,14 @@ const MemberOrderAppReturn: React.FC = () => {
                   all_send_yn: 'N',
                   push_send_yn: 'Y',
                   userId: user?.index,
-                  mem_id: String(memId),
+                  account_app_id: accountAppId,
                 }
               );
               const postAppId = postRes.data?.postAppId;
               if (postAppId) {
                 await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                   post_app_id: postAppId,
-                  mem_id: memId,
+                  account_app_id: accountAppId,
                   userId: user?.index,
                 });
               }
@@ -819,16 +818,16 @@ const MemberOrderAppReturn: React.FC = () => {
       // 취소완료/반품승인 알림 발송
       try {
         if (actionType !== 'return') {
-          const memId = (orderDetail as any)?.mem_id;
+          const accountAppId = (orderDetail as any)?.account_app_id;
           const memName = (orderDetail as any)?.mem_name;
           (orderDetail?.products || [])
             .filter((p: any) => orderDetailAppIds.includes(p?.order_detail_app_id))
             .forEach((p: any) => {
-              sendCancelCompleteNotification(memId, memName, p?.product_name);
+              sendCancelCompleteNotification(accountAppId, memName, p?.product_name);
             });
         } else {
           // 반품승인 알림 발송 (반품 플로우)
-          const memId = (orderDetail as any)?.mem_id;
+          const accountAppId = (orderDetail as any)?.account_app_id;
           const memName = (orderDetail as any)?.mem_name;
           for (const p of (orderDetail?.products || []).filter((pp: any) => orderDetailAppIds.includes(pp?.order_detail_app_id))) {
             try {
@@ -843,14 +842,14 @@ const MemberOrderAppReturn: React.FC = () => {
                   all_send_yn: 'N',
                   push_send_yn: 'Y',
                   userId: user?.index,
-                  mem_id: String(memId),
+                  account_app_id: accountAppId,
                 }
               );
               const postAppId = postRes.data?.postAppId;
               if (postAppId) {
                 await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                   post_app_id: postAppId,
-                  mem_id: memId,
+                  account_app_id: accountAppId,
                   userId: user?.index,
                 });
               }

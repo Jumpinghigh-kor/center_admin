@@ -13,7 +13,8 @@ interface InquiryApp {
   answer: string;
   answer_dt: string;
   mem_name: string;
-  mem_app_status: string;
+  account_app_id: string;
+  status: string;
   reg_dt: string;
 }
 
@@ -56,7 +57,7 @@ const CenterInquiryAppList: React.FC = () => {
     onSearch: selectInquiryAppList,
     initialSearchData: {
       mem_name: "",
-      mem_app_status: "",
+      status: "",
       answer: ""
     }
   });
@@ -95,10 +96,10 @@ const CenterInquiryAppList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value=""
-                        checked={searchData.mem_app_status === ''}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === ''}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -106,10 +107,10 @@ const CenterInquiryAppList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value="ACTIVE"
-                        checked={searchData.mem_app_status === 'ACTIVE'}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === 'ACTIVE'}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">활동회원</span>
@@ -117,10 +118,10 @@ const CenterInquiryAppList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value="EXIT"
-                        checked={searchData.mem_app_status === 'EXIT'}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === 'EXIT'}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">탈퇴회원</span>
@@ -128,10 +129,10 @@ const CenterInquiryAppList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="mem_app_status"
+                        name="status"
                         value="PROCEED"
-                        checked={searchData.mem_app_status === 'PROCEED'}
-                        onChange={(e) => setSearchData({ ...searchData, mem_app_status: e.target.value })}
+                        checked={searchData.status === 'PROCEED'}
+                        onChange={(e) => setSearchData({ ...searchData, status: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">가입중 회원</span>
@@ -246,7 +247,7 @@ const CenterInquiryAppList: React.FC = () => {
                         {inquiry.mem_name}
                       </td>
                       <td className="text-center px-2 truncate">
-                        {inquiry.mem_app_status}
+                        {inquiry.status}
                       </td>
                       <td className="text-center px-2 max-w-[70px] hidden md:table-cell">
                         <div style={{

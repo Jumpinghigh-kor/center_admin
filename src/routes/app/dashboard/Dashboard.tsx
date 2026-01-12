@@ -36,14 +36,14 @@ interface Member {
   mem_id: number;
   mem_name: string;
   mem_nickname: string;
-  mem_app_id: string;
+  login_id: string;
   mem_phone: string;
-  mem_app_status: string;
+  status: string;
   mem_gender: string;
   mem_birthday: string;
   mem_role: string;
-  app_reg_dt: string;
-  app_exit_dt: string;
+  reg_dt: string;
+  exit_dt: string;
   month_num: string;
   active_count: number;
   proceed_count: number;
@@ -51,7 +51,7 @@ interface Member {
 }
 
 interface MemberCount {
-  mem_app_status: string;
+  status: string;
   count: number;
   recent_cnt: number;
   reg_cnt: number;
@@ -533,9 +533,9 @@ const Dashboard: React.FC = () => {
                 <PieChart>
                   <Pie
                     data={[
-                      { name: "활동 회원", value: memberCount.find(item => item.mem_app_status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
-                      { name: "가입중 회원", value: memberCount.find(item => item.mem_app_status === 'PROCEED')?.count || 0, color: "#00C49F", type: "PROCEED" },
-                      { name: "탈퇴 회원", value: memberCount.find(item => item.mem_app_status === 'EXIT')?.count || 0, color: "#FFBB28", type: "EXIT" }
+                      { name: "활동 회원", value: memberCount.find(item => item.status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
+                      { name: "가입중 회원", value: memberCount.find(item => item.status === 'PROCEED')?.count || 0, color: "#00C49F", type: "PROCEED" },
+                      { name: "탈퇴 회원", value: memberCount.find(item => item.status === 'EXIT')?.count || 0, color: "#FFBB28", type: "EXIT" }
                     ]}
                     cx="50%"
                     cy="50%"
@@ -555,9 +555,9 @@ const Dashboard: React.FC = () => {
                     }}
                   >
                     {[
-                      { name: "활동 회원", value: memberCount.find(item => item.mem_app_status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
-                      { name: "가입중 회원", value: memberCount.find(item => item.mem_app_status === 'PROCEED')?.count || 0, color: "#00C49F", type: "PROCEED" },
-                      { name: "탈퇴 회원", value: memberCount.find(item => item.mem_app_status === 'EXIT')?.count || 0, color: "#FFBB28", type: "EXIT" }
+                      { name: "활동 회원", value: memberCount.find(item => item.status === 'ACTIVE')?.count || 0, color: "#0088FE", type: "ACTIVE" },
+                      { name: "가입중 회원", value: memberCount.find(item => item.status === 'PROCEED')?.count || 0, color: "#00C49F", type: "PROCEED" },
+                      { name: "탈퇴 회원", value: memberCount.find(item => item.status === 'EXIT')?.count || 0, color: "#FFBB28", type: "EXIT" }
                     ].map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} style={{ cursor: 'pointer' }} />
                     ))}

@@ -32,9 +32,10 @@ exports.selectMemberOrderAppList = (req, res) => {
         , m.mem_name
         , m.mem_birth
         , m.mem_phone
-        , m.mem_app_id
+        , maa.account_app_id
+        , maa.login_id
         , moa.order_app_id
-        , moa.mem_id
+        , moa.account_app_id
         , moa.order_dt
         , moa.order_memo
         , DATE_FORMAT(moa.order_memo_dt, '%Y-%m-%d %H:%i:%s') AS order_memo_dt
@@ -214,7 +215,8 @@ exports.selectMemberOrderAppList = (req, res) => {
             WHERE	smoda.order_app_id = moa.order_app_id
         ) AS total_order_quantity
       FROM		    members m
-      INNER JOIN	member_order_app moa			    ON m.mem_id = moa.mem_id
+      INNER JOIN  member_account_app maa        ON m.mem_id = maa.mem_id
+      INNER JOIN	member_order_app moa			    ON maa.account_app_id = moa.account_app_id
       LEFT JOIN	  member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id
       LEFT JOIN   product_detail_app pda      	ON moda.product_detail_app_id = pda.product_detail_app_id
       LEFT JOIN   product_app pa              	ON pda.product_app_id = pa.product_app_id
@@ -263,7 +265,8 @@ exports.selectMemberOrderAppCount = (req, res) => {
         , COUNT(DISTINCT CASE WHEN moda.order_status = 'HOLD'               THEN moa.order_app_id END) AS HOLD
         , COUNT(DISTINCT CASE WHEN moda.order_status = 'PURCHASE_CONFIRM'   THEN moa.order_app_id END) AS PURCHASE_CONFIRM
       FROM        members m
-      INNER JOIN  member_order_app moa          ON m.mem_id = moa.mem_id
+      INNER JOIN  member_account_app maa        ON m.mem_id = maa.mem_id
+      INNER JOIN  member_order_app moa          ON maa.account_app_id = moa.account_app_id
       LEFT JOIN   member_order_detail_app moda  ON moda.order_app_id = moa.order_app_id
       LEFT JOIN   product_detail_app pda      	ON moda.product_detail_app_id = pda.product_detail_app_id
       LEFT JOIN   product_app pa              	ON pda.product_app_id = pa.product_app_id
@@ -320,7 +323,8 @@ exports.selectMemberOrderAppCnt = (req, res) => {
       SELECT
         COUNT(*) AS cnt
       FROM		    members m
-      LEFT JOIN	  member_order_app moa 			    ON m.mem_id = moa.mem_id
+      INNER JOIN  member_account_app maa        ON m.mem_id = maa.mem_id
+      LEFT JOIN	  member_order_app moa 			    ON maa.account_app_id = moa.account_app_id
       LEFT JOIN	  member_order_detail_app moda 	ON moa.order_app_id = moda.order_app_id
       WHERE		    m.center_id = ?
       AND			    moa.del_yn = 'N'
@@ -342,7 +346,7 @@ exports.selectMemberOrderAppCnt = (req, res) => {
 // 회원 주문 등록
 exports.insertMemberOrderApp = (req, res) => {
   try {
-    const { payment_app_id, product_detail_app_id, mem_id, order_status, order_quantity, order_dt,  order_group } = req.body;
+    const { payment_app_id, product_detail_app_id, userId, order_status, order_quantity, order_dt,  order_group, account_app_id } = req.body;
     
     // 현재 날짜 형식화
     const now = dayjs();
@@ -351,7 +355,7 @@ exports.insertMemberOrderApp = (req, res) => {
     // member_order_app 테이블에 주문 정보 등록
     const memberOrderAppInsertQuery = `
       INSERT INTO member_order_app (
-        mem_id
+        account_app_id
         , order_dt
         , order_memo
         , order_memo_dt
@@ -380,7 +384,7 @@ exports.insertMemberOrderApp = (req, res) => {
     db.query(
       memberOrderAppInsertQuery,
       [
-        mem_id,
+        account_app_id,
         order_dt,
         null,
         null,
@@ -388,7 +392,7 @@ exports.insertMemberOrderApp = (req, res) => {
         null,
         'N',
         reg_dt,
-        mem_id,
+        userId,
         null,
         null,
       ],
@@ -779,7 +783,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
   try {
     // 선호 파라미터: order_detail_app_id, order_quantity
     // 하위호환: order_app_id만 온 경우, 해당 주문의 대표 상세 1건을 대상으로 처리
-    const { order_detail_app_id, order_app_id, order_quantity, userId } = req.body;
+    const { order_detail_app_id, order_app_id, order_quantity, userId, account_app_id } = req.body;
 
     const now = dayjs();
     const mod_dt = now.format("YYYYMMDDHHmmss");
@@ -945,7 +949,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                         INSERT INTO member_order_address (
                           order_detail_app_id
                           , order_address_type
-                          , mem_id
+                          , account_app_id
                           , receiver_name
                           , receiver_phone
                           , address
@@ -963,7 +967,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                         SELECT
                           ?
                           , 'ORDER'
-                          , IFNULL(moad.mem_id, '')
+                          , IFNULL(moad.account_app_id, '')
                           , IFNULL(moad.receiver_name, '')
                           , IFNULL(moad.receiver_phone, '')
                           , IFNULL(moad.address, '')
@@ -977,10 +981,10 @@ exports.updateNewMemberOrderApp = (req, res) => {
                           , ?
                           , NULL
                           , NULL
-                        FROM member_order_address AS moad
-                        INNER JOIN member_order_detail_app moda ON moad.order_detail_app_id = moda.order_detail_app_id
-                        WHERE moda.order_app_id = ?
-                        ORDER BY (moad.order_detail_app_id = ?) DESC, moad.order_address_id DESC
+                        FROM        member_order_address AS moad
+                        INNER JOIN  member_order_detail_app moda ON moad.order_detail_app_id = moda.order_detail_app_id
+                        WHERE       moda.order_app_id = ?
+                        ORDER BY    (moad.order_detail_app_id = ?) DESC, moad.order_address_id DESC
                         LIMIT 1
                       `;
 
@@ -999,19 +1003,20 @@ exports.updateNewMemberOrderApp = (req, res) => {
                           }
 
                           // Fallback: 동일 회원의 과거 주문 주소 중 최신 1건을 복사
-                          const selectMemIdQuery = `SELECT mem_id FROM member_order_app WHERE order_app_id = ? LIMIT 1`;
-                          db.query(selectMemIdQuery, [info.order_app_id], (memErr, memRows) => {
-                            if (memErr) {
+                          const selectAccountAppIdQuery = `SELECT account_app_id FROM member_order_app WHERE order_app_id = ? LIMIT 1`;
+                          db.query(selectAccountAppIdQuery, [info.order_app_id], (accountAppErr, accountAppRows) => {
+                            if (accountAppErr) {
                               return processNext(idx + 1);
                             }
-                            const memId = memRows && memRows[0] ? memRows[0].mem_id : null;
-                            if (!memId) {
+                            const accountAppId = accountAppRows && accountAppRows[0] ? accountAppRows[0].account_app_id : null;
+                            if (!accountAppId) {
                               return processNext(idx + 1);
                             }
 
                             const insertFromMemberQuery = `
                               INSERT INTO member_order_address (
                                 order_detail_app_id
+                                , account_app_id
                                 , order_address_type
                                 , receiver_name
                                 , receiver_phone
@@ -1030,6 +1035,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                               SELECT
                                 ?
                                 , 'ORDER'
+                                , IFNULL(moad.account_app_id, '')
                                 , IFNULL(moad.receiver_name, '')
                                 , IFNULL(moad.receiver_phone, '')
                                 , IFNULL(moad.address, '')
@@ -1046,7 +1052,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                               FROM member_order_address moad
                               INNER JOIN member_order_detail_app moda ON moad.order_detail_app_id = moda.order_detail_app_id
                               INNER JOIN member_order_app moa ON moda.order_app_id = moa.order_app_id
-                              WHERE moa.mem_id = ?
+                              WHERE moa.account_app_id = ?
                               AND moad.use_yn = 'Y'
                               ORDER BY moad.order_address_id DESC
                               LIMIT 1
@@ -1054,7 +1060,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
 
                             db.query(
                               insertFromMemberQuery,
-                              [newDetailId, reg_dt, userId, memId],
+                              [newDetailId, reg_dt, userId, accountAppId],
                               (addr2Err, addr2Res) => {
    
                                 return processNext(idx + 1);
@@ -1199,7 +1205,7 @@ exports.selectCenterMemberOrderAppList = (req, res) => {
         SELECT
           m.mem_name
           , m.mem_phone
-          , m.mem_app_status
+          , maa.status
           , DATE_FORMAT(moa.order_dt, '%Y-%m-%d %H:%i:%s') AS formatted_order_dt
           , order_dt
           , moda.order_status
@@ -1230,7 +1236,8 @@ exports.selectCenterMemberOrderAppList = (req, res) => {
             END AS center_payback
           , order_group
         FROM		    members m
-        INNER JOIN	member_order_app moa			    ON m.mem_id = moa.mem_id
+        INNER JOIN  member_account_app maa        ON m.mem_id = maa.mem_id
+        INNER JOIN	member_order_app moa			    ON maa.account_app_id = moa.account_app_id
         LEFT JOIN	  member_order_detail_app moda 	ON moa.order_app_id = moda.order_app_id
         LEFT JOIN	  product_detail_app pda			  ON moda.product_detail_app_id = pda.product_detail_app_id
         LEFT JOIN	  product_app pa					      ON pda.product_app_id = pa.product_app_id

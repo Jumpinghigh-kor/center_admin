@@ -4,7 +4,7 @@ import { useUserStore } from "../../../store/store";
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface InquiryApp {
-  mem_id: number;
+  account_app_id: string;
   inquiry_app_id: number;
   title: string;
   content: string;
@@ -49,11 +49,11 @@ const CommonInquiryAppDetail: React.FC = () => {
         }
       );
 
-      // 우편 메시지 발송 (베스트 에포트)
+      // 게시글 메시지 발송 (베스트 에포트)
       try {
-        const memId = selectedInquiry?.mem_id;
+        const accountAppId = selectedInquiry?.account_app_id;
         
-        if (memId) {
+        if (accountAppId) {
           const title = '고객센터 문의 답변이 도착했습니다.';
           const content = '고객님께서 남겨주신 문의에 대한 답변이 도착했습니다.\n[마이페이지 -> 고객센터 -> 문의 -> 문의내역]에서 확인하실 수 있습니다.';
           const postRes = await axios.post(
@@ -65,20 +65,20 @@ const CommonInquiryAppDetail: React.FC = () => {
               all_send_yn: 'N',
               push_send_yn: 'Y',
               userId: user?.index,
-              mem_id: String(memId),
+              account_app_id: String(accountAppId),
             }
           );
           const postAppId = postRes?.data?.postAppId;
           if (postAppId) {
             await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
               post_app_id: postAppId,
-              mem_id: memId,
+              account_app_id: accountAppId,
               userId: user?.index,
             });
           }
         }
       } catch (postErr) {
-        console.error('우편 메시지 발송 오류:', postErr);
+        console.error('게시글 메시지 발송 오류:', postErr);
       }
 
       alert("답변이 성공적으로 등록되었습니다.");

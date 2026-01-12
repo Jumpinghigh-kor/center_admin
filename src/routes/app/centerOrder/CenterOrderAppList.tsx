@@ -13,7 +13,7 @@ interface CenterOrderApp {
   order_detail_app_id: number;
   mem_name: string;
   mem_phone: string;
-  mem_app_status: string;
+  status: string;
   formatted_order_dt: string;
   order_dt: string;
   order_status: string;
@@ -120,7 +120,7 @@ const CenterOrderAppList: React.FC = () => {
     initialSearchData: {
       mem_name: "",
       order_status: "",
-      mem_app_status: "",
+      status: "",
       start_order_dt: "",
       end_order_dt: "",
       start_purchase_confirm_dt: "",

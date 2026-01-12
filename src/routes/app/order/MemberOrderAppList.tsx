@@ -21,7 +21,8 @@ interface Order {
   mem_name: string;
   mem_birth: string;
   mem_phone: string;
-  mem_app_id: string;
+  account_app_id: number;
+  login_id: string;
   order_app_id: number;
   order_detail_app_id: number;
   order_status: string;
@@ -526,7 +527,7 @@ const MemberOrderAppList: React.FC = () => {
 
           for (const o of targetOrders) {
             await fn_updateOrderStatus(o.order_app_id, 'SHIPPINGING');
-            try { await sendShippingNotification(o.mem_id, o.mem_name, o.product_name); } catch {}
+            try { await sendShippingNotification(o.account_app_id, o.mem_name, o.product_name); } catch {}
           }
         }
       } catch (error) {
@@ -584,7 +585,7 @@ const MemberOrderAppList: React.FC = () => {
             });
             for (const o of targets) {
               await fn_updateOrderStatus(o.order_detail_app_id, 'SHIPPING_COMPLETE');
-              try { await sendShippingCompleteNotification(o.mem_id, o.mem_name, o.product_name); } catch {}
+              try { await sendShippingCompleteNotification(o.account_app_id, o.mem_name, o.product_name); } catch {}
             }
           }
         }
@@ -835,11 +836,11 @@ const MemberOrderAppList: React.FC = () => {
   };
   
   // 배송중 알림 발송
-  const sendShippingNotification = async (memId: string | number, memName: string, productName: string) => {
+  const sendShippingNotification = async (accountAppId: string | number, memName: string, productName: string) => {
     try {
-      if (!memId || !memName || !productName) return;
+      if (!accountAppId || !memName || !productName) return;
       const title = `${memName}님께서 주문하신 ${productName} 상품이 현재 배송중 상태입니다.`;
-      const content = '고객님의 소중한 상품을 안전하게 배송 중입니다. 곧 빠르고 안전하게 받아보실 수 있도록 정성을 다하겠습니다.';
+      const content = '고객님의 소중한 상품이 배송 중입니다. 곧 빠르고 안전하게 받아보실 수 있도록 정성을 다하겠습니다.';
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
@@ -849,14 +850,14 @@ const MemberOrderAppList: React.FC = () => {
           all_send_yn: 'N',
           push_send_yn: 'Y',
           userId: user?.index,
-          mem_id: String(memId),
+          account_app_id: accountAppId,
         }
       );
       const postAppId = postRes.data?.postAppId;
       if (postAppId) {
         await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
           post_app_id: postAppId,
-          mem_id: memId,
+          account_app_id: accountAppId,
           userId: user?.index,
         });
       }
@@ -866,9 +867,9 @@ const MemberOrderAppList: React.FC = () => {
   };
 
   // 배송완료 알림 발송
-  const sendShippingCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
+  const sendShippingCompleteNotification = async (accountAppId: string | number, memName: string, productName: string) => {
     try {
-      if (!memId || !memName || !productName) return;
+      if (!accountAppId || !memName || !productName) return;
       const title = `${memName}님께서 주문하신 ${productName} 상품이 배송 완료 되었습니다.`;
       const content = '고객님의 소중한 상품이 배송 완료되었습니다. 저희 서비스를 이용해 주셔서 감사드리며, 앞으로도 더 나은 서비스를 위해 노력하겠습니다.';
       const postRes = await axios.post(
@@ -880,14 +881,14 @@ const MemberOrderAppList: React.FC = () => {
           all_send_yn: 'N',
           push_send_yn: 'Y',
           userId: user?.index,
-          mem_id: String(memId),
+          account_app_id: accountAppId,
         }
       );
       const postAppId = postRes.data?.postAppId;
       if (postAppId) {
         await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
           post_app_id: postAppId,
-          mem_id: memId,
+          account_app_id: accountAppId,
           userId: user?.index,
         });
       }
@@ -1313,7 +1314,7 @@ const MemberOrderAppList: React.FC = () => {
                                                   </svg>
                                                 </div>
                                                 <span className="text-sm mb-1 font-semibold" style={{ color: '#0090D4' }}>
-                                                  굿스플로에서 송장번호를 받아오고 있습니다<br/>
+                                                  굿스플로에서 송장번호를 받아오고 있습니다. 새로고침 해주세요.<br/>
                                                   (송장 출력을 하지 않았다면 송장삭제를 해주세요)
                                                 </span>
                                               </div>
@@ -1727,10 +1728,10 @@ const MemberOrderAppList: React.FC = () => {
                               for (const order of selectedOrders) {
                                 if (order?.products && Array.isArray(order.products)) {
                                   for (const p of order.products) {
-                                    await sendShippingNotification(order.mem_id, order.mem_name, p.product_name);
+                                    await sendShippingNotification(order.account_app_id, order.mem_name, p.product_name);
                                   }
                                 } else {
-                                  await sendShippingNotification(order.mem_id, order.mem_name, (order as any).product_name);
+                                  await sendShippingNotification(order.account_app_id, order.mem_name, (order as any).product_name);
                                 }
                               }
                             } catch {}
@@ -1758,10 +1759,10 @@ const MemberOrderAppList: React.FC = () => {
                               for (const order of selectedOrders) {
                                 if (order?.products && Array.isArray(order.products)) {
                                   for (const p of order.products) {
-                                    await sendShippingCompleteNotification(order.mem_id, order.mem_name, p.product_name);
+                                    await sendShippingCompleteNotification(order.account_app_id, order.mem_name, p.product_name);
                                   }
                                 } else {
-                                  await sendShippingCompleteNotification(order.mem_id, order.mem_name, (order as any).product_name);
+                                  await sendShippingCompleteNotification(order.account_app_id, order.mem_name, (order as any).product_name);
                                 }
                               }
                             } catch {}
@@ -1906,13 +1907,13 @@ const MemberOrderAppList: React.FC = () => {
                 if (Array.isArray(order?.products) && order.products.length > 0) {
                   for (const p of order.products as any[]) {
                     if (idSet.has(p?.order_detail_app_id)) {
-                      await sendShippingNotification(order.mem_id, order.mem_name, p?.product_name);
+                      await sendShippingNotification(order.account_app_id, order.mem_name, p?.product_name);
                     }
                   }
                 } else {
                   const odid = (order as any)?.order_detail_app_id;
                   if (idSet.has(odid)) {
-                    await sendShippingNotification(order.mem_id, order.mem_name, (order as any)?.product_name);
+                    await sendShippingNotification(order.account_app_id, order.mem_name, (order as any)?.product_name);
                   }
                 }
               }
@@ -1995,10 +1996,10 @@ const MemberOrderAppList: React.FC = () => {
             for (const order of selectedOrdersForGoodsflow) {
               if ((order as any)?.products && Array.isArray((order as any).products)) {
                 for (const p of (order as any).products) {
-                  await sendShippingNotification((order as any).mem_id, (order as any).mem_name, p?.product_name);
+                  await sendShippingNotification((order as any).account_app_id, (order as any).mem_name, p?.product_name);
                 }
               } else {
-                await sendShippingNotification((order as any).mem_id, (order as any).mem_name, (order as any).product_name);
+                await sendShippingNotification((order as any).account_app_id, (order as any).mem_name, (order as any).product_name);
               }
             }
           } catch {}

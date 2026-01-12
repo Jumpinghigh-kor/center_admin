@@ -12,7 +12,8 @@ interface OrderDetail {
   mem_name: string;
   mem_birth: string;
   mem_phone: string;
-  mem_app_id: string;
+  login_id: string;
+  account_app_id: number;
   order_app_id: number;
   order_detail_app_id: number;
   order_status: string;
@@ -151,11 +152,11 @@ const MemberOrderAppDetail: React.FC = () => {
   const [exchangeTargetDetailIds, setExchangeTargetDetailIds] = useState<number[] | null>(null);
 
   // 배송중 알림 발송
-  const sendShippingNotification = async (memId: string | number, memName: string, productName: string) => {
+  const sendShippingNotification = async (accountAppId: string | number, memName: string, productName: string) => {
     try {
-      if (!memId || !memName || !productName) return;
+      if (!accountAppId || !memName || !productName) return;
       const title = `${memName}님께서 주문하신 ${productName} 상품이 현재 배송중 상태입니다.`;
-      const content = '고객님의 소중한 상품을 안전하게 배송 중입니다. 곧 빠르고 안전하게 받아보실 수 있도록 정성을 다하겠습니다.';
+      const content = '고객님의 소중한 상품이 배송 중입니다. 곧 빠르고 안전하게 받아보실 수 있도록 정성을 다하겠습니다.';
       const postRes = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/postApp/insertPostApp`,
         {
@@ -165,14 +166,14 @@ const MemberOrderAppDetail: React.FC = () => {
           all_send_yn: 'N',
           push_send_yn: 'Y',
           userId: user?.index,
-          mem_id: String(memId),
+          account_app_id: accountAppId,
         }
       );
       const postAppId = postRes.data?.postAppId;
       if (postAppId) {
         await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
           post_app_id: postAppId,
-          mem_id: memId,
+          account_app_id: accountAppId,
           userId: user?.index,
         });
       }
@@ -182,9 +183,9 @@ const MemberOrderAppDetail: React.FC = () => {
   };
 
   // 배송완료 알림 발송
-  const sendShippingCompleteNotification = async (memId: string | number, memName: string, productName: string) => {
+  const sendShippingCompleteNotification = async (accountAppId: string | number, memName: string, productName: string) => {
     try {
-      if (!memId || !memName || !productName) return;
+      if (!accountAppId || !memName || !productName) return;
       const title = `${memName}님께서 주문하신 ${productName} 상품이 배송 완료 되었습니다.`;
       const content = '고객님의 소중한 상품이 배송 완료되었습니다. 저희 서비스를 이용해 주셔서 감사드리며, 앞으로도 더 나은 서비스를 위해 노력하겠습니다.';
       const postRes = await axios.post(
@@ -196,14 +197,14 @@ const MemberOrderAppDetail: React.FC = () => {
           all_send_yn: 'N',
           push_send_yn: 'Y',
           userId: user?.index,
-          mem_id: String(memId),
+          account_app_id: accountAppId,
         }
       );
       const postAppId = postRes.data?.postAppId;
       if (postAppId) {
         await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
           post_app_id: postAppId,
-          mem_id: memId,
+          account_app_id: accountAppId,
           userId: user?.index,
         });
       }
@@ -804,13 +805,13 @@ const MemberOrderAppDetail: React.FC = () => {
         try {
           const upperStatus = String(orderStatus || '').toUpperCase();
           if ((upperStatus === 'SHIPPING_COMPLETE' || upperStatus === 'EXCHANGE_SHIPPING_COMPLETE') && orderDetail && !isReturnRejectContext) {
-            const memId = (orderDetail as any)?.mem_id;
+            const accountAppId = (orderDetail as any)?.account_app_id;
             const memName = (orderDetail as any)?.mem_name;
             const list: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
             list
               .filter((p: any) => idsToUpdate.includes(p?.order_detail_app_id))
               .forEach((p: any) => {
-                sendShippingCompleteNotification(memId, memName, p?.product_name);
+                sendShippingCompleteNotification(accountAppId, memName, p?.product_name);
               });
           }
         } catch {}
@@ -993,7 +994,7 @@ const MemberOrderAppDetail: React.FC = () => {
       });
       // 취소거절 알림 발송
       try {
-        const memId = (orderDetail as any)?.mem_id;
+        const accountAppId = (orderDetail as any)?.account_app_id;
         const memName = (orderDetail as any)?.mem_name;
         const list: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
         const targets = list.filter((p: any) => orderDetailAppIds.includes(p?.order_detail_app_id));
@@ -1007,13 +1008,13 @@ const MemberOrderAppDetail: React.FC = () => {
             all_send_yn: 'N',
             push_send_yn: 'Y',
             userId: user?.index,
-            mem_id: String(memId),
+            account_app_id: accountAppId,
           }).then((postRes) => {
             const postAppId = postRes.data?.postAppId;
             if (postAppId) {
               return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                 post_app_id: postAppId,
-                mem_id: memId,
+                account_app_id: accountAppId,
                 userId: user?.index,
               });
             }
@@ -1110,12 +1111,12 @@ const MemberOrderAppDetail: React.FC = () => {
       // 배송중 알림 발송 (shipping_process 인 경우만)
       try {
         if (shouldUpdateStatus) {
-          const memId = (orderDetail as any)?.mem_id;
+          const accountAppId = (orderDetail as any)?.account_app_id;
           const memName = (orderDetail as any)?.mem_name;
           (orderDetail?.products || [])
             .filter((p: any) => invoiceOrderIds.includes(p?.order_detail_app_id))
             .forEach((p: any) => {
-              sendShippingNotification(memId, memName, p?.product_name);
+              sendShippingNotification(accountAppId, memName, p?.product_name);
             });
         }
       } catch {}
@@ -1168,11 +1169,11 @@ const MemberOrderAppDetail: React.FC = () => {
       // 배송중 알림 발송 (shipping_process 인 경우만)
       try {
         if (shouldUpdateStatus) {
-          const memId = (orderDetail as any)?.mem_id;
+          const accountAppId = (orderDetail as any)?.account_app_id;
           const memName = (orderDetail as any)?.mem_name;
           const list: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
           list.forEach((p: any) => {
-            sendShippingNotification(memId, memName, p?.product_name);
+            sendShippingNotification(accountAppId, memName, p?.product_name);
           });
         }
       } catch {}
@@ -1495,7 +1496,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                         return axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
                                           order_detail_app_id: detailId,
                                           order_address_type: 'ORDER',
-                                          mem_id: orderDetail?.mem_id,
+                                          account_app_id: orderDetail?.account_app_id,
                                           receiver_name: prod?.receiver_name || orderDetail?.receiver_name || '',
                                           receiver_phone: prod?.receiver_phone || orderDetail?.receiver_phone || '',
                                           address: prod?.address || orderDetail?.address || '',
@@ -1665,7 +1666,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                 <p className="font-bold text-sm text-gray-600 mr-1 ml-1" style={{color: '#0090D4'}}>{getDeliveryCompanyName(String(exCompanyCode))}</p>
                               </div>
                               <p className="text-sm font-semibold" style={{color: '#0090D4'}}>
-                                굿스플로에서 송장번호를 받아오는 중입니다<br/>
+                                굿스플로에서 송장번호를 받아오는 중입니다. 새로고침 해주세요.<br/>
                                 (송장 출력을 하지 않았다면 송장삭제를 해주세요)
                               </p>
                             </div>
@@ -1687,7 +1688,7 @@ const MemberOrderAppDetail: React.FC = () => {
                           return (
                             <div className="px-4 mb-4">
                               <p className="text-sm font-semibold" style={{color: '#0090D4'}}>
-                                굿스플로에서 송장번호를 받아오는 중입니다<br/>
+                                굿스플로에서 송장번호를 받아오는 중입니다. 새로고침 해주세요.<br/>
                                 (송장 출력을 하지 않았다면 송장삭제를 해주세요)
                               </p>
                             </div>
@@ -1762,7 +1763,7 @@ const MemberOrderAppDetail: React.FC = () => {
 
                     {!hasUnifiedTracking && groupHasGoodsflowId && !groupHasAnyTracking && (
                       <div className="px-4 mb-4">
-                        <p className="text-sm font-semibold" style={{color: '#0090D4'}}>굿스플로에서 송장번호를 받아오는 중입니다<br/>
+                        <p className="text-sm font-semibold" style={{color: '#0090D4'}}>굿스플로에서 송장번호를 받아오는 중입니다.  새로고침 해주세요.<br/>
                         (송장 출력을 하지 않았다면 송장삭제를 해주세요)</p>
                       </div>
                     )}
@@ -2030,11 +2031,11 @@ const MemberOrderAppDetail: React.FC = () => {
                                             }
                                             // 교환 접수 완료 우편 발송
                                             try {
-                                              const memId = (orderDetail as any)?.mem_id;
+                                              const accountAppId = (orderDetail as any)?.account_app_id;
                                               const memName = (orderDetail as any)?.mem_name;
                                               const sendCalls = (items || []).map(async ({ product }: any) => {
                                                 const productName = String(product?.product_name || '').trim();
-                                                if (!memId || !memName || !productName) return;
+                                                if (!accountAppId || !memName || !productName) return;
                                                 const title = `${memName}님의 ${productName} 상품 교환 접수가 완료되었습니다.`;
                                                 const content = `현재 ${memName}님의 교환 접수가 확인되었습니다. 주문하신 ${productName} 상품의 회수 및 재발송 절차가 신속하게 진행할 예정입니다.`;
                                                 const postRes = await axios.post(
@@ -2046,14 +2047,14 @@ const MemberOrderAppDetail: React.FC = () => {
                                                     all_send_yn: 'N',
                                                     push_send_yn: 'Y',
                                                     userId: user?.index,
-                                                    mem_id: String(memId),
+                                                    account_app_id: accountAppId,
                                                   }
                                                 );
                                                 const postAppId = postRes.data?.postAppId;
                                                 if (postAppId) {
                                                   await axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                                                     post_app_id: postAppId,
-                                                    mem_id: memId,
+                                                    account_app_id: accountAppId,
                                                     userId: user?.index,
                                                   });
                                                 }
@@ -2169,7 +2170,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                           return axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
                                             order_detail_app_id: detailId,
                                             order_address_type: 'ORDER',
-                                            mem_id: orderDetail?.mem_id,
+                                            account_app_id: orderDetail?.account_app_id,
                                             receiver_name: prod?.receiver_name || orderDetail?.receiver_name || '',
                                             receiver_phone: prod?.receiver_phone || orderDetail?.receiver_phone || '',
                                             address: prod?.address || orderDetail?.address || '',
@@ -2192,7 +2193,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                       await fn_updateOrderStatusWithParams(groupOrderDetailAppIds, hasPurchaseConfirm ? 'PURCHASE_CONFIRM' : 'SHIPPING_COMPLETE');
                                       // 반품거절 안내 메시지 발송
                                       try {
-                                        const memId = (orderDetail as any)?.mem_id;
+                                        const accountAppId = (orderDetail as any)?.account_app_id;
                                         const memName = (orderDetail as any)?.mem_name;
                                         const calls = items.map(({ product }: any) => {
                                           const title = `${memName}님께서 주문하신 ${String(product?.product_name || '')} 상품의 반품 접수가 취소 되었습니다.`;
@@ -2204,13 +2205,13 @@ const MemberOrderAppDetail: React.FC = () => {
                                             all_send_yn: 'N',
                                             push_send_yn: 'Y',
                                             userId: user?.index,
-                                            mem_id: String(memId),
+                                            account_app_id: accountAppId,
                                           }).then((postRes) => {
                                             const postAppId = postRes.data?.postAppId;
                                             if (postAppId) {
                                               return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                                                 post_app_id: postAppId,
-                                                mem_id: memId,
+                                                account_app_id: accountAppId,
                                                 userId: user?.index,
                                               });
                                             }
@@ -2435,7 +2436,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                         return axios.post(`${process.env.REACT_APP_API_URL}/app/memberOrderAddress/insertMemberOrderAddress`, {
                                           order_detail_app_id: detailId,
                                           order_address_type: 'ORDER',
-                                          mem_id: orderDetail?.mem_id,
+                                          account_app_id: orderDetail?.account_app_id,
                                           receiver_name: prod?.receiver_name || orderDetail?.receiver_name || '',
                                           receiver_phone: prod?.receiver_phone || orderDetail?.receiver_phone || '',
                                           address: prod?.address || orderDetail?.address || '',
@@ -2487,7 +2488,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                       }
                                     } catch (stateErr) {}
                                       try {
-                                        const memId = (orderDetail as any)?.mem_id;
+                                        const accountAppId = (orderDetail as any)?.account_app_id;
                                         const memName = (orderDetail as any)?.mem_name;
                                         const calls = items.map(({ product }: any) => {
                                           const title = `${memName}님께서 주문하신 ${String(product?.product_name || '')} 상품의 반품이 취소 되었습니다.`;
@@ -2499,13 +2500,13 @@ const MemberOrderAppDetail: React.FC = () => {
                                             all_send_yn: 'N',
                                             push_send_yn: 'Y',
                                             userId: user?.index,
-                                            mem_id: String(memId),
+                                            account_app_id: accountAppId,
                                           }).then((postRes) => {
                                             const postAppId = postRes.data?.postAppId;
                                             if (postAppId) {
                                               return axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                                                 post_app_id: postAppId,
-                                                mem_id: memId,
+                                                account_app_id: accountAppId,
                                                 userId: user?.index,
                                               });
                                             }
@@ -2711,7 +2712,7 @@ const MemberOrderAppDetail: React.FC = () => {
                                       fn_updateOrderStatusWithParams(groupOrderDetailAppIds, 'SHIPPINGING');
                                       try {
                                         items.forEach(({ product }) => {
-                                          sendShippingNotification((orderDetail as any)?.mem_id, (orderDetail as any)?.mem_name, product?.product_name);
+                                          sendShippingNotification((orderDetail as any)?.account_app_id, (orderDetail as any)?.mem_name, product?.product_name);
                                         });
                                       } catch {}
                                     } else if (upperStatus == 'SHIPPINGING') {
@@ -2859,7 +2860,7 @@ const MemberOrderAppDetail: React.FC = () => {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="font-semibold mb-4">구매자 정보</h3>
               <div className="space-y-2">
-                <p className="text-sm font-semibold" style={{color: '#0090D4'}}>{orderDetail?.mem_app_id}</p>
+                <p className="text-sm font-semibold" style={{color: '#0090D4'}}>{orderDetail?.login_id}</p>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">{orderDetail?.mem_name}</span>
                 </div>
@@ -2980,13 +2981,13 @@ const MemberOrderAppDetail: React.FC = () => {
 
                // 배송중 알림 발송
                try {
-                 const memId = (orderDetail as any)?.mem_id;
+                 const accountAppId = (orderDetail as any)?.account_app_id;
                  const memName = (orderDetail as any)?.mem_name;
                  const products: any[] = Array.isArray(orderDetail?.products) ? (orderDetail!.products as any[]) : [];
                  products
                    .filter((p: any) => detailIds.includes(p?.order_detail_app_id))
                    .forEach((p: any) => {
-                     sendShippingNotification(memId, memName, p?.product_name);
+                     sendShippingNotification(accountAppId, memName, p?.product_name);
                    });
                } catch {}
              }

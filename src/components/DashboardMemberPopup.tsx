@@ -6,15 +6,16 @@ import axios from "axios";
 interface Member {
   mem_id: number;
   mem_name: string;
-  mem_nickname: string;
-  mem_app_id: string;
   mem_phone: string;
-  mem_app_status: string;
   mem_gender: string;
   mem_birthday: string;
+  account_app_id: number;
+  nickname: string;
+  login_id: string;
+  status: string;
   mem_role: string;
-  app_reg_dt: string;
-  app_exit_dt: string;
+  reg_dt: string;
+  exit_dt: string;
   month_num: string;
   member_count: number;
 }
@@ -143,10 +144,10 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
                       {member.mem_name ? member.mem_name : "-"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-900 border-b">
-                      {member.mem_nickname ? member.mem_nickname : "-"}
+                      {member.nickname ? member.nickname : "-"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
-                      {member.mem_app_id ? member.mem_app_id : "-"}
+                      {member.login_id ? member.login_id : "-"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
                       {member.mem_phone ? member.mem_phone : "-"}
@@ -155,18 +156,18 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
                       <span
                         className={`inline-flex px-2 py-1 text-sm rounded-full`}
                       >
-                        {member.mem_app_status === "ACTIVE" ? "활성" : 
-                         member.mem_app_status === "PROCEED" ? "진행중" : "탈퇴"}
+                        {member.status === "ACTIVE" ? "활성" : 
+                         member.status === "PROCEED" ? "진행중" : "탈퇴"}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
                       {member.mem_gender === "M" ? "남성" : "여성"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
-                      {member.app_reg_dt}
+                      {member.reg_dt ? member.reg_dt : "-"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
-                      {member.app_exit_dt}
+                      {member.exit_dt ? member.exit_dt : "-"}
                     </td>
                   </tr>
                 ))}

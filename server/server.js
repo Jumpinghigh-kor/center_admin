@@ -511,7 +511,7 @@ if (IS_CRON_LEADER) {
       const selectQuery = `
         SELECT
           moda.order_detail_app_id
-          , moa.mem_id
+          , moa.account_app_id
         FROM		  member_order_app moa
         LEFT JOIN	member_order_detail_app moda ON moa.order_app_id = moda.order_app_id
         WHERE		  order_status = 'SHIPPING_COMPLETE'
@@ -522,14 +522,14 @@ if (IS_CRON_LEADER) {
           console.warn("[auto-purchase-confirm] select error:", selErr);
           return;
         }
-        // mem_id 별로 묶어서 각 그룹의 mem_id를 mod_id로 사용
+        
         const groups = new Map();
         (rows || []).forEach(r => {
           const id = r && r.order_detail_app_id;
-          const memId = r && r.mem_id;
-          if (!id || memId == null) return;
-          if (!groups.has(memId)) groups.set(memId, []);
-          groups.get(memId).push(id);
+          const accountAppId = r && r.account_app_id;
+          if (!id || accountAppId == null) return;
+          if (!groups.has(accountAppId)) groups.set(accountAppId, []);
+          groups.get(accountAppId).push(id);
         });
         if (groups.size === 0) return;
 

@@ -11,7 +11,7 @@ interface PostAppDetail {
   all_send_yn: string;
   title: string;
   content: string;
-  mem_id: string;
+  account_app_id: string;
   reg_dt: string;
 }
 
@@ -27,7 +27,7 @@ const PostAppDetail: React.FC = () => {
     all_send_yn: "",
     title: "",
     content: "",
-    mem_id: "",
+    account_app_id: "",
     reg_dt: "",
   });
 
@@ -49,7 +49,7 @@ const PostAppDetail: React.FC = () => {
         setAllSendYn(base.all_send_yn || "Y");
         setPushSendYn(base.push_send_yn || "Y");
 
-        const ids = rows.filter((r: any) => r.mem_id != null).map((r: any) => r.mem_id).join(",");
+        const ids = rows.filter((r: any) => r.account_app_id != null).map((r: any) => r.account_app_id).join(",");
         const names = rows.filter((r: any) => r.mem_name).map((r: any) => r.mem_name).join(", ");
 
         setFormData((prev) => ({
@@ -59,7 +59,7 @@ const PostAppDetail: React.FC = () => {
           all_send_yn: base.all_send_yn || "",
           title: base.title || "",
           content: base.content || "",
-          mem_id: base.all_send_yn === "N" ? ids : "",
+          account_app_id: base.all_send_yn === "N" ? ids : "",
         }));
 
         if (base.all_send_yn === "N") {
@@ -318,14 +318,14 @@ const PostAppDetail: React.FC = () => {
       <SelectMemberAppPopup
         isOpen={isPopup}
         onClose={() => setIsPopup(false)}
-        onSelect={(members: { mem_id: number; mem_name: string }[]) => {
-          const ids = members.map((m: any) => m.mem_id).join(",");
+        onSelect={(members: { account_app_id: number; mem_name: string }[]) => {
+          const ids = members.map((m: any) => m.account_app_id).join(",");
           const names = members.map((m: any) => m.mem_name).join(", ");
-          setFormData((prev) => ({ ...prev, mem_id: ids }));
+          setFormData((prev) => ({ ...prev, account_app_id: ids }));
           setSelectedMemberNames(names);
           setIsPopup(false);
         }}
-        preselectedIds={(formData.mem_id || "")
+        preselectedIds={(formData.account_app_id || "")
           .split(",")
           .map((s) => s.trim())
           .filter((s) => s)

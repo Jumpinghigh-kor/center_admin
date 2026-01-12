@@ -305,7 +305,7 @@ const PosterList: React.FC = () => {
       ) : null}
 
       <div className="flex justify-between">
-        <span className="font-bold text-xl">포스터 관리</span>
+        <p className="font-bold text-xl">포스터 관리</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -368,13 +368,15 @@ const PosterList: React.FC = () => {
           ) : null}
         </div>
       </div>
-      <div className="text-sm mt-4 mb-2 flex flex-row justify-between">
-        <p className="font-bold">총 {posterList.length}개</p>
-        <div>
-          <p className="text-base">센터 정보를 등록해야 포스터를 다운 받을 수 있습니다.</p>
-          <p className="text-base">목록을 클릭하여 상세 화면으로 이동 후 포스터를 다운로드 해주세요.</p>
+      <div className="text-sm mt-4 mb-2 flex flex-col gap-2">
+        <p className="font-bold text-base mb-2">설명</p>
+        <div className="border border-black rounded-lg p-4">
+          <p className="text-base">- 웹, 배너, 전단지 등 홍보 자료 관리를 위한 페이지입니다.</p>
+          <p className="text-base">- 센터 정보를 등록해야 포스터를 다운 받을 수 있습니다.</p>
+          <p className="text-base">- 목록을 클릭하여 상세 화면으로 이동 후 이미지를 다운로드 해주세요.</p>
         </div>
       </div>
+      <p className="font-bold text-base mb-2 mt-4">총 {posterList.length}개</p>
       <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
         <table className="w-full text-sm text-left rtl:text-right text-gray-500">
           <thead className="text-xs text-white font-bold uppercase bg-custom-C4C4C4">

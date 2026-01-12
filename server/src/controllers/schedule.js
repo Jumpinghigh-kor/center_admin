@@ -197,11 +197,11 @@ exports.getMemberScheduleAppList = (req, res) => {
                   md.start_dt
                   , md.original_sch_id
                   , md.final_sch_id
-                  , COUNT(DISTINCT md.mem_id) AS member_cnt
+                  , COUNT(DISTINCT md.account_app_id) AS member_cnt
                 FROM  (
                         SELECT
                           c.start_dt
-                          , mb.mem_id
+                          , mb.account_app_id
                           , mb.mem_sch_id AS original_sch_id
                           , COALESCE(r.reservation_sch_id, mb.mem_sch_id) AS final_sch_id
                         FROM  (
@@ -219,12 +219,14 @@ exports.getMemberScheduleAppList = (req, res) => {
                               ) c
                 INNER JOIN (
                             SELECT
-                              m.mem_id
+                              maa.account_app_id
                               , m.mem_sch_id
                               , m.center_id
                             FROM        members m
+                            INNER JOIN  member_account_app maa ON maa.mem_id = m.mem_id
                             WHERE       m.center_id = ?
                             AND         m.mem_status = 1
+                            AND         maa.del_yn = 'N'
                             AND         EXISTS (
                                                 SELECT 
                                                   1
@@ -237,14 +239,14 @@ exports.getMemberScheduleAppList = (req, res) => {
                           ) mb ON 1=1
                 LEFT JOIN (
                             SELECT
-                              msa.mem_id
+                              msa.account_app_id
                               , msa.reservation_sch_id
                               , msa.sch_dt
                             FROM    member_schedule_app msa
                             WHERE   msa.del_yn = 'N'
                             AND     (msa.agree_yn = 'Y' OR msa.agree_yn IS NULL)
                             AND     msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
-                          ) r ON r.mem_id = mb.mem_id AND r.sch_dt = DATE_FORMAT(c.start_dt, '%Y%m%d')
+                          ) r ON r.account_app_id = mb.account_app_id AND r.sch_dt = DATE_FORMAT(c.start_dt, '%Y%m%d')
                         ) md
                 GROUP BY md.start_dt, md.original_sch_id, md.final_sch_id
               ) cnt ON cnt.start_dt = dates.sch_dt
@@ -263,7 +265,7 @@ exports.getMemberScheduleAppList = (req, res) => {
                 SELECT
                   STR_TO_DATE(msa.sch_dt, '%Y%m%d') AS start_dt
                   , msa.reservation_sch_id AS sch_id
-                  , COUNT(DISTINCT msa.mem_id) AS current_count
+                  , COUNT(DISTINCT msa.account_app_id) AS current_count
                 FROM  member_schedule_app msa
                 WHERE msa.del_yn = 'N'
                 AND   msa.sch_dt BETWEEN DATE_FORMAT(?, '%Y%m%d') AND DATE_FORMAT(?, '%Y%m%d')
@@ -277,7 +279,7 @@ exports.getMemberScheduleAppList = (req, res) => {
                 SELECT
                   STR_TO_DATE(msa.sch_dt, '%Y%m%d') AS start_dt
                   , msa.reservation_sch_id AS sch_id
-                  , COUNT(DISTINCT msa.mem_id) AS reserved_count
+                  , COUNT(DISTINCT msa.account_app_id) AS reserved_count
                 FROM  member_schedule_app msa
                 WHERE msa.del_yn = 'N'
                 AND   msa.agree_yn IS NULL
@@ -322,6 +324,7 @@ exports.getReservationMemberList = (req, res) => {
         END AS mem_gender
       , CONCAT(SUBSTRING(m.mem_phone, 1, 3), '-', SUBSTRING(m.mem_phone, 4, 4), '-', SUBSTRING(m.mem_phone, 8, 4)) AS mem_phone
       , DATE_FORMAT(m.mem_birth, '%Y-%m-%d') AS mem_birth
+      , maa.account_app_id
       , msa.sch_app_id
       , DATE_FORMAT(msa.sch_dt, '%Y-%m-%d') AS sch_dt
       , msa.admin_memo
@@ -361,8 +364,10 @@ exports.getReservationMemberList = (req, res) => {
           WHERE	ss.sch_id = msa.reservation_sch_id
       ) AS reservation_sch_info
     FROM		    members m
-    INNER JOIN	member_schedule_app msa ON m.mem_id= msa.mem_id
+    INNER JOIN  member_account_app maa ON maa.mem_id = m.mem_id
+    INNER JOIN	member_schedule_app msa ON maa.account_app_id = msa.account_app_id
     WHERE			  m.mem_status = 1
+    AND         maa.del_yn = 'N'
     AND		      msa.del_yn = 'N'
     AND		      (msa.agree_yn IS NULL OR msa.agree_yn = 'Y')
     AND			    msa.sch_dt = ?
@@ -384,10 +389,13 @@ exports.getReservationMemberListByDate = (req, res) => {
     SELECT
       m.mem_name
       , m.mem_id
+      , maa.account_app_id
     FROM        members m
-    INNER JOIN  member_schedule_app msa ON m.mem_id = msa.mem_id
+    INNER JOIN  member_account_app maa ON maa.mem_id = m.mem_id
+    INNER JOIN  member_schedule_app msa ON maa.account_app_id = msa.account_app_id
     WHERE       m.mem_status = 1
     AND         msa.del_yn = 'N'
+    AND         maa.del_yn = 'N'
     AND         (msa.agree_yn IS NULL OR msa.agree_yn = 'Y')
     AND         msa.sch_dt = ?
   `;
@@ -419,6 +427,7 @@ exports.getRegisteredMemberList = (req, res) => {
       , s.sch_info
       , s.sch_max_cap
     FROM		    members m
+    INNER JOIN  member_account_app maa  ON (maa.mem_id = m.mem_id AND maa.del_yn = 'N')
     INNER JOIN 	schedule s              ON s.sch_id = m.mem_sch_id
     WHERE 		  m.mem_status = 1
     AND 		    s.sch_status = 1
@@ -435,15 +444,15 @@ exports.getRegisteredMemberList = (req, res) => {
                                     )
                       )
     AND 		    s.sch_id = ?
-    AND 		    m.mem_id NOT IN (
+    AND 		    maa.account_app_id NOT IN (
                                   SELECT
-                                    msa.mem_id
+                                    msa.account_app_id
                                   FROM 	member_schedule_app msa
                                   WHERE msa.del_yn = 'N'
                                   AND (msa.agree_yn = 'Y' OR msa.agree_yn IS NULL)
                                   AND 	msa.sch_dt = ?
                                 )
-    ORDER BY m.mem_id DESC
+    ORDER BY maa.account_app_id DESC
   `;
 
   db.query(query, [sch_id, sch_dt], (err, result) => {
@@ -458,7 +467,7 @@ exports.getRegisteredMemberList = (req, res) => {
 // 회원 예약 등록
 exports.insertMemberScheduleApp = (req, res) => {
   try {
-    const { mem_id, original_sch_id, reservation_sch_id, sch_dt, userId } = req.body;
+    const { account_app_id, original_sch_id, reservation_sch_id, sch_dt, userId } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
@@ -467,7 +476,7 @@ exports.insertMemberScheduleApp = (req, res) => {
     // notices_app 테이블에 공지사항 정보 등록
     const memberScheduleAppInsertQuery = `
       INSERT INTO member_schedule_app (
-        mem_id
+        account_app_id
         , original_sch_id
         , reservation_sch_id
         , sch_dt
@@ -496,7 +505,7 @@ exports.insertMemberScheduleApp = (req, res) => {
     db.query(
       memberScheduleAppInsertQuery,
       [
-        mem_id,
+        account_app_id,
         original_sch_id,
         reservation_sch_id,
         sch_dt,
@@ -577,11 +586,13 @@ exports.getReservationMemberCnt = (req, res) => {
   const query = `
     SELECT
       COUNT(*) AS cnt
-    FROM		  members m
-    LEFT JOIN	member_schedule_app msa ON m.mem_id = msa.mem_id
-    WHERE		  msa.agree_yn IS NULL
-    AND			  DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= DATE_FORMAT(STR_TO_DATE(msa.sch_dt, '%Y%m%d'), '%Y%m%d%H%i%s')
-    AND			  m.center_id = ?
+    FROM		    members m
+    INNER JOIN  member_account_app maa ON m.mem_id = maa.mem_id
+    LEFT JOIN	  member_schedule_app msa ON maa.account_app_id = msa.account_app_id
+    WHERE		    msa.agree_yn IS NULL
+    AND			    DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= DATE_FORMAT(STR_TO_DATE(msa.sch_dt, '%Y%m%d'), '%Y%m%d%H%i%s')
+    AND			    m.center_id = ?
+    AND 		    msa.del_yn = 'N'
   `;
 
   db.query(query, [center_id], (err, result) => {

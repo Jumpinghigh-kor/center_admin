@@ -8,10 +8,11 @@ interface MemberAppItem {
   center_id: number;
   center_name: string;
   mem_id: number;
+  account_app_id: number;
   mem_name: string;
   mem_phone: string;
   mem_gender: string;
-  mem_app_status: string;
+  status: string;
   mem_sch_id: number;
 }
 
@@ -110,7 +111,7 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
         {
           center_id: centerId || undefined,
           mem_name: override?.memName || undefined,
-          mem_app_status: 'ACTIVE',
+          status: 'ACTIVE',
         },
       );
 
@@ -122,23 +123,23 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
     }
   };
 
-  const toggleSelect = (memId: number) => {
+  const toggleSelect = (accountAppId: number) => {
     setSelectedIds((prev) => {
       if (multi) {
         const next = new Set(prev);
-        if (next.has(memId)) next.delete(memId); else next.add(memId);
+        if (next.has(accountAppId)) next.delete(accountAppId); else next.add(accountAppId);
         return next;
       }
-      return new Set<number>([memId]);
+      return new Set<number>([accountAppId]);
     });
   };
 
   const handleConfirm = () => {
-    const selected = members.filter((m) => selectedIds.has(m.mem_id));
+    const selected = members.filter((m) => selectedIds.has(m.account_app_id));
     onSelect(selected);
     onClose();
   };
-
+  
   if (!isOpen && !isAnimating) return null;
 
   return (
@@ -252,17 +253,17 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
                     </tr>
                   )}
                   {members.map((m) => {
-                    const checked = selectedIds.has(m.mem_id);
+                    const checked = selectedIds.has(m.account_app_id);
                     return (
                       <tr
-                        key={m.mem_id}
+                        key={m.account_app_id}
                         className="border-t hover:bg-gray-50 cursor-pointer"
                         onClick={() => {
                           if (!multi) {
-                            setSelectedIds(new Set([m.mem_id]));
+                            setSelectedIds(new Set([m.account_app_id]));
                             handleConfirm();
                           } else {
-                            toggleSelect(m.mem_id);
+                            toggleSelect(m.account_app_id);
                           }
                         }}
                       >
@@ -271,13 +272,13 @@ const SelectMemberAppPopup: React.FC<SelectMemberAppPopupProps> = ({
                             type="checkbox"
                             className="w-4 h-4 cursor-pointer"
                             checked={checked}
-                            onChange={() => toggleSelect(m.mem_id)}
+                            onChange={() => toggleSelect(m.account_app_id)}
                             onClick={(e) => e.stopPropagation()}
                           />
                         </td>
                         <td className="px-4 py-2">{m.mem_name}</td>
                         <td className="px-4 py-2">{m.mem_phone ? m.mem_phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3') : '-'}</td>
-                        <td className="px-4 py-2">{m.mem_app_status === 'ACTIVE' ? '활동' : m.mem_app_status === 'PROCEED' ? '진행중' : '탈퇴'}</td>
+                        <td className="px-4 py-2">{m.status === 'ACTIVE' ? '활동' : m.status === 'PROCEED' ? '진행중' : '탈퇴'}</td>
                         <td className="px-4 py-2">{m.mem_gender}</td>
                         <td className="px-4 py-2">{m.center_name}</td>
                       </tr>

@@ -11,7 +11,7 @@ interface PostAppRegister {
   all_send_yn: string;
   title: string;
   content: string;
-  mem_id: string;
+  account_app_id: string;
   reg_dt: string;
 }
 
@@ -26,7 +26,7 @@ const PostAppRegister: React.FC = () => {
     all_send_yn: "",
     title: "",
     content: "",
-    mem_id: "",
+    account_app_id: "",
     reg_dt: "",
   });
 
@@ -47,7 +47,7 @@ const PostAppRegister: React.FC = () => {
       return;
     }
 
-    if(allSendYn === "N" && !formData.mem_id.trim()) {
+    if(allSendYn === "N" && !formData.account_app_id.trim()) {
       alert("개별 발송 시 회원을 선택해주세요.");
       return;
     }
@@ -63,7 +63,7 @@ const PostAppRegister: React.FC = () => {
           all_send_yn: allSendYn,
           push_send_yn: pushSendYn,
           userId: user.index,
-          memberList: (formData.mem_id || "")
+          memberList: (formData.account_app_id || "")
             .split(",")
             .map((s) => s.trim())
             .filter((s) => s)
@@ -76,7 +76,7 @@ const PostAppRegister: React.FC = () => {
 
       // 2) 개별 발송이면 회원별로 insertMemberPostApp 호출
       if (allSendYn === "N") {
-        const idList = (formData.mem_id || "")
+        const idList = (formData.account_app_id || "")
           .split(",")
           .map((s) => s.trim())
           .filter((s) => s)
@@ -84,10 +84,10 @@ const PostAppRegister: React.FC = () => {
           .filter((n) => !Number.isNaN(n));
 
         await Promise.all(
-          idList.map((memId) =>
+          idList.map((accountAppId) =>
             axios.post(
               `${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`,
-              { post_app_id: postAppId, mem_id: memId, userId: user.index }
+              { post_app_id: postAppId, account_app_id: accountAppId, userId: user.index }
             )
           )
         );
@@ -305,10 +305,10 @@ const PostAppRegister: React.FC = () => {
       <SelectMemberAppPopup
         isOpen={isPopup}
         onClose={() => setIsPopup(false)}
-        onSelect={(members: { mem_id: number; mem_name: string }[]) => {
-          const ids = members.map((m: any) => m.mem_id).join(",");
+        onSelect={(members: { account_app_id: number; mem_name: string }[]) => {
+          const ids = members.map((m: any) => m.account_app_id).join(",");
           const names = members.map((m: any) => m.mem_name).join(", ");
-          setFormData((prev) => ({ ...prev, mem_id: ids }));
+          setFormData((prev) => ({ ...prev, account_app_id: ids }));
           setSelectedMemberNames(names);
           setIsPopup(false);
         }}
