@@ -3,7 +3,26 @@ const db = require("./../../db");
 //센터 정보 가져오기
 exports.getCenter = (req, res) => {
   const { center_id } = req.query;
-  const query = "SELECT * FROM centers WHERE center_id = ?";
+  const query = `
+      SELECT
+	    c.center_id
+      , c.center_name
+      , c.target_amount_month
+      , c.target_amount_year
+      , c.target_members
+      , c.address
+      , c.address_detail
+      , c.zip_code
+      , c.phone_number
+      , c.del_yn
+      , u.index
+      , u.usr_name
+      , u.usr_id
+    FROM		    centers c
+    INNER JOIN	users u ON c.center_id = u.center_id
+    WHERE		    c.center_id = ?
+    AND         c.del_yn = 'N'
+  `;
   db.query(query, [center_id], (err, result) => {
     if (err) {
       return res.status(500).json(err);
@@ -78,6 +97,8 @@ exports.getCenterList = (req, res) => {
     SELECT
       c.center_id
       , c.center_name
+      , u.usr_name
+      , u.usr_id
       , COALESCE(
                   SUM(
                       CASE 
@@ -98,6 +119,8 @@ exports.getCenterList = (req, res) => {
                     ), 0) AS monthly_sales
     FROM      centers c
     LEFT JOIN member_orders o ON c.center_id = o.center_id
+    LEFT JOIN users u ON c.center_id = u.center_id
+    WHERE     c.del_yn = 'N'
     GROUP BY  c.center_id, c.center_name
     ORDER BY  c.center_id DESC
   `;
@@ -129,6 +152,64 @@ exports.updateCenterAddress = (req, res) => {
         return res.status(500).json(err);
       }
       res.json({ message: "Updated the center address successfully", result: result });
+    }
+  );
+};
+
+//센터 삭제하기
+exports.deleteCenter = (req, res) => {
+  const { center_id } =
+    req.body;
+  const query = `
+    UPDATE centers SET
+      del_yn = 'Y'
+    WHERE center_id = ?;`;
+
+  db.query(
+    query,
+    [center_id],
+    (err, result) => {
+      if (err) {
+        return res.status(500).json(err);
+      }
+      
+      // 센터 삭제 후 해당 센터의 사용자들도 삭제 처리
+      const updateUsersQuery = `
+        UPDATE users SET
+          del_yn = 'Y'
+        WHERE center_id = ?;`;
+      
+      db.query(
+        updateUsersQuery,
+        [center_id],
+        (err, userResult) => {
+          if (err) {
+            return res.status(500).json(err);
+          }
+          res.json({ message: "Deleted the center successfully", result: result });
+        }
+      );
+    }
+  );
+};
+
+//센터 주소 변경하기
+exports.updateCenterName = (req, res) => {
+  const { center_id, center_name } =
+    req.body;
+  const query = `
+    UPDATE centers SET
+      center_name = ?
+    WHERE center_id = ?;`;
+
+  db.query(
+    query,
+    [center_name, center_id],
+    (err, result) => {
+      if (err) {
+        return res.status(500).json(err);
+      }
+      res.json({ message: "Updated the center name successfully", result: result });
     }
   );
 };

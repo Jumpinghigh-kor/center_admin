@@ -3,7 +3,7 @@ const dayjs = require("dayjs");
 
 // 회원 주문 목록 조회
 exports.selectMemberOrderAppList = (req, res) => {
-  const { order_status, center_id, searchValue } = req.body;
+  const { order_status, searchValue } = req.body;
   
   let filter = '';
   if (order_status && order_status !== 'TOTAL_COUNT') {
@@ -223,12 +223,12 @@ exports.selectMemberOrderAppList = (req, res) => {
       LEFT JOIN	  member_return_app mra			    ON moda.order_detail_app_id = mra.order_detail_app_id AND mra.del_yn = 'N' AND mra.cancel_yn = 'N'
       WHERE       moa.del_yn = 'N'
       AND         pa.consignment_yn = 'N'
-      AND         m.center_id = ?
+      AND         maa.del_yn = 'N'
       ${filter}
       ORDER BY moa.order_dt DESC
     ;`;
     
-    let queryParams = [center_id];
+    let queryParams = [];
     
     if (order_status && order_status !== 'TOTAL_COUNT') {
       queryParams.push(order_status);
@@ -251,8 +251,6 @@ exports.selectMemberOrderAppList = (req, res) => {
 
 // 회원 주문 목록 갯수 조회
 exports.selectMemberOrderAppCount = (req, res) => {
-  const { center_id } = req.body;
-  
   const query = `
       SELECT
         COUNT(DISTINCT moa.order_app_id) AS TOTAL_COUNT
@@ -272,9 +270,10 @@ exports.selectMemberOrderAppCount = (req, res) => {
       LEFT JOIN   product_app pa              	ON pda.product_app_id = pa.product_app_id
       WHERE       moa.del_yn = 'N'
       AND         pa.consignment_yn = 'N'
+      AND         maa.del_yn = 'N'
     ;`;
     
-  db.query(query, [center_id], (err, result) => {
+  db.query(query, (err, result) => {
     if (err) {
       console.error("주문 목록 갯수 조회 오류:", err);
       return res.status(500).json({ error: "주문 목록 갯수를 조회하는 도중 오류가 발생했습니다." });
@@ -315,10 +314,8 @@ exports.selectProductAppImg = (req, res) => {
 };
 
 
-// 상품 이미지 조회
+// 회원 주문 수
 exports.selectMemberOrderAppCnt = (req, res) => {
-  const { center_id } = req.body;
-
   const query = `
       SELECT
         COUNT(*) AS cnt
@@ -326,15 +323,15 @@ exports.selectMemberOrderAppCnt = (req, res) => {
       INNER JOIN  member_account_app maa        ON m.mem_id = maa.mem_id
       LEFT JOIN	  member_order_app moa 			    ON maa.account_app_id = moa.account_app_id
       LEFT JOIN	  member_order_detail_app moda 	ON moa.order_app_id = moda.order_app_id
-      WHERE		    m.center_id = ?
-      AND			    moa.del_yn = 'N'
+      WHERE			  moa.del_yn = 'N'
+      AND         maa.del_yn = 'N'
       AND			    moda.order_status 
                   IN ('PAYMENT_COMPLETE', 'CANCEL_APPLY', 'EXCHANGE_APPLY'
                       , 'EXCHANGE_GET', 'EXCHANGE_PAYMENT_COMPLETE', 'HOLD'
                       , 'RETURN_APPLY' , 'RETURN_GET');
   `;
 
-  db.query(query, [center_id], (err, result) => {
+  db.query(query, (err, result) => {
     if (err) {
       console.error("회원 주문 목록 갯수 조회 오류:", err);
       return res.status(500).json({ error: "회원 주문 목록 갯수를 조회하는 도중 오류가 발생했습니다." });
@@ -842,7 +839,7 @@ exports.updateNewMemberOrderApp = (req, res) => {
                   FROM member_order_detail_app moda2
                   WHERE moda2.order_app_id = moda.order_app_id
                 ) AS max_group
-            FROM member_order_detail_app moda
+            FROM  member_order_detail_app moda
             WHERE moda.order_detail_app_id = ?
           `;
 

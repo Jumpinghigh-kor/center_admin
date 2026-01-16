@@ -3,8 +3,6 @@ const dayjs = require("dayjs");
 
 // 주문 주소지 조회
 exports.selectMemberOrderAddress = (req, res) => {
-  const { center_id } = req.body;
-  
   let query = `
       SELECT
         moa.order_app_id
@@ -30,12 +28,12 @@ exports.selectMemberOrderAddress = (req, res) => {
       LEFT JOIN	  member_order_app moa		      ON maa.account_app_id = moa.account_app_id
       LEFT JOIN	  member_order_detail_app moda	ON moa.order_app_id = moda.order_app_id
       LEFT JOIN	  member_order_address moad		  ON moda.order_detail_app_id = moad.order_detail_app_id
-      WHERE		    m.center_id = ?
+      WHERE		    maa.del_yn = 'N'
       AND			    moa.del_yn = 'N'
       AND			    moad.use_yn = 'Y'
   `;
 
-  db.query(query, [center_id], (err, result) => {
+  db.query(query, (err, result) => {
     if (err) {
       console.error('selectMemberOrderAddress error:', err);
       return res.status(500).json({ error: '주문 주소 조회 중 오류가 발생했습니다.' });

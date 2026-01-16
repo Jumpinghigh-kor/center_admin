@@ -18,6 +18,9 @@ const Navbar: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotification, setShowNotification] = useState<Boolean>();
   const [showAppInfoModal, setShowAppInfoModal] = useState<Boolean>(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("1day");
+  const [readFilter, setReadFilter] = useState<string>("all"); // "all", "read", "unread"
+  const [showExtendedPeriod, setShowExtendedPeriod] = useState<boolean>(false);
   const target = location.pathname.startsWith("/app") ? "/" : "/app";
 
   const UNREAD_NOTIFICATION_COUNT = notifications.filter(
@@ -56,7 +59,13 @@ const Navbar: React.FC = () => {
     const getNotifications = async () => {
       try {
         const result = await axios.get(
-          `${process.env.REACT_APP_API_URL}/notification/${user?.center_id}`
+          `${process.env.REACT_APP_API_URL}/notification/${user?.center_id}`,
+          {
+            params: {
+              selectedPeriod: selectedPeriod || undefined,
+              not_is_read: readFilter || undefined,
+            },
+          }
         );
         setNotifications(result.data.result);
       } catch (e) {
@@ -64,7 +73,14 @@ const Navbar: React.FC = () => {
       }
     };
     getNotifications();
-  }, [user?.center_id, readNotification]);
+  }, [user?.center_id, readNotification, selectedPeriod, readFilter]);
+
+  // 3개월 이상 선택 시 자동으로 펼치기
+  useEffect(() => {
+    if (selectedPeriod === "3months" || selectedPeriod === "6months" || selectedPeriod === "1year" || selectedPeriod === "all") {
+      setShowExtendedPeriod(true);
+    }
+  }, [selectedPeriod]);
 
   const isAppSection = location.pathname.startsWith("/app");
   return (
@@ -125,6 +141,191 @@ const Navbar: React.FC = () => {
                   {showNotification ? (
                     <div className="notify-modal bg-custom-E8E8E8 absolute p-3 mt-10 w-80 h-96 z-30 rounded-xl border-custom-727272 shadow-lg overflow-scroll">
                       <span className="font-bold flex py-2">알림</span>
+                      
+                      {/* 필터 섹션 */}
+                      <div className="mb-4 pb-4 border-b border-gray-300 bg-white rounded-lg p-3 shadow-sm">
+                        {/* 기간 선택 */}
+                        <div className="mb-3">
+                          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-2">기간</span>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPeriod(selectedPeriod === "1day" ? "" : "1day")}
+                              className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                selectedPeriod === "1day"
+                                  ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                              }`}
+                            >
+                              1일
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPeriod(selectedPeriod === "3days" ? "" : "3days")}
+                              className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                selectedPeriod === "3days"
+                                  ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                              }`}
+                            >
+                              3일
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPeriod(selectedPeriod === "1week" ? "" : "1week")}
+                              className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                selectedPeriod === "1week"
+                                  ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                              }`}
+                            >
+                              일주일
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPeriod(selectedPeriod === "1month" ? "" : "1month")}
+                              className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                selectedPeriod === "1month"
+                                  ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                              }`}
+                            >
+                              1달
+                            </button>
+                            {showExtendedPeriod ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPeriod(selectedPeriod === "3months" ? "" : "3months")}
+                                  className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                    selectedPeriod === "3months"
+                                      ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                                  }`}
+                                >
+                                  3개월
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPeriod(selectedPeriod === "6months" ? "" : "6months")}
+                                  className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                    selectedPeriod === "6months"
+                                      ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                                  }`}
+                                >
+                                  6개월
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPeriod(selectedPeriod === "1year" ? "" : "1year")}
+                                  className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                    selectedPeriod === "1year"
+                                      ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                                  }`}
+                                >
+                                  1년
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPeriod(selectedPeriod === "all" ? "" : "all")}
+                                  className={`px-2 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                                    selectedPeriod === "all"
+                                      ? "bg-blue-600 text-white shadow-lg hover:shadow-xl"
+                                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                                  }`}
+                                >
+                                  전체
+                                </button>
+                              </>
+                            ) : null}
+                            {!showExtendedPeriod && (
+                              <button
+                                type="button"
+                                onClick={() => setShowExtendedPeriod(true)}
+                                className="w-6 h-6 rounded-full transition-all duration-200 bg-sky-100 text-sky-600 hover:bg-sky-200 shadow-sm hover:shadow-md flex items-center justify-center"
+                              >
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 4v16m8-8H4"
+                                  />
+                                </svg>
+                              </button>
+                            )}
+                            {showExtendedPeriod && (
+                              <button
+                                type="button"
+                                onClick={() => setShowExtendedPeriod(false)}
+                                className="w-6 h-6 rounded-full transition-all duration-200 bg-sky-100 text-sky-600 hover:bg-sky-200 shadow-sm hover:shadow-md flex items-center justify-center"
+                              >
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M20 12H4"
+                                  />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* 읽음/안읽음 필터 */}
+                        <div>
+                          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-2">상태</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setReadFilter("all")}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                                readFilter === "all"
+                                  ? "bg-green-600 text-white shadow-lg hover:shadow-xl"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                              }`}
+                            >
+                              전체
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReadFilter("read")}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                                readFilter === "read"
+                                  ? "bg-green-600 text-white shadow-lg hover:shadow-xl"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                              }`}
+                            >
+                              읽음
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReadFilter("unread")}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                                readFilter === "unread"
+                                  ? "bg-green-600 text-white shadow-lg hover:shadow-xl"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 shadow-sm hover:shadow-md"
+                              }`}
+                            >
+                              안읽음
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
                       {notifications.length === 0 ? (
                         <span className="text-gray-500 flex justify-center h-80 items-center">
                           알림이 없습니다.
@@ -157,9 +358,7 @@ const Navbar: React.FC = () => {
                                   {notification.not_title}
                                 </span>
                                 <span className="text-sm">
-                                  {convertDateWithoutYear(
-                                    notification.not_created_at
-                                  )}
+                                  {notification.not_created_at}
                                 </span>
                               </div>
                               <span className="text-sm">
@@ -181,10 +380,10 @@ const Navbar: React.FC = () => {
               </div>
             )}
 
-            {/* <NavLink to={target}> */}
-            <NavLink to="/">
+            <NavLink to={target}>
+            {/* <NavLink to="/"> */}
               <div className="flex items-center justify-center">
-                {/* <p className="text-white mr-4">[ {location.pathname.startsWith("/app") ? "점핑하이 관리로 이동" : "점핑하이 플러스 관리로 이동"}]</p> */}
+                <p className="text-white mr-4">[ {location.pathname.startsWith("/app") ? "점핑하이 관리로 이동" : "점핑하이 플러스 관리로 이동"}]</p>
                 <span className="text-white font-bold">JUMPING-HIGH</span>
               </div>
             </NavLink>

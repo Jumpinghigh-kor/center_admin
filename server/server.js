@@ -101,7 +101,7 @@ app.post("/api/login/primary", (req, res) => {
     .createHash("sha256")
     .update(req.body.password)
     .digest("base64");
-  const loginQuery = `SELECT * FROM users WHERE usr_id = ? AND usr_password = ?`;
+  const loginQuery = `SELECT * FROM users WHERE usr_id = ? AND usr_password = ? AND del_yn = 'N'`;
   db.query(loginQuery, [id, password], (err, result) => {
     if (err) {
       return res.send(err);
@@ -153,7 +153,8 @@ app.post("/api/login/secondary", (req, res) => {
         ) AS center_name
     FROM  users u
     WHERE u.usr_id = ?
-    AND   u.usr_second_password = ?`;
+    AND   u.usr_second_password = ?
+    AND   u.del_yn = 'N'`;
   db.query(loginQuery, [id, password], (err, result) => {
     if (err) {
       return res.send(err);
@@ -281,8 +282,8 @@ app.post("/api/user", (req, res) => {
       return res.status(400).json({ message: "동일한 ID가 존재합니다." });
     }
     const createCenterQuery = `INSERT INTO centers 
-    (center_name, target_amount_month, target_amount_year, target_members) 
-    VALUES (?,?,?,?)`;
+    (center_name, target_amount_month, target_amount_year, target_members, del_yn) 
+    VALUES (?,?,?,?,'N')`;
     db.query(
       createCenterQuery,
       [name, 5000000, 40000000, 35],
@@ -300,8 +301,8 @@ app.post("/api/user", (req, res) => {
           .update("1234")
           .digest("base64");
         const createUserQuery = `INSERT INTO users 
-    (usr_name, usr_id, usr_password, usr_second_password, usr_role, center_id) 
-    VALUES (?,?,?,?,?,?)`;
+    (usr_name, usr_id, usr_password, usr_second_password, usr_role, del_yn,center_id) 
+    VALUES (?,?,?,?,?,?,?)`;
         db.query(
           createUserQuery,
           [
@@ -310,6 +311,7 @@ app.post("/api/user", (req, res) => {
             HASHED_PASSWORD,
             HASHED_SECOND_PASSWORD,
             "franchisee",
+            "N",
             center_id,
           ],
           (err, result) => {
@@ -570,10 +572,73 @@ if (IS_CRON_LEADER) {
 //알림 가져오기
 app.get("/api/notification/:centerid", (req, res) => {
   const { centerid } = req.params;
-  const query = `SELECT * FROM notifications WHERE not_user_id = ? ORDER BY not_id DESC`;
-  db.query(query, [centerid], (err, result) => {
+  const { not_is_read, selectedPeriod } = req.query;
+
+  let addCondition = '';
+  let params = [centerid];
+
+  // 읽음/안읽음 필터
+  if (not_is_read && not_is_read !== 'all') {
+    if (not_is_read === 'read') {
+      addCondition += ` AND not_is_read = 1`;
+    } else if (not_is_read === 'unread') {
+      addCondition += ` AND not_is_read = 0`;
+    }
+  }
+
+  // 기간 필터
+  if (selectedPeriod && selectedPeriod !== 'all') {
+    let intervalExpr = '';
+    
+    switch (selectedPeriod) {
+      case '1day':
+        intervalExpr = 'INTERVAL 1 DAY';
+        break;
+      case '3days':
+        intervalExpr = 'INTERVAL 3 DAY';
+        break;
+      case '1week':
+        intervalExpr = 'INTERVAL 1 WEEK';
+        break;
+      case '1month':
+        intervalExpr = 'INTERVAL 1 MONTH';
+        break;
+      case '3months':
+        intervalExpr = 'INTERVAL 3 MONTH';
+        break;
+      case '6months':
+        intervalExpr = 'INTERVAL 6 MONTH';
+        break;
+      case '1year':
+        intervalExpr = 'INTERVAL 1 YEAR';
+        break;
+    }
+    
+    if (intervalExpr) {
+      addCondition += ` AND not_created_at BETWEEN DATE_SUB(DATE_ADD(NOW(), INTERVAL 9 HOUR), ${intervalExpr}) AND DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 9 HOUR), '%Y-%m-%d %H:%i:%s')`;
+    }
+  }
+
+  const query = `
+    SELECT
+      not_id
+      , not_user_id
+      , not_type
+      , not_title
+      , not_message
+      , not_is_read
+      , DATE_FORMAT(not_created_at, '%Y-%m-%d') AS not_created_at
+      , not_read_at
+    FROM	  notifications
+    WHERE 	not_user_id = ?
+    ${addCondition}
+    ORDER BY not_id DESC
+  `;
+
+  db.query(query, params, (err, result) => {
     if (err) {
       res.status(500).json(err);
+      return;
     }
     res.status(200).json({ result: result });
   });

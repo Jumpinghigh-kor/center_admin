@@ -84,6 +84,9 @@ export interface Center {
   center_name: string;
   monthly_sales?: number;
   annual_sales?: number;
+  address?: string;
+  usr_name?: string;
+  usr_id?: string;
 }
 
 export interface UpdateLog {
