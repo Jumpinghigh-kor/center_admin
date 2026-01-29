@@ -518,7 +518,7 @@ if (IS_CRON_LEADER) {
   });
 }
 
-// 30분 마다 실행(서버 로컬 타임존) - 배송완료 3일 경과 → 구매확정 자동 전환
+// 30분 마다 실행(서버 로컬 타임존) - 배송완료 11일 경과 → 구매확정 자동 전환 + 포인트 적립
 if (IS_CRON_LEADER) {
   cron.schedule("*/30 * * * *", async () => {
     try {
@@ -526,10 +526,19 @@ if (IS_CRON_LEADER) {
         SELECT
           moda.order_detail_app_id
           , moa.account_app_id
-        FROM		  member_order_app moa
-        LEFT JOIN	member_order_detail_app moda ON moa.order_app_id = moda.order_app_id
-        WHERE		  order_status = 'SHIPPING_COMPLETE'
-        AND     	shipping_complete_dt <= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 3 DAY), '%Y%m%d%H%i%s');
+          , moda.order_quantity
+          , pa.give_point
+          , mpa.point_app_id AS existing_point_app_id
+        FROM		    member_order_app moa
+        LEFT JOIN	  member_order_detail_app moda  ON moa.order_app_id = moda.order_app_id
+        LEFT JOIN   product_detail_app pda        ON moda.product_detail_app_id = pda.product_detail_app_id
+        LEFT JOIN   product_app pa                ON pda.product_app_id = pa.product_app_id
+        LEFT JOIN   member_point_app mpa          ON mpa.order_detail_app_id = moda.order_detail_app_id
+                                                  AND mpa.point_status = 'POINT_ADD'
+                                                  AND mpa.del_yn = 'N'
+        WHERE		    moda.order_status = 'SHIPPING_COMPLETE'
+        AND     	  moda.shipping_complete_dt <= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 11 DAY), '%Y%m%d%H%i%s')
+        AND         moa.del_yn = 'N';
       `;
       db.query(selectQuery, (selErr, rows) => {
         if (selErr) {
@@ -555,12 +564,71 @@ if (IS_CRON_LEADER) {
             , mod_id = ?
           WHERE order_detail_app_id IN (?)
         `;
+
+        const insertPointQuery = `
+          INSERT INTO member_point_app (
+            account_app_id
+            , order_detail_app_id
+            , point_type
+            , point_status
+            , point_amount
+            , point_memo
+            , del_yn
+            , reg_dt
+            , reg_id
+            , mod_dt
+            , mod_id
+          ) VALUES (
+            ?
+            , ?
+            , ?
+            , 'POINT_ADD'
+            , ?
+            , ?
+            , 'N'
+            , DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')
+            , ?
+            , NULL
+            , NULL
+          )
+        `;
+
         groups.forEach((ids, modId) => {
           db.query(updateQuery, [modId, ids], (updErr) => {
             if (updErr) {
               console.warn("[auto-purchase-confirm] update error:", updErr);
             }
           });
+        });
+
+        (rows || []).forEach((row) => {
+          const orderDetailAppId = row && row.order_detail_app_id;
+          const accountAppId = row && row.account_app_id;
+          if (!orderDetailAppId || accountAppId == null) return;
+          if (row.existing_point_app_id) return;
+
+          const givePoint = Number(row.give_point || 0);
+          if (Number.isNaN(givePoint) || givePoint < 0) return;
+
+          const orderQty = Number(row.order_quantity || 0);
+          const pointAmount = givePoint * orderQty;
+
+          db.query(
+            insertPointQuery,
+            [
+              accountAppId,
+              orderDetailAppId,
+              "POINT_ADMIN_ADD",
+              pointAmount,
+              "구매확정 자동적립",
+              accountAppId,
+            ],
+            (insErr) => {
+              if (insErr) {
+                console.warn("[auto-purchase-confirm] point insert error:", insErr);
+              }
+            }
+          );
         });
       });
     } catch (e) {

@@ -96,7 +96,7 @@ const AddUser: React.FC = () => {
                       placeholder="센터 이름"
                       onChange={(e) => setName(e.target.value)}
                       value={name}
-                      maxLength={15}
+                      maxLength={30}
                       autoComplete="off"
                       required
                     />
@@ -110,7 +110,7 @@ const AddUser: React.FC = () => {
                       placeholder="새 아이디"
                       onChange={(e) => setId(e.target.value)}
                       value={id}
-                      maxLength={15}
+                      maxLength={30}
                       autoComplete="off"
                       required
                     />
@@ -121,7 +121,7 @@ const AddUser: React.FC = () => {
                       name="password"
                       id="password"
                       placeholder="새 비밀번호"
-                      maxLength={15}
+                      maxLength={30}
                       className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                       onChange={(e) => setPassword(e.target.value)}
                       value={password}
@@ -135,7 +135,7 @@ const AddUser: React.FC = () => {
                       name="confirm-password"
                       id="confirm-password"
                       placeholder="새 비밀번호 확인"
-                      maxLength={15}
+                      maxLength={30}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       value={confirmPassword}
                       className="bg-gray-50 border mb-10 border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"

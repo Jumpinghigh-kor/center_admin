@@ -9,7 +9,7 @@ import Pagination from "../components/Pagination";
 
 interface PosterListType {
   poster_id: number;
-  poster_image_type: "WEB" | "PRINT";
+  poster_image_type: "WEB" | "BANNER" | "FLYER";
   title: string;
   start_dt: string;
   end_dt: string;
@@ -494,7 +494,7 @@ const PosterList: React.FC = () => {
                         (((pagination.currentPage - 1) * itemsPerPage) + index)}
                     </td>
                     <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center text-base">
-                      {ele.poster_image_type === "WEB" ? "웹용" : ele.poster_image_type === "PRINT" ? "인쇄용" : "전체(웹용, 인쇄용)"}
+                      {ele.poster_image_type === "WEB" ? "웹용" : ele.poster_image_type === "BANNER" ? "배너용" : "전단지용"}
                     </td>
                     <td className="px-1 sm:px-2 lg:px-6 py-4 text-black text-center text-base">
                       {ele.title}

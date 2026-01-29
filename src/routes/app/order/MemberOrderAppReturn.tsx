@@ -815,6 +815,13 @@ const MemberOrderAppReturn: React.FC = () => {
         userId: user?.index,
       });
 
+      if (actionType === 'return') {
+        await axios.post(`${process.env.REACT_APP_API_URL}/app/memberReturnApp/returnPointCoupon`, {
+          order_detail_app_id: orderDetailAppIds,
+          userId: user?.index,
+        });
+      }
+
       // 취소완료/반품승인 알림 발송
       try {
         if (actionType !== 'return') {

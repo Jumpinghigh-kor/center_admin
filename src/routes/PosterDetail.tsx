@@ -552,6 +552,7 @@ const PosterDetail: React.FC = () => {
             font_size: number;
             font_weight: number;
             color: string;
+            text_align?: CanvasTextAlign;
           }) => {
             const t = String(opts.text || "");
             if (!t) return;
@@ -562,6 +563,7 @@ const PosterDetail: React.FC = () => {
             ctx.font = `${Number(opts.font_weight || 400)} ${fontSizePx}px "${
               opts.font_family || ""
             }"`;
+            ctx.textAlign = opts.text_align || "left";
             ctx.fillText(t, Math.round(Number(opts.x || 0)), Math.round(Number(opts.y || 0)));
             ctx.restore();
           };
@@ -644,6 +646,7 @@ const PosterDetail: React.FC = () => {
                 font_size: bannerFontSizePt,
                 font_weight: bannerFontWeight,
                 color: bannerFontColor,
+                text_align: "center",
               });
             }
             if (showBannerAddressLine && addressText) {
@@ -1753,18 +1756,6 @@ const PosterDetail: React.FC = () => {
       return;
     }
 
-    const dpi = await getImageDpi(file);
-    if (dpi == null) {
-      alert("전단지용 이미지는 DPI 정보를 확인할 수 있어야 업로드 가능합니다. (DPI 200 이상)");
-      e.target.value = "";
-      return;
-    }
-    if (dpi < 200) {
-      alert(`전단지용 이미지는 DPI 200 이상만 업로드 가능합니다. (현재: ${dpi})`);
-      e.target.value = "";
-      return;
-    }
-
     // 이미지 해상도 체크: 가로/세로 중 하나라도 1000px 이상만 허용
     const tmpUrl = URL.createObjectURL(file);
     try {
@@ -2163,6 +2154,97 @@ const PosterDetail: React.FC = () => {
     };
   }, [printImageBox, printImageNaturalSize?.w, printImageNaturalSize?.h, printScale]);
 
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!bannerDraggingRef.current) return;
+      if (!bannerImageBox) return;
+      const container = bannerPreviewBoxRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const target = bannerDragTargetRef.current;
+
+      const textEl =
+        target === "address"
+          ? bannerAddressTextRef.current
+          : target === "phone"
+            ? bannerPhoneTextRef.current
+            : bannerCenterTextRef.current;
+
+      const textRect = textEl ? textEl.getBoundingClientRect() : null;
+      const textW = (textRect && textRect.width) || 0;
+      const textH = (textRect && textRect.height) || 0;
+
+      const natW = bannerImageNaturalSize?.w || 0;
+      const natH = bannerImageNaturalSize?.h || 0;
+      const scale = bannerScale || 1;
+      if (!natW || !natH || !scale) return;
+
+      // Pointer position in IMAGE coordinates
+      const pointerXImg = (e.clientX - rect.left - bannerImageBox.left) / scale;
+      const pointerYImg = (e.clientY - rect.top - bannerImageBox.top) / scale;
+
+      const textWImg = textW / scale;
+      const textHImg = textH / scale;
+
+      // BANNER: center text uses textAlign="center" (x is the anchor center),
+      // others are left-aligned (x is the left).
+      const isCenterAligned = target !== "address" && target !== "phone";
+
+      const minX = isCenterAligned ? textWImg / 2 : 0;
+      const maxX = isCenterAligned ? Math.max(minX, natW - textWImg / 2) : Math.max(0, natW - textWImg);
+      const maxY = Math.max(0, natH - textHImg);
+
+      let nextX = pointerXImg - bannerDragOffsetRef.current.x;
+      let nextY = pointerYImg - bannerDragOffsetRef.current.y;
+
+      nextX = Math.min(Math.max(minX, nextX), maxX);
+      nextY = Math.min(Math.max(0, nextY), maxY);
+
+      // Figma/Photoshop 스타일 중앙 정렬 가이드(근접 시 표시 + 스냅)
+      const snapThreshold = 6; // px
+      const snapThresholdImg = snapThreshold / scale;
+
+      const centerTargetX = isCenterAligned ? natW / 2 : (natW - textWImg) / 2;
+      const centerTargetY = (natH - textHImg) / 2;
+
+      const snapV = Math.abs(nextX - centerTargetX) <= snapThresholdImg;
+      const snapH = Math.abs(nextY - centerTargetY) <= snapThresholdImg;
+
+      if (snapV) nextX = Math.min(Math.max(minX, centerTargetX), maxX);
+      if (snapH) nextY = Math.min(Math.max(0, centerTargetY), maxY);
+
+      setBannerShowGuides((prev) =>
+        prev.v === snapV && prev.h === snapH ? prev : { v: snapV, h: snapH }
+      );
+
+      nextX = Math.round(nextX);
+      nextY = Math.round(nextY);
+
+      if (target === "address") {
+        setBannerAddressPos({ x: nextX, y: nextY });
+      } else if (target === "phone") {
+        setBannerPhonePos({ x: nextX, y: nextY });
+      } else {
+        setBannerTextPos({ x: nextX, y: nextY });
+      }
+    };
+
+    const onMouseUp = () => {
+      bannerDraggingRef.current = false;
+      bannerDragTargetRef.current = null;
+      setBannerShowGuides((prev) => (prev.v || prev.h ? { v: false, h: false } : prev));
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [bannerImageBox, bannerImageNaturalSize?.w, bannerImageNaturalSize?.h, bannerScale]);
+
   // Render overlay via canvas so preview and download share the same renderer (pixel-identical).
   useEffect(() => {
     if (!imageBox) return;
@@ -2438,11 +2520,13 @@ const PosterDetail: React.FC = () => {
         const size = ((Number(bannerFontSizePt || 90) * 4) / 3) * scale;
         ctx.fillStyle = bannerFontColor || "#ffffff";
         ctx.font = `${Number(bannerFontWeight || 400)} ${size}px "${bannerFontFamily || ""}"`;
+        ctx.textAlign = "center";
         ctx.fillText(
           String(centerTextValue || ""),
           Math.round(Number(bannerTextPos.x || 0) * scale),
           Math.round(Number(bannerTextPos.y || 0) * scale)
         );
+        ctx.textAlign = "left";
       }
       if (showBannerAddressLine && addressTextValue) {
         const size = ((Number(bannerAddressFontSizePt || 90) * 4) / 3) * scale;
@@ -2592,6 +2676,7 @@ const PosterDetail: React.FC = () => {
           font_size: number;
           font_weight: number;
           color: string;
+          text_align?: CanvasTextAlign;
         }) => {
           const t = String(opts.text || "");
           if (!t) return;
@@ -2600,6 +2685,7 @@ const PosterDetail: React.FC = () => {
           ctx.textBaseline = "top";
           ctx.fillStyle = opts.color || "#ffffff";
           ctx.font = `${Number(opts.font_weight || 400)} ${fontSizePx}px "${opts.font_family || ""}"`;
+          ctx.textAlign = opts.text_align || "left";
           ctx.fillText(t, Math.round(Number(opts.x || 0)), Math.round(Number(opts.y || 0)));
           ctx.restore();
         };
@@ -2683,6 +2769,7 @@ const PosterDetail: React.FC = () => {
               font_size: bannerFontSizePt,
               font_weight: bannerFontWeight,
               color: bannerFontColor,
+              text_align: "center",
             });
           }
           if (showBannerAddressLine && addressText) {
@@ -4941,6 +5028,7 @@ const PosterDetail: React.FC = () => {
                               style={{
                                 left: bannerImageBox.left + bannerTextPos.x * bannerScale,
                                 top: bannerImageBox.top + bannerTextPos.y * bannerScale,
+                                transform: "translateX(-50%)",
                                 color: bannerFontColor,
                                 fontSize: `${bannerFontSizePx * bannerScale}px`,
                                 fontFamily: bannerFontFamily ? `"${bannerFontFamily}"` : undefined,
@@ -5679,6 +5767,7 @@ const PosterDetail: React.FC = () => {
                             style={{
                               left: bannerImageBox.left + bannerTextPos.x * bannerScale,
                               top: bannerImageBox.top + bannerTextPos.y * bannerScale,
+                              transform: "translateX(-50%)",
                               color: bannerFontColor,
                               fontSize: `${bannerFontSizePx * bannerScale}px`,
                               fontFamily: bannerFontFamily ? `"${bannerFontFamily}"` : undefined,

@@ -1,6 +1,179 @@
 const db = require("../../../db");
 const dayjs = require("dayjs");
 
+const normalizeIds = (ids) => {
+  if (Array.isArray(ids)) return ids;
+  if (ids == null) return [];
+  return [ids];
+};
+
+// 반품/취소 승인 시 포인트/쿠폰 복구
+exports.returnPointCoupon = (req, res) => {
+  try {
+    const { order_detail_app_id, userId } = req.body;
+    const detailIds = normalizeIds(order_detail_app_id).filter((v) => v != null);
+    if (detailIds.length === 0) {
+      return res.status(400).json({ error: "order_detail_app_id is required" });
+    }
+
+    const selectDetailQuery = `
+      SELECT
+        moda.order_detail_app_id
+        , moa.order_app_id
+        , moa.account_app_id
+        , IFNULL(SUM(CASE
+            WHEN mpa.point_status = 'POINT_MINUS' AND mpa.del_yn = 'N' THEN mpa.point_amount
+            ELSE 0
+          END), 0) AS used_point
+        , MAX(CASE
+            WHEN mpa.point_status = 'POINT_ADD'
+              AND mpa.del_yn = 'N'
+              AND mpa.point_memo = '반품승인 포인트 복구'
+            THEN 1
+            ELSE 0
+          END) AS has_refund_point
+      FROM        member_order_detail_app moda
+      INNER JOIN  member_order_app moa ON moa.order_app_id = moda.order_app_id
+      LEFT JOIN   member_point_app mpa ON mpa.order_detail_app_id = moda.order_detail_app_id
+      WHERE       moda.order_detail_app_id IN (?)
+      GROUP BY    moda.order_detail_app_id, moa.order_app_id, moa.account_app_id
+    `;
+
+    db.query(selectDetailQuery, [detailIds], (selErr, rows) => {
+      if (selErr) {
+        console.error("포인트/쿠폰 복구 대상 조회 오류:", selErr);
+        return res.status(500).json({ error: "복구 대상 조회 중 오류가 발생했습니다." });
+      }
+
+      const orderAppIds = new Set();
+      const now = dayjs();
+      const reg_dt = now.format("YYYYMMDDHHmmss");
+
+      const insertPointQuery = `
+        INSERT INTO member_point_app (
+          account_app_id
+          , order_detail_app_id
+          , point_type
+          , point_status
+          , point_amount
+          , point_memo
+          , del_yn
+          , reg_dt
+          , reg_id
+          , mod_dt
+          , mod_id
+        ) VALUES (
+          ?
+          , ?
+          , ?
+          , 'POINT_ADD'
+          , ?
+          , ?
+          , 'N'
+          , ?
+          , ?
+          , NULL
+          , NULL
+        )
+      `;
+
+      const pointTasks = (rows || []).map((row) => {
+        const orderDetailAppId = row && row.order_detail_app_id;
+        const accountAppId = row && row.account_app_id;
+        const orderAppId = row && row.order_app_id;
+        if (orderAppId != null) orderAppIds.add(orderAppId);
+
+        const usedPoint = Number(row?.used_point || 0);
+        if (!orderDetailAppId || accountAppId == null || usedPoint <= 0) return Promise.resolve();
+        if (row?.has_refund_point) return Promise.resolve();
+
+        return new Promise((resolve, reject) => {
+          db.query(
+            insertPointQuery,
+            [
+              accountAppId,
+              orderDetailAppId,
+              "POINT_ADMIN_ADD",
+              usedPoint,
+              "반품승인 포인트 복구",
+              reg_dt,
+              userId || null,
+            ],
+            (insErr) => {
+              if (insErr) return reject(insErr);
+              return resolve();
+            }
+          );
+        });
+      });
+
+      Promise.all(pointTasks)
+        .then(() => {
+          const orderIds = Array.from(orderAppIds);
+          if (orderIds.length === 0) {
+            return res.status(200).json({ message: "복구 완료" });
+          }
+
+          const selectCouponQuery = `
+            SELECT
+              member_coupon_app_id
+              , coupon_app_id
+              , order_app_id
+              , account_app_id
+              , use_yn
+              , use_dt
+              , reg_dt
+              , reg_id
+              , mod_dt
+              , mod_id
+            FROM member_coupon_app
+            WHERE order_app_id IN (?)
+            AND use_yn = 'Y'
+          `;
+
+          db.query(selectCouponQuery, [orderIds], (selCouponErr, couponRows) => {
+            if (selCouponErr) {
+              console.error("쿠폰 조회 오류:", selCouponErr);
+              return res.status(500).json({ error: "쿠폰 조회 중 오류가 발생했습니다." });
+            }
+
+            if (!couponRows || couponRows.length === 0) {
+              return res.status(200).json({ message: "복구 완료" });
+            }
+
+            const updateCouponQuery = `
+              UPDATE member_coupon_app SET
+                order_app_id = NULL
+                , use_yn = 'N'
+                , mod_dt = ?
+                , mod_id = ?
+              WHERE member_coupon_app_id IN (?)
+            `;
+            const couponIds = couponRows.map((row) => row.member_coupon_app_id).filter((v) => v != null);
+            if (couponIds.length === 0) {
+              return res.status(200).json({ message: "복구 완료" });
+            }
+
+            db.query(updateCouponQuery, [reg_dt, userId || null, couponIds], (updErr) => {
+              if (updErr) {
+                console.error("쿠폰 복구 오류:", updErr);
+                return res.status(500).json({ error: "쿠폰 복구 중 오류가 발생했습니다." });
+              }
+              return res.status(200).json({ message: "복구 완료" });
+            });
+          });
+        })
+        .catch((insErr) => {
+          console.error("포인트 복구 오류:", insErr);
+          return res.status(500).json({ error: "포인트 복구 중 오류가 발생했습니다." });
+        });
+    });
+  } catch (error) {
+    console.error("포인트/쿠폰 복구 중 오류 발생:", error);
+    res.status(500).json({ error: "서버 오류가 발생했습니다." });
+  }
+};
+
 // 회원 취소/반품/교환 접수
 exports.insertMemberReturnApp = (req, res) => {
   try {
@@ -71,7 +244,7 @@ exports.insertMemberReturnApp = (req, res) => {
         'N',
         'N',
         reg_dt,
-        userId,
+        account_app_id,
         null,
         null,
       ],

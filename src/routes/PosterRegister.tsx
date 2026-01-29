@@ -1007,18 +1007,6 @@ const PosterRegister: React.FC = () => {
       return;
     }
 
-    const dpi = await getImageDpi(file);
-    if (dpi == null) {
-      alert("전단지용 이미지는 DPI 정보를 확인할 수 있어야 업로드 가능합니다. (DPI 200 이상)");
-      e.target.value = "";
-      return;
-    }
-    if (dpi < 200) {
-      alert(`전단지용 이미지는 DPI 200 이상만 업로드 가능합니다. (현재: ${dpi})`);
-      e.target.value = "";
-      return;
-    }
-
     // 이미지 해상도 체크: 가로/세로 중 하나라도 1000px 이상만 허용
     const tmpUrl = URL.createObjectURL(file);
     try {
@@ -1416,24 +1404,39 @@ const PosterRegister: React.FC = () => {
       const textWImg = textW / scale;
       const textHImg = textH / scale;
 
-      const maxX = Math.max(0, natW - textWImg);
+      // NOTE: 배너용 "지점명(CENTER)"만 x를 '텍스트 왼쪽'이 아닌 '텍스트 중앙' 기준으로 취급한다.
+      // (센터명이 길어져도 중앙정렬이 흔들리지 않게 하기 위함)
+      const isBannerCenterAnchor =
+        target !== "address" && target !== "phone";
+
+      let minX = 0;
+      let maxX = Math.max(0, natW - textWImg);
+      let centerTargetX = (natW - textWImg) / 2;
+      if (isBannerCenterAnchor) {
+        minX = Math.max(0, textWImg / 2);
+        maxX = Math.max(minX, natW - textWImg / 2);
+        // 텍스트가 이미지보다 더 넓으면(=양쪽을 다 잘라야 하는 케이스) 중앙점만 유지
+        if (minX > maxX) {
+          minX = maxX = natW / 2;
+        }
+        centerTargetX = natW / 2;
+      }
       const maxY = Math.max(0, natH - textHImg);
 
       let nextX = pointerXImg - bannerDragOffsetRef.current.x;
       let nextY = pointerYImg - bannerDragOffsetRef.current.y;
-      nextX = Math.min(Math.max(0, nextX), maxX);
+      nextX = Math.min(Math.max(minX, nextX), maxX);
       nextY = Math.min(Math.max(0, nextY), maxY);
 
       // Figma/Photoshop 스타일 중앙 정렬 가이드(근접 시 표시 + 스냅)
       const snapThreshold = 6; // px
       const snapThresholdImg = snapThreshold / scale;
-      const centerTargetX = (natW - textWImg) / 2;
       const centerTargetY = (natH - textHImg) / 2;
 
       const snapV = Math.abs(nextX - centerTargetX) <= snapThresholdImg;
       const snapH = Math.abs(nextY - centerTargetY) <= snapThresholdImg;
 
-      if (snapV) nextX = Math.min(Math.max(0, centerTargetX), maxX);
+      if (snapV) nextX = Math.min(Math.max(minX, centerTargetX), maxX);
       if (snapH) nextY = Math.min(Math.max(0, centerTargetY), maxY);
 
       setBannerShowGuides((prev) =>
@@ -1523,11 +1526,13 @@ const PosterRegister: React.FC = () => {
         const size = ((Number(bannerFontSizePt || 600) * 4) / 3) * scale;
         ctx.fillStyle = bannerFontColor || "#ffffff";
         ctx.font = `${Number(bannerFontWeight || 400)} ${size}px "${bannerFontFamily || ""}"`;
+        ctx.textAlign = "center";
         ctx.fillText(
           String(centerTextValue || ""),
           Math.round(Number(bannerTextPos.x || 0) * scale),
           Math.round(Number(bannerTextPos.y || 0) * scale)
         );
+        ctx.textAlign = "left";
       }
       if (showBannerAddressLine && addressTextValue) {
         const size = ((Number(bannerAddressFontSizePt || 300) * 4) / 3) * scale;
@@ -3663,6 +3668,7 @@ const PosterRegister: React.FC = () => {
                           style={{
                             left: bannerImageBox.left + bannerTextPos.x * bannerScale,
                             top: bannerImageBox.top + bannerTextPos.y * bannerScale,
+                            transform: "translateX(-50%)",
                             zIndex: 20,
                             color: bannerFontColor,
                             fontSize: `${bannerFontSizePx * bannerScale}px`,
@@ -4843,6 +4849,7 @@ const PosterRegister: React.FC = () => {
                         style={{
                           left: bannerImageBox.left + bannerTextPos.x * bannerScale,
                           top: bannerImageBox.top + bannerTextPos.y * bannerScale,
+                          transform: "translateX(-50%)",
                           zIndex: 20,
                           color: bannerFontColor,
                           fontSize: `${bannerFontSizePx * bannerScale}px`,
