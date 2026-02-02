@@ -58,25 +58,17 @@ exports.selectExerciseAppList = (req, res) => {
           WHEN	m.mem_gender = 1 THEN '남자'
           ELSE	'여자'
       END AS mem_gender
-      , mea.exercise_app_id
       , maa.account_app_id
+      , mea.exercise_app_id
+      , mea.member_type
       , DATE_FORMAT(mea.exercise_dt, '%Y-%m-%d') AS exercise_dt
-      , mea.jumping_exercise_time
-      , CASE
-          WHEN	mea.jumping_intensity_level = 'LOW'       THEN '저강도'
-          WHEN	mea.jumping_intensity_level = 'MODERATE'  THEN '중강도'
-          ELSE 	'고강도'
-      END AS jumping_intensity_level
-      , mea.jumping_heart_rate
-      , mea.other_exercise_type
-      , mea.other_exercise_time
-      , mea.other_exercise_calory
       , DATE_FORMAT(mea.reg_dt, '%Y-%m-%d %H:%i:%s') AS reg_dt
       , mea.reg_id
     FROM		    members m
     INNER JOIN	member_account_app maa	ON m.mem_id = maa.mem_id
     INNER JOIN	member_exercise_app mea	ON maa.account_app_id = mea.account_app_id
     WHERE       m.center_id = ?
+    AND         mea.del_yn = 'N'
     ${addCondition}
     ORDER BY    mea.exercise_dt DESC
   `;

@@ -36,6 +36,7 @@ interface MemberScheduleAppDetail {
   mem_birth: string;
   sch_app_id: number;
   admin_memo: string;
+  account_app_id: number;
 }
 
 interface ReservationPopupProps {
@@ -178,14 +179,14 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
 
       // 우편/푸시 발송: 선택 회원에게만 발송
       try {
-        const selectedMemIds = [
+        const selectedAccountAppIds = [
           ...pendingReservationMember
             .filter((_, index) => pendingCheckedItems[index])
-            .map((m) => m.mem_id),
+            .map((m) => m.account_app_id),
           ...confirmedReservationMember
             .filter((_, index) => confirmedCheckedItems[index])
-            .map((m) => m.mem_id),
-        ];
+            .map((m) => m.account_app_id),
+        ].filter((id) => id != null);
 
         const dateStr = selectedReservation.schedule.sch_dt || '';
         const [yyyy, mm, dd] = dateStr.split('-');
@@ -201,17 +202,17 @@ const ReservationPopup: React.FC<ReservationPopupProps> = ({
             all_send_yn: 'N',
             push_send_yn: 'Y',
             userId: user?.index,
-            mem_id: selectedMemIds.join(','),
+            memberList: selectedAccountAppIds,
           }
         );
 
         const postAppId = postRes.data?.postAppId;
-        if (postAppId && Array.isArray(selectedMemIds) && selectedMemIds.length > 0) {
+        if (postAppId && Array.isArray(selectedAccountAppIds) && selectedAccountAppIds.length > 0) {
           await Promise.all(
-            selectedMemIds.map((mid) =>
+            selectedAccountAppIds.map((accountAppId) =>
               axios.post(`${process.env.REACT_APP_API_URL}/app/postApp/insertMemberPostApp`, {
                 post_app_id: postAppId,
-                mem_id: mid,
+                account_app_id: accountAppId,
                 userId: user?.index,
               })
             )

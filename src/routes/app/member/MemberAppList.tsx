@@ -143,8 +143,8 @@ const MemberList: React.FC = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">회원 관리</h2>
-          {/* <div>
-            {user?.usr_role === 'admin' && (
+          <div>
+            {/* {user?.usr_role === 'admin' && (
               <button
                 onClick={handleDeleteMemberApp}
                 disabled={deleting}
@@ -152,7 +152,7 @@ const MemberList: React.FC = () => {
                 >
                 어플 계정 삭제(관리자용)
               </button>
-            )}
+            )} */}
             <button
               onClick={() => {
                 if (!selectedMember) {
@@ -166,7 +166,7 @@ const MemberList: React.FC = () => {
               >
               {selectedMember?.status ? "어플 계정 변경" : "어플 계정 생성"}
             </button>
-          </div> */}
+          </div>
         </div>
 
         {/* 검색 필터 테이블 */}

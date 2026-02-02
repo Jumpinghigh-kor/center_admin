@@ -83,9 +83,9 @@ exports.returnPointCoupon = (req, res) => {
         const orderAppId = row && row.order_app_id;
         if (orderAppId != null) orderAppIds.add(orderAppId);
 
-        const usedPoint = Number(row?.used_point || 0);
+        const usedPoint = Number((row && row.used_point) || 0);
         if (!orderDetailAppId || accountAppId == null || usedPoint <= 0) return Promise.resolve();
-        if (row?.has_refund_point) return Promise.resolve();
+        if (row && row.has_refund_point) return Promise.resolve();
 
         return new Promise((resolve, reject) => {
           db.query(

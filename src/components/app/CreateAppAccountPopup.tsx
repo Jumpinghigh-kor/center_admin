@@ -28,6 +28,9 @@ interface AppAccount {
   password: string;
   confirmPassword: string;
   mem_role: string;
+  birthYear: string;
+  birthMonth: string;
+  birthDay: string;
 }
 
 interface CreateAppAccountPopupProps {
@@ -50,11 +53,41 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
   const isChangeMode = mode !== "create";
   const [activeTab, setActiveTab] = useState<"info" | "password">("info");
   
+  // 생년월일 파싱 함수
+  const parseBirthDate = (birthDate: any): { year: string; month: string; day: string } => {
+    if (!birthDate) return { year: "", month: "", day: "" };
+    
+    let dateStr = "";
+    if (typeof birthDate === "string") {
+      dateStr = birthDate;
+    } else if (birthDate instanceof Date) {
+      dateStr = birthDate.toISOString().split("T")[0];
+    }
+    
+    if (dateStr) {
+      const parts = dateStr.split(/[-/]/);
+      if (parts.length >= 3) {
+        return {
+          year: parts[0],
+          month: parts[1].padStart(2, "0"),
+          day: parts[2].padStart(2, "0"),
+        };
+      }
+    }
+    
+    return { year: "", month: "", day: "" };
+  };
+
+  const initialBirth = parseBirthDate(selectedMember?.mem_birth);
+  
   const [formData, setFormData] = useState<AppAccount>({
     login_id: selectedMember?.login_id || "",
     password: "",
     confirmPassword: "",
     mem_role: selectedMember?.mem_role || "USER",
+    birthYear: initialBirth.year,
+    birthMonth: initialBirth.month,
+    birthDay: initialBirth.day,
   });
   
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -93,13 +126,17 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
     };
   }, [isOpen, onClose]);
 
-  // 선택된 회원 정보로 아이디/권한 매핑
+  // 선택된 회원 정보로 아이디/권한/생년월일 매핑
   useEffect(() => {
     if (!isOpen) return;
+    const birth = parseBirthDate(selectedMember?.mem_birth);
     setFormData((prev) => ({
       ...prev,
       login_id: selectedMember?.login_id || "",
       mem_role: selectedMember?.mem_role || prev.mem_role,
+      birthYear: birth.year || prev.birthYear,
+      birthMonth: birth.month || prev.birthMonth,
+      birthDay: birth.day || prev.birthDay,
     }));
   }, [isOpen, selectedMember]);
 
@@ -159,6 +196,99 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
       }
     }
 
+    // 생년월일 필수 검증 (계정 생성 모드)
+    if (effectiveMode === "create") {
+      if (!formData.birthYear || !formData.birthMonth || !formData.birthDay) {
+        setErrorMessage("생년월일을 모두 입력해주세요.");
+        return false;
+      }
+
+      // 유효한 날짜인지 검증
+      const birthDate = new Date(
+        parseInt(formData.birthYear),
+        parseInt(formData.birthMonth) - 1,
+        parseInt(formData.birthDay)
+      );
+      
+      // 입력한 연도, 월, 일과 실제 Date 객체의 값이 일치하는지 확인 (잘못된 날짜 체크)
+      if (
+        birthDate.getFullYear() !== parseInt(formData.birthYear) ||
+        birthDate.getMonth() !== parseInt(formData.birthMonth) - 1 ||
+        birthDate.getDate() !== parseInt(formData.birthDay)
+      ) {
+        setErrorMessage("유효한 생년월일을 입력해주세요.");
+        return false;
+      }
+
+      // 미래 날짜 검증
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (birthDate > today) {
+        setErrorMessage("생년월일은 오늘 날짜보다 이전이어야 합니다.");
+        return false;
+      }
+    }
+
+    // 생년월일 검증 (정보 변경 모드 - 선택사항이지만 입력 시 유효성 검증)
+    if (effectiveMode === "emailChange") {
+      // 일부만 입력된 경우
+      const hasPartialBirth = (formData.birthYear && !formData.birthMonth) || 
+                              (formData.birthMonth && !formData.birthDay) ||
+                              (formData.birthYear && !formData.birthDay);
+      if (hasPartialBirth) {
+        setErrorMessage("생년월일을 모두 입력해주세요.");
+        return false;
+      }
+
+      // 모두 입력된 경우 유효성 검증
+      if (formData.birthYear && formData.birthMonth && formData.birthDay) {
+        const birthDate = new Date(
+          parseInt(formData.birthYear),
+          parseInt(formData.birthMonth) - 1,
+          parseInt(formData.birthDay)
+        );
+        
+        // 입력한 연도, 월, 일과 실제 Date 객체의 값이 일치하는지 확인 (잘못된 날짜 체크)
+        if (
+          birthDate.getFullYear() !== parseInt(formData.birthYear) ||
+          birthDate.getMonth() !== parseInt(formData.birthMonth) - 1 ||
+          birthDate.getDate() !== parseInt(formData.birthDay)
+        ) {
+          setErrorMessage("유효한 생년월일을 입력해주세요.");
+          return false;
+        }
+
+        // 미래 날짜 검증
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (birthDate > today) {
+          setErrorMessage("생년월일은 오늘 날짜보다 이전이어야 합니다.");
+          return false;
+        }
+      }
+    }
+
+    // 만 14세 미만 검증 (생년월일이 모두 입력된 경우)
+    if (effectiveMode === "create" && formData.birthYear && formData.birthMonth && formData.birthDay) {
+      const birthDate = new Date(
+        parseInt(formData.birthYear),
+        parseInt(formData.birthMonth) - 1,
+        parseInt(formData.birthDay)
+      );
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const dayDiff = today.getDate() - birthDate.getDate();
+      
+      // 만 나이 계산: 생일이 지나지 않았으면 1살 빼기
+      const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+      
+      if (actualAge < 14) {
+        setErrorMessage("만 14세 미만은 가입할 수 없습니다.");
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -184,6 +314,11 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
       let successMessage = "";
       let didReactivate = false;
 
+      // 생년월일 조합
+      const birthday = formData.birthYear && formData.birthMonth && formData.birthDay
+        ? `${formData.birthYear}${formData.birthMonth}${formData.birthDay}`
+        : null;
+
       if (effectiveMode === "create") {
         apiEndpoint = `${process.env.REACT_APP_API_URL}/app/memberApp/createMemberApp`;
         accountData = {
@@ -191,6 +326,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
           login_id: formData.login_id.trim(),
           password: formData.password,
           mem_role: formData.mem_role,
+          ...(birthday && { birthday }),
         };
         successMessage = "앱 계정이 성공적으로 생성되었습니다.";
       } else if (effectiveMode === "passwordChange") {
@@ -208,6 +344,7 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
           account_app_id: selectedMember?.account_app_id,
           login_id: formData.login_id.trim(),
           mem_role: formData.mem_role,
+          ...(birthday && { birthday }),
         };
         successMessage = "앱 계정 정보가 성공적으로 변경되었습니다.";
       }
@@ -290,6 +427,9 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
         password: "",
         confirmPassword: "",
         mem_role: "USER",
+        birthYear: "",
+        birthMonth: "",
+        birthDay: "",
       });
 
     } catch (error) {
@@ -465,53 +605,113 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
               )}
 
               {(effectiveMode === "create" || effectiveMode === "emailChange") && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    유형
-                  </label>
-                  <select
-                    name="mem_role"
-                    value={formData.mem_role}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    disabled={isSubmitting}
-                  >
-                    <option value="USER">일반회원</option>
-                    <option value="FRANCHISEE">가맹점주</option>
-                  </select>
-
-                  {selectedMember?.status === "EXIT" && (
-                    <div className="mt-4">
-                      <p className="block text-sm font-medium text-gray-700 mb-2">
-                        탈퇴 해재
-                      </p>
-                      <div className="flex items-center space-x-6">
-                        <label className="inline-flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            name="reactivate_exit"
-                            value="Y"
-                            checked={reactivateExit === "Y"}
-                            onChange={() => setReactivateExit("Y")}
-                            disabled={isSubmitting}
-                          />
-                          <span className="text-sm text-gray-700">예</span>
-                        </label>
-                        <label className="inline-flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            name="reactivate_exit"
-                            value="N"
-                            checked={reactivateExit === "N"}
-                            onChange={() => setReactivateExit("N")}
-                            disabled={isSubmitting}
-                          />
-                          <span className="text-sm text-gray-700">아니오</span>
-                        </label>
-                      </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      생년월일 {effectiveMode === "create" && <span className="text-red-500">*</span>}
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        name="birthYear"
+                        value={formData.birthYear}
+                        onChange={handleInputChange}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        disabled={isSubmitting}
+                      >
+                        <option value="">연도</option>
+                        {Array.from({ length: 100 }, (_, i) => {
+                          const year = new Date().getFullYear() - i;
+                          return (
+                            <option key={year} value={year}>
+                              {year}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <select
+                        name="birthMonth"
+                        value={formData.birthMonth}
+                        onChange={handleInputChange}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        disabled={isSubmitting}
+                      >
+                        <option value="">월</option>
+                        {Array.from({ length: 12 }, (_, i) => {
+                          const month = (i + 1).toString().padStart(2, "0");
+                          return (
+                            <option key={month} value={month}>
+                              {month}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <select
+                        name="birthDay"
+                        value={formData.birthDay}
+                        onChange={handleInputChange}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        disabled={isSubmitting}
+                      >
+                        <option value="">일</option>
+                        {Array.from({ length: 31 }, (_, i) => {
+                          const day = (i + 1).toString().padStart(2, "0");
+                          return (
+                            <option key={day} value={day}>
+                              {day}
+                            </option>
+                          );
+                        })}
+                      </select>
                     </div>
-                  )}
-                </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      유형
+                    </label>
+                    <select
+                      name="mem_role"
+                      value={formData.mem_role}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isSubmitting}
+                    >
+                      <option value="USER">일반회원</option>
+                      <option value="FRANCHISEE">가맹점주</option>
+                    </select>
+
+                    {selectedMember?.status === "EXIT" && (
+                      <div className="mt-4">
+                        <p className="block text-sm font-medium text-gray-700 mb-2">
+                          탈퇴 해재
+                        </p>
+                        <div className="flex items-center space-x-6">
+                          <label className="inline-flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="reactivate_exit"
+                              value="Y"
+                              checked={reactivateExit === "Y"}
+                              onChange={() => setReactivateExit("Y")}
+                              disabled={isSubmitting}
+                            />
+                            <span className="text-sm text-gray-700">예</span>
+                          </label>
+                          <label className="inline-flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="reactivate_exit"
+                              value="N"
+                              checked={reactivateExit === "N"}
+                              onChange={() => setReactivateExit("N")}
+                              disabled={isSubmitting}
+                            />
+                            <span className="text-sm text-gray-700">아니오</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 

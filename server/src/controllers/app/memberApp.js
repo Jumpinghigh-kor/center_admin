@@ -88,6 +88,7 @@ exports.selectMemberAppList = (req, res) => {
         END AS mem_gender
         , maa.account_app_id
         , maa.login_id
+        , maa.birthday
         , maa.status
         , maa.mem_role
         , DATE_FORMAT(maa.recent_dt, '%Y-%m-%d %H:%i:%s') AS recent_dt
@@ -135,6 +136,7 @@ exports.createMemberApp = async (req, res) => {
     mem_id,
     login_id,
     password,
+    birthday,
     mem_role
   } = req.body;
 
@@ -179,6 +181,7 @@ exports.createMemberApp = async (req, res) => {
                 , nickname
                 , login_id
                 , password
+                , birthday
                 , status
                 , mem_role
                 , push_yn
@@ -196,9 +199,10 @@ exports.createMemberApp = async (req, res) => {
                 , null
                 , ?
                 , ?
+                , ?
                 , 'PROCEED'
                 , ?
-                , null
+                , 'N'
                 , null
                 , null
                 , null
@@ -216,6 +220,7 @@ exports.createMemberApp = async (req, res) => {
               mem_id,
               login_id,
               hashedPassword,
+              birthday,
               mem_role,
               mem_id,
             ],
@@ -251,7 +256,7 @@ exports.createMemberApp = async (req, res) => {
 // 어플 회원 정보 수정
 exports.updateMemberAppInfo = (req, res) => {
   try {
-    const { userId, login_id, mem_role, account_app_id } = req.body;
+    const { userId, login_id, birthday, mem_role, account_app_id } = req.body;
 
     // 현재 날짜 형식화
     const now = dayjs();
@@ -287,6 +292,7 @@ exports.updateMemberAppInfo = (req, res) => {
         const memberUpdateQuery = `
           UPDATE member_account_app SET
             login_id = ?
+            , birthday = ?
             , mem_role = ?
             , mod_dt = ?
             , mod_id = ?
@@ -297,6 +303,7 @@ exports.updateMemberAppInfo = (req, res) => {
           memberUpdateQuery,
           [
             String(login_id || "").trim(),
+            birthday,
             mem_role,
             app_mod_dt,
             userId,
