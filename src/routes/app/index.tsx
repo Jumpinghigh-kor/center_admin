@@ -29,6 +29,7 @@ import EventAppList from "./event/EventAppList"
 import EventAppDetail from "./event/EventAppDetail"
 import EventAppRegister from "./event/EventAppRegister"
 import ExerciseAppList from "./exercise/ExerciseAppList";
+import ExerciseAppDetail from "./exercise/ExerciseAppDetail";
 import InquiryShoppingAppList from "./inquiryShopping/InquiryShoppingAppList";
 import MemberOrderAppReturn from "./order/MemberOrderAppReturn";
 import CenterOrderAppList from "./centerOrder/CenterOrderAppList";
@@ -161,6 +162,7 @@ const MemberApp: React.FC = () => {
             <Route path="/eventApp/eventAppDetail" element={<EventAppDetail />} />
             <Route path="/eventApp/eventAppRegister" element={<EventAppRegister />} />
             <Route path="/exerciseAppList" element={<ExerciseAppList />} />
+            <Route path="/exerciseApp/exerciseAppDetail" element={<ExerciseAppDetail />} />
             <Route path="/memberOrderAppReturn" element={<MemberOrderAppReturn />} />
             <Route path="/centerOrderAppList" element={<CenterOrderAppList />} />
             <Route path="/postAppList" element={<PostAppList />} />

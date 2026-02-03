@@ -14,15 +14,12 @@ interface ExerciseApp {
   mem_gender: string;
   mem_name: string;
   exercise_dt: string;
-  jumping_exercise_time: number;
-  jumping_intensity_level: number;
-  jumping_heart_rate: number;
-  other_exercise_type: string;
-  other_exercise_time: number;
-  other_exercise_calory: number;
+  member_type: string;
   reg_dt: string;
   reg_id: string;
   account_app_id: string;
+  total_jumping_calory: number;
+  total_other_calory: number;
 }
 
 interface CommonCode {
@@ -34,7 +31,8 @@ const ExerciseAppList: React.FC = () => {
   const [exerciseAppList, setExerciseAppList] = useState<ExerciseApp[]>([]);
   const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
   const user = useUserStore((state) => state.user);
-
+  const navigate = useNavigate();
+  
   // 페이지네이션 훅 사용
   const pagination = usePagination({
     totalItems: exerciseAppList.length,
@@ -43,56 +41,6 @@ const ExerciseAppList: React.FC = () => {
 
   // 현재 페이지에 표시할 데이터
   const currentInquiries = pagination.getCurrentPageData(exerciseAppList);
-
-  // HHMM 문자열 또는 숫자(분)를 총 분으로 변환. 유효하지 않으면 0
-  const parseHHMMToMinutes = (value: any): number => {
-    if (value == null) return 0;
-    // 숫자는 분 단위로 간주
-    if (typeof value === 'number') {
-      const v = Math.max(0, Math.floor(value));
-      return Number.isFinite(v) ? v : 0;
-    }
-    const raw = String(value).trim();
-    const digits = raw.replace(/\D/g, '');
-    if (digits.length === 0) return 0;
-    if (digits.length <= 2) {
-      // 분만 제공된 경우
-      const mm = parseInt(digits, 10);
-      return Number.isNaN(mm) ? 0 : Math.max(0, mm);
-    }
-    // 마지막 2자리는 분, 앞은 시간
-    const mm = parseInt(digits.slice(-2), 10);
-    const hh = parseInt(digits.slice(0, -2), 10);
-    if (Number.isNaN(hh) || Number.isNaN(mm)) return 0;
-    if (mm < 0 || mm >= 60) return 0;
-    const total = hh * 60 + mm;
-    return total > 0 ? total : 0;
-  };
-
-  // 강도에 따른 점핑 칼로리 계산
-  const calcJumpingKcal = (intensity: any, timeValue: any): number => {
-    const normalize = (v: any): string => {
-      const raw = String(v ?? '').trim();
-      const s = raw.toUpperCase();
-      // 숫자/영문
-      if (s === '1' || s === 'LOW') return 'LOW';
-      if (s === '2' || s === 'MODERATE' || s === 'MEDIUM') return 'MODERATE';
-      if (s === '3' || s === 'HIGH') return 'HIGH';
-      // 한글 라벨 매핑
-      if (raw === '저강도') return 'LOW';
-      if (raw === '중강도') return 'MODERATE';
-      if (raw === '고강도') return 'HIGH';
-      return '';
-    };
-    const key = normalize(intensity);
-    const baseMap: Record<string, number> = { LOW: 300, MODERATE: 400, HIGH: 500 };
-    const base = baseMap[key] ?? 0;
-    if (!base) return 0;
-    const minutes = parseHHMMToMinutes(timeValue);
-    if (minutes <= 0) return 0;
-    const hours = minutes / 60;
-    return Math.round(base * hours);
-  };
 
   // 공통 코드 목록 불러오기
   const selectCommonCodeList = async () => {
@@ -151,12 +99,11 @@ const ExerciseAppList: React.FC = () => {
       mem_gender: '',
       exercise_start_dt: '',
       exercise_end_dt: '',
-      jumping_intensity_level: '',
-      jumping_exercise_time: '',
-      other_exercise_time: '',
-      other_exercise_type: '',
-      other_exercise_calory_min: '',
-      other_exercise_calory_max: ''
+      member_type: '',
+      total_jumping_calory_min: '',
+      total_jumping_calory_max: '',
+      total_other_calory_min: '',
+      total_other_calory_max: '',
     }
   });
 
@@ -257,16 +204,16 @@ const ExerciseAppList: React.FC = () => {
                     className="w-1/2 px-2 py-1 border border-gray-300 rounded cursor-pointer"
                   />
                 </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">점핑 운동 강도</td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">점핑 운동 유형</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="jumping_intensity_level"
+                        name="member_type"
                         value=""
-                        checked={searchData.jumping_intensity_level === ''}
-                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
+                        checked={searchData.member_type === ''}
+                        onChange={(e) => setSearchData({ ...searchData, member_type: e.target.value })}
                         className="mr-1"
                       />
                       <span className="text-sm">전체</span>
@@ -274,70 +221,65 @@ const ExerciseAppList: React.FC = () => {
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="jumping_intensity_level"
-                        value="LOW"
-                        checked={searchData.jumping_intensity_level === 'LOW'}
-                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
+                        name="member_type"
+                        value="NORMAL_MEMBER"
+                        checked={searchData.member_type === 'NORMAL_MEMBER'}
+                        onChange={(e) => setSearchData({ ...searchData, member_type: e.target.value })}
                         className="mr-1"
                       />
-                      <span className="text-sm">저강도</span>
+                      <span className="text-sm">일반 회원</span>
                     </label>
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="jumping_intensity_level"
-                        value="MODERATE"
-                        checked={searchData.jumping_intensity_level === 'MODERATE'}
-                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
+                        name="member_type"
+                        value="TUTOR"
+                        checked={searchData.member_type === 'TUTOR'}
+                        onChange={(e) => setSearchData({ ...searchData, member_type: e.target.value })}
                         className="mr-1"
                       />
-                      <span className="text-sm">중강도</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="jumping_intensity_level"
-                        value="HIGH"
-                        checked={searchData.jumping_intensity_level === 'HIGH'}
-                        onChange={(e) => setSearchData({ ...searchData, jumping_intensity_level: e.target.value })}
-                        className="mr-1"
-                      />
-                      <span className="text-sm">고강도</span>
+                      <span className="text-sm">수업 강사</span>
                     </label>
                   </div>
                 </td>
               </tr>
               <tr>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">기타 운동 종류</td>
-                <td className="border border-gray-300 p-2">
-                  <select
-                    value={searchData.other_exercise_type}
-                    onChange={(e) => setSearchData({ ...searchData, other_exercise_type: e.target.value })}
-                    className="w-full px-2 py-1 border border-gray-300 rounded"
-                  >
-                    <option value="">전체</option>
-                    {commonCodeList.map((code) => (
-                      <option key={code.common_code} value={code.common_code}>
-                        {code.common_code_name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">운동 칼로리</td>
+              <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">점핑핑 운동 칼로리</td>
                 <td className="border border-gray-300 p-2">
                   <div className="flex items-center space-x-2">
                     <input
                       type="text"
-                      value={searchData.other_exercise_calory_min}
-                      onChange={(e) => setSearchData({ ...searchData, other_exercise_calory_min: e.target.value })}
+                      value={searchData.total_jumping_calory_min}
+                      onChange={(e) => setSearchData({ ...searchData, total_jumping_calory_min: e.target.value })}
                       className="w-20 px-2 py-1 border border-gray-300 rounded"
                       placeholder="최소"
                     />
                     <span className="text-sm text-gray-500">~</span>
                     <input
                       type="text"
-                      value={searchData.other_exercise_calory_max}
-                      onChange={(e) => setSearchData({ ...searchData, other_exercise_calory_max: e.target.value })}
+                      value={searchData.total_jumping_calory_max}
+                      onChange={(e) => setSearchData({ ...searchData, total_jumping_calory_max: e.target.value })}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded"
+                      placeholder="최대"
+                    />
+                    <span className="text-sm text-gray-500">kcal</span>
+                  </div>
+                </td>
+                <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">기타 운동 칼로리</td>
+                <td className="border border-gray-300 p-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={searchData.total_other_calory_min}
+                      onChange={(e) => setSearchData({ ...searchData, total_other_calory_min: e.target.value })}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded"
+                      placeholder="최소"
+                    />
+                    <span className="text-sm text-gray-500">~</span>
+                    <input
+                      type="text"
+                      value={searchData.total_other_calory_max}
+                      onChange={(e) => setSearchData({ ...searchData, total_other_calory_max: e.target.value })}
                       className="w-20 px-2 py-1 border border-gray-300 rounded"
                       placeholder="최대"
                     />
@@ -372,8 +314,9 @@ const ExerciseAppList: React.FC = () => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <div className="mt-4 mb-4">
+              <div className="mt-4 mb-4 flex justify-between items-center">
                 <p className="text-sm font-bold">총 {exerciseAppList.length}건</p>
+                <p>아래 목록 클릭 시 상세 페이지로 이동합니다.</p>
               </div>
               <table className="min-w-full bg-white">
                 <thead>
@@ -381,28 +324,20 @@ const ExerciseAppList: React.FC = () => {
                     <th className="text-center pl-4 whitespace-nowrap">번호</th>
                     <th className="text-center whitespace-nowrap">이름</th>
                     <th className="text-center whitespace-nowrap">성별</th>
-                    <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      운동 일시
-                    </th>
-                    <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      점핑 운동 시간
-                    </th>
-                    <th className="text-center whitespace-nowrap hidden md:table-cell">
-                      점핑 운동 강도
-                    </th>
-                    <th className="text-center whitespace-nowrap">점핑 심박수</th>
-                    <th className="text-center whitespace-nowrap">점핑 칼로리</th>
-                    <th className="text-center whitespace-nowrap">기타 운동 종류</th>
-                    <th className="text-center whitespace-nowrap">기타 운동 시간</th>
-                    <th className="text-center whitespace-nowrap">기타 운동 칼로리</th>
-                    <th className="text-center whitespace-nowrap">등록일</th>
+                    <th className="text-center whitespace-nowrap">운동 일자</th>
+                    <th className="text-center whitespace-nowrap">운동 회원 유형</th>
+                    <th className="text-center whitespace-nowrap">점핑 전체<br />소모 칼로리</th>
+                    <th className="text-center whitespace-nowrap">기타 운동 전체<br />소모 칼로리</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentInquiries?.map((exercise, index) => (
                     <tr
                       key={exercise.exercise_app_id}
-                      className="h-16 border-b border-gray-200 hover:bg-gray-50"
+                      className="h-16 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        navigate(`/app/exerciseApp/exerciseAppDetail?exercise_app_id=${exercise.exercise_app_id}`);
+                      }}
                     >
                       <td className="pl-4 text-center">
                         {exerciseAppList.length - (pagination.startIndex + index)}
@@ -411,48 +346,19 @@ const ExerciseAppList: React.FC = () => {
                         {exercise.mem_name}
                       </td>
                       <td className="text-center px-2 truncate">
-                        {exercise.mem_gender}
+                        {exercise.mem_gender == '1' ? '남자' : exercise.mem_gender == '0' ? '여자' : '-'}
                       </td>
                       <td className="text-center px-2 truncate">
                         {exercise.exercise_dt}
                       </td>
+                      <td className="text-center px-2 truncate">
+                        {exercise.member_type == 'NORMAL_MEMBER' ? '일반 회원' : exercise.member_type == 'TUTOR' ? '수업 강사' : '-'}
+                      </td>
                       <td className="text-center px-2 max-w-[70px] hidden md:table-cell">
-                        <div style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {formatExerciseTime(exercise.jumping_exercise_time)}
-                        </div>
-                      </td>
-                      <td className="text-center px-2 truncate">
-                        {exercise.jumping_intensity_level || '-'}
+                        {exercise.total_jumping_calory ? exercise.total_jumping_calory : 0} kcal
                       </td>
                       <td className="text-center whitespace-nowrap">
-                        {exercise.jumping_heart_rate || '-'}
-                      </td>
-                      <td className="text-center whitespace-nowrap">
-                        {(() => {
-                          const kcal = calcJumpingKcal((exercise as any).jumping_intensity_level, (exercise as any).jumping_exercise_time);
-                          return kcal > 0 ? kcal : '-';
-                        })()}
-                      </td>
-                      <td className="text-center px-2 truncate">
-                        {exercise.other_exercise_type ? 
-                          (commonCodeList.find(code => code.common_code === exercise.other_exercise_type)?.common_code_name || exercise.other_exercise_type) 
-                          : '-'
-                        }
-                      </td>
-                      <td className="text-center px-2 truncate">
-                        {formatExerciseTime(exercise.other_exercise_time)}
-                      </td>
-                      <td className="text-center px-2 truncate">
-                        {exercise.other_exercise_calory || '-'}
-                      </td>
-                      <td className="text-center px-2 truncate">
-                        {exercise.reg_dt}
+                        {exercise.total_other_calory ? exercise.total_other_calory : 0} kcal
                       </td>
                     </tr>
                   ))}

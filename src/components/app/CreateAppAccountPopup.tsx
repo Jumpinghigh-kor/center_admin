@@ -7,6 +7,7 @@ interface Member {
   mem_name?: string;
   mem_phone?: string;
   mem_birth?: any;
+  birthday?: string;
   mem_gender?: boolean | number;
   mem_locker?: boolean | number;
   mem_locker_number?: string;
@@ -65,6 +66,16 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
     }
     
     if (dateStr) {
+      // YYYYMMDD 형식 처리 (8자리 숫자)
+      if (/^\d{8}$/.test(dateStr)) {
+        return {
+          year: dateStr.substring(0, 4),
+          month: dateStr.substring(4, 6),
+          day: dateStr.substring(6, 8),
+        };
+      }
+      
+      // YYYY-MM-DD 또는 YYYY/MM/DD 형식 처리
       const parts = dateStr.split(/[-/]/);
       if (parts.length >= 3) {
         return {
@@ -78,7 +89,12 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
     return { year: "", month: "", day: "" };
   };
 
-  const initialBirth = parseBirthDate(selectedMember?.mem_birth);
+  // 생년월일 매핑: birthday 우선, 없으면 mem_birth 사용
+  const getBirthDate = () => {
+    return selectedMember?.birthday || selectedMember?.mem_birth;
+  };
+
+  const initialBirth = parseBirthDate(getBirthDate());
   
   const [formData, setFormData] = useState<AppAccount>({
     login_id: selectedMember?.login_id || "",
@@ -129,7 +145,8 @@ const CreateAppAccountPopup: React.FC<CreateAppAccountPopupProps> = ({
   // 선택된 회원 정보로 아이디/권한/생년월일 매핑
   useEffect(() => {
     if (!isOpen) return;
-    const birth = parseBirthDate(selectedMember?.mem_birth);
+    const birthDate = getBirthDate();
+    const birth = parseBirthDate(birthDate);
     setFormData((prev) => ({
       ...prev,
       login_id: selectedMember?.login_id || "",
