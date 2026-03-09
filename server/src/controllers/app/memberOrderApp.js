@@ -671,13 +671,11 @@ exports.updateOrderStatus = (req, res) => {
     `;
 
     params.push(order_detail_app_id);
-    console.log('updateQuery::', updateQuery)
-    console.log('params::', params)
+    
     db.query(
       updateQuery,
       params,
       (err, result) => {
-        console.log('result::', result)
         if (err) {
           console.error("주문상태 변경 오류:", err);
           return res

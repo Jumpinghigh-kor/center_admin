@@ -75,6 +75,8 @@ const MemberList: React.FC = () => {
 
   // 센터 목록 불러오기
   const selectCenterList = async () => {
+    if(user?.usr_role !== 'admin') return;
+
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/center/list`,

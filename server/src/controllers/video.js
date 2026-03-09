@@ -6,7 +6,7 @@ exports.getVideo = (req, res) => {
 
   db.query(query, [pl_type], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(201).json({ result: result });
   });

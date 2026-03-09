@@ -75,6 +75,14 @@ const verifyToken = (req, res) => {
             ORDER BY sc.center_id DESC
             LIMIT 1
         ) AS center_name
+        , (
+            SELECT
+              owner_center_name
+            FROM	centers sc
+            WHERE	sc.center_id = u.center_id
+            ORDER BY sc.center_id DESC
+            LIMIT 1
+        ) AS owner_center_name
       FROM   users u
       WHERE  u.usr_id = ?`;
     db.query(query, [data.id], (err, result) => {
@@ -151,6 +159,14 @@ app.post("/api/login/secondary", (req, res) => {
           ORDER BY sc.center_id DESC
           LIMIT 1
         ) AS center_name
+      , (
+          SELECT
+            owner_center_name
+          FROM	centers sc
+          WHERE	sc.center_id = u.center_id
+          ORDER BY sc.center_id DESC
+          LIMIT 1
+        ) AS owner_center_name
     FROM  users u
     WHERE u.usr_id = ?
     AND   u.usr_second_password = ?
@@ -399,48 +415,59 @@ const checkMembershipExpiry = () => {
         }
 
         if (result.length > 0) {
-          result.forEach((member) => {
-            const notificationQuery = `
-              INSERT INTO notifications (not_user_id, not_type, not_title, not_message, not_is_read, not_created_at)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `;
+          const processMembers = async () => {
+            for (const member of result) {
+              const notificationQuery = `
+                INSERT INTO notifications (not_user_id, not_type, not_title, not_message, not_is_read, not_created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+              `;
 
-            const type = "만료 알림";
-            const title = "회원권 만료 알림";
-            const message = `📢알림! ${member.mem_name} 회원님의 회원권 만료일이 다가오고 있습니다`;
-            const createdAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
+              const type = "만료 알림";
+              const title = "회원권 만료 알림";
+              const message = `📢알림! ${member.mem_name} 회원님의 회원권 만료일이 다가오고 있습니다`;
+              const createdAt = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
-            db.query(
-              notificationQuery,
-              [member.center_id, type, title, message, 0, createdAt],
-              (err) => {
-                if (err) {
-                  console.log("Error inserting notification:", err);
-                } else {
+              try {
+                await new Promise((resolve, reject) => {
+                  db.query(
+                    notificationQuery,
+                    [member.center_id, type, title, message, 0, createdAt],
+                    (err) => {
+                      if (err) {
+                        console.log("Error inserting notification:", err);
+                        reject(err);
+                      } else {
+                        resolve();
+                      }
+                    }
+                  );
+                });
+
+                await new Promise((resolve, reject) => {
                   const updateNotificationSentQuery = `
                     UPDATE member_orders SET memo_notification_sent = 1 WHERE memo_id = ?
                   `;
-
                   db.query(
                     updateNotificationSentQuery,
                     [member.memo_id],
                     (err, result) => {
                       if (err) {
-                        console.log(
-                          "Error updating member_notification_sent:",
-                          err
-                        );
+                        console.log("Error updating member_notification_sent:", err);
+                        reject(err);
                       } else {
-                        console.log(
-                          `member_notification_sent updated for member ${member.memo_mem_id}`
-                        );
+                        console.log(`member_notification_sent updated for member ${member.memo_mem_id}`);
+                        resolve();
                       }
                     }
                   );
-                }
+                });
+              } catch (e) {
+                // 개별 회원 처리 실패 시 다음 회원으로 계속 진행
+                console.log(`[만료알림] 회원 ${member.mem_name} 처리 실패, 다음 회원으로 진행`);
               }
-            );
-          });
+            }
+          };
+          processMembers();
         }
 
         // 모든 작업이 완료되면 락 해제
@@ -455,9 +482,9 @@ const checkMembershipExpiry = () => {
 const IS_CRON_LEADER =
   process.env.NODE_APP_INSTANCE == null || process.env.NODE_APP_INSTANCE === "0";
 
-//매일 자정에 멤버쉽 만료를 체크
+//매일 아침 9시에 멤버쉽 만료를 체크
 if (IS_CRON_LEADER) {
-  cron.schedule("0 0 * * *", () => {
+  cron.schedule("0 9 * * *", () => {
     checkMembershipExpiry();
   });
 }
@@ -545,7 +572,7 @@ if (IS_CRON_LEADER) {
           console.warn("[auto-purchase-confirm] select error:", selErr);
           return;
         }
-        
+
         const groups = new Map();
         (rows || []).forEach(r => {
           const id = r && r.order_detail_app_id;
@@ -657,7 +684,7 @@ app.get("/api/notification/:centerid", (req, res) => {
   // 기간 필터
   if (selectedPeriod && selectedPeriod !== 'all') {
     let intervalExpr = '';
-    
+
     switch (selectedPeriod) {
       case '1day':
         intervalExpr = 'INTERVAL 1 DAY';
@@ -681,7 +708,7 @@ app.get("/api/notification/:centerid", (req, res) => {
         intervalExpr = 'INTERVAL 1 YEAR';
         break;
     }
-    
+
     if (intervalExpr) {
       addCondition += ` AND not_created_at BETWEEN DATE_SUB(DATE_ADD(NOW(), INTERVAL 9 HOUR), ${intervalExpr}) AND DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 9 HOUR), '%Y-%m-%d %H:%i:%s')`;
     }

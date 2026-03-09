@@ -34,7 +34,7 @@ const upload = multer({
   },
 });
 
-router.get("/", getPosterBaseList);
+router.post("/", getPosterBaseList);
 router.get("/:posterId", getPosterDetail);
 router.post("/createPosterBase", createPosterBase);
 router.post("/createPosterImage", createPosterImage);

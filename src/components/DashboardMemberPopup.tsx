@@ -7,7 +7,7 @@ interface Member {
   mem_id: number;
   mem_name: string;
   mem_phone: string;
-  mem_gender: string;
+  mem_gender: number;
   mem_birthday: string;
   account_app_id: number;
   nickname: string;
@@ -46,7 +46,7 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentMembers = memberList.slice(indexOfFirstItem, indexOfLastItem);
-                              
+
   // 사용자 통계 개요 조회
   const selectTotalMemberList = async () => {
     try {
@@ -59,7 +59,7 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
           month_reg_yn: monthRegYn,
         }
       );
-  
+
       setMemberList(response.data.result);
     } catch (err) {
       console.error("사용자 통계 개요 조회 오류:", err);
@@ -73,13 +73,13 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
   };
 
   useEffect(() => {
-    if(user) {
+    if (user) {
       selectTotalMemberList();
     }
   }, [type, user, recentYn, monthRegYn]);
 
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
@@ -156,12 +156,12 @@ const DashboardMemberPopup: React.FC<DashboardMemberPopupProps> = ({
                       <span
                         className={`inline-flex px-2 py-1 text-sm rounded-full`}
                       >
-                        {member.status === "ACTIVE" ? "활성" : 
-                         member.status === "PROCEED" ? "진행중" : "탈퇴"}
+                        {member.status === "ACTIVE" ? "활성" :
+                          member.status === "PROCEED" ? "진행중" : "탈퇴"}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
-                      {member.mem_gender === "M" ? "남성" : "여성"}
+                      {member.mem_gender === 1 ? "남성" : "여성"}
                     </td>
                     <td className="px-4 py-2 text-center whitespace-nowrap text-sm text-gray-600 border-b">
                       {member.reg_dt ? member.reg_dt : "-"}

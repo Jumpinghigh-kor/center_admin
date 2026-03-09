@@ -6,8 +6,7 @@ const bcrypt = require("bcrypt");
 exports.getMember = (req, res) => {
   const { center_id } = req.query.user;
   const { sortOption } = req.query;
-console.log("center_id::", center_id);
-console.log("sortOption::", sortOption);
+
   let queryParams = [center_id];
   let baseQuery = "";
   let orderClause = "";
@@ -348,7 +347,7 @@ exports.getMemberOrder = (req, res) => {
     "SELECT * FROM member_orders INNER JOIN products ON member_orders.memo_pro_id = products.pro_id WHERE memo_mem_id = ? AND memo_status = 1";
   db.query(query, [mem_id], (err, result) => {
     if (err) {
-      res.status(500).json(err);
+      return res.status(500).json(err);
     }
     res.status(200).json({ result: result });
   });
@@ -704,7 +703,7 @@ exports.updateBulkMemoEndDt = (req, res) => {
 exports.getAllMemberList = (req, res) => {
   let baseQuery = "";
   let orderClause = "";
-  
+
   baseQuery = `
     SELECT
       m.mem_id
@@ -745,7 +744,7 @@ exports.getAllMemberList = (req, res) => {
   if (req.body.params.mem_gender) {
     baseQuery += `AND m.mem_gender = '${req.body.params.mem_gender}'`;
   }
-  
+
   if (req.body.params.mem_status === "ACTIVE") {
     baseQuery += `
                   AND	0 < (

@@ -40,11 +40,17 @@ interface CommonCodeItem {
   common_code_name: string;
 }
 
+interface CenterItem {
+  center_id: number;
+  center_name: string;
+}
+
 const CenterOrderAppList: React.FC = () => {
   const navigate = useNavigate();
   const [orderList, setOrderList] = useState<CenterOrderApp[]>([]);
   const user = useUserStore((state) => state.user);
   const [orderStatusCodeList, setOrderStatusCodeList] = useState<CommonCodeItem[]>([]);
+  const [centerList, setCenterList] = useState<CenterItem[]>([]);
   const [isSettlementOpen, setIsSettlementOpen] = useState<boolean>(false);
   const [paybackError, setPaybackError] = useState<string>("");
   const modalOrders = React.useMemo(() => {
@@ -92,15 +98,43 @@ const CenterOrderAppList: React.FC = () => {
     });
   };
 
+  // 센터 목록 불러오기
+  const selectCenterList = async () => {
+    if(user?.usr_role !== 'admin') return;
+
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/center/list`,
+        {
+          params: user
+        }
+      );
+
+      setCenterList(response.data.result);
+    } catch (err) {
+      console.error("센터 목록 로딩 오류:", err);
+    } finally {
+    }
+  };
+
   // 주문 목록 불러오기
   const selectCenterMemberOrderAppList = async (searchParams?: any) => {
     try {
+      const { center_id: searchCenterId, ...restSearchParams } = searchParams || {};
+      const payload: any = {
+        ...restSearchParams
+      };
+      if (user.usr_role !== 'admin') {
+        payload.center_id = user.center_id;
+      } else if (searchCenterId) {
+        payload.center_id = searchCenterId;
+      } else {
+        payload.center_id = user.center_id;
+      }
+
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/memberOrderApp/selectCenterMemberOrderAppList`,
-        {
-          center_id: user.center_id,
-          ...searchParams
-        }
+        payload
       );
       
       setOrderList(response.data);
@@ -126,7 +160,8 @@ const CenterOrderAppList: React.FC = () => {
       start_purchase_confirm_dt: "",
       end_purchase_confirm_dt: "",
       min_center_payback: "",
-      max_center_payback: ""
+      max_center_payback: "",
+      center_id: ""
     }
   });
 
@@ -148,9 +183,17 @@ const CenterOrderAppList: React.FC = () => {
 
   useEffect(() => {
     if (user && user.index) {
+      selectCenterList();
       selectCenterMemberOrderAppList();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user?.usr_role === 'admin' && centerList.length > 0 && !searchData.center_id) {
+      setSearchData({ ...searchData, center_id: String(centerList[0].center_id) });
+      selectCenterMemberOrderAppList({ ...searchData, center_id: String(centerList[0].center_id) });
+    }
+  }, [centerList]);
 
   useEffect(() => {
     selectOrderStatusCodeList();
@@ -305,6 +348,22 @@ const CenterOrderAppList: React.FC = () => {
                     className="w-1/2 px-2 py-1 border cursor-pointer border-gray-300 rounded"
                   />
                 </td>
+              {user?.usr_role === 'admin' && (
+                <>
+                  <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">등록 센터(관리자만 노출)</td>
+                  <td className="border border-gray-300 p-2">
+                    <select
+                      value={searchData.center_id}
+                      onChange={(e) => setSearchData({ ...searchData, center_id: e.target.value })}
+                      className="px-2 py-1 border border-gray-300 rounded"
+                      >
+                      {centerList.map((center) => (
+                        <option key={center.center_id} value={center.center_id}>{center.center_name}</option>
+                      ))}
+                    </select>
+                  </td>
+                </>
+              )}
               </tr>
             </tbody>
           </table>
@@ -383,7 +442,7 @@ const CenterOrderAppList: React.FC = () => {
                         </td>
                         <td className="text-center px-2">
                           <p>{ele.product_name}</p>
-                          <p>{ele.option_amount + ele.option_unit + ' ' + (ele.option_gender == 'W' ? '여성' : ele.option_gender == 'M' ? '남성' : ele.option_gender == 'A' ? '공용' : '')}</p>
+                          <p>{ele.option_amount + (ele.option_unit !== 'NONE_UNIT' ? ele.option_unit : '') + ' ' + (ele.option_gender == 'W' ? '여성' : ele.option_gender == 'M' ? '남성' : ele.option_gender == 'A' ? '공용' : '')}</p>
                         </td>
                         <td className="text-center px-2 truncate">
                           {ele.original_price}원

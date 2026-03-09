@@ -29,3 +29,6 @@ yarn-error.log*
 
 # fonts
 *.otf
+
+# keys
+/server/keys/

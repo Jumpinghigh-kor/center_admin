@@ -119,33 +119,21 @@ exports.createCheckinLogbyMemId = async (req, res) => {
   const date = req.body[2];
   const updateQuery = `UPDATE member_orders SET memo_remaining_counts = memo_remaining_counts - 1 WHERE memo_id = ?`;
   const insertQuery = "INSERT INTO checkin_log (ci_mem_id, ci_date, del_yn, center_id) VALUES (?,?,?,?)";
-  
+
   try {
-    // 배치 처리로 동시 연결 수 제한 (한 번에 최대 10개씩 처리)
-    const batchSize = 10;
     const dbPromise = db.promise();
-    
-    for (let i = 0; i < attendees.length; i += batchSize) {
-      const batch = attendees.slice(i, i + batchSize);
-      const batchQueries = batch.map(async (attendee) => {
-        const queries = [];
-        
-        // 회차권인 경우 먼저 업데이트
-        if (attendee.pro_type === "회차권") {
-          queries.push(dbPromise.query(updateQuery, [attendee.memo_id]));
-        }
-        
-        // 출석 로그 삽입
-        queries.push(
-          dbPromise.query(insertQuery, [attendee.mem_id, date, "N", center_id])
-        );
-        
-        return Promise.all(queries);
-      });
-      
-      await Promise.all(batchQueries);
+
+    // 순차 처리로 DB 연결 초과(PROTOCOL_CONNECTION_LOST) 방지
+    for (const attendee of attendees) {
+      // 회차권인 경우 먼저 업데이트
+      if (attendee.pro_type === "회차권") {
+        await dbPromise.query(updateQuery, [attendee.memo_id]);
+      }
+
+      // 출석 로그 삽입
+      await dbPromise.query(insertQuery, [attendee.mem_id, date, "N", center_id]);
     }
-    
+
     res.status(201).json({
       status: true,
       message: `출석체크가 정상적으로 되었습니다.`,
@@ -155,6 +143,7 @@ exports.createCheckinLogbyMemId = async (req, res) => {
     res.status(500).json(err);
   }
 };
+
 
 //출석 기록 삭제
 exports.deleteCheckinLog = (req, res) => {
@@ -171,7 +160,7 @@ exports.deleteCheckinLog = (req, res) => {
 //특정 회원번호와 날짜로 회원권 조회
 exports.selectTargetCheckinLogList = (req, res) => {
   const { checkinNumber, checkinDate, center_id } = req.body;
-  
+
   const query = `
     SELECT
       m.mem_id

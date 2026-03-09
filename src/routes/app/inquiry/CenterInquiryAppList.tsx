@@ -16,11 +16,18 @@ interface InquiryApp {
   account_app_id: string;
   status: string;
   reg_dt: string;
+  center_id?: number;
+}
+
+interface CenterItem {
+  center_id: number;
+  center_name: string;
 }
 
 const CenterInquiryAppList: React.FC = () => {
   const navigate = useNavigate();
   const [inquiryList, setInquiryList] = useState<InquiryApp[]>([]);
+  const [centerList, setCenterList] = useState<CenterItem[]>([]);
   const user = useUserStore((state) => state.user);
 
   // 페이지네이션 훅 사용
@@ -32,16 +39,44 @@ const CenterInquiryAppList: React.FC = () => {
   // 현재 페이지에 표시할 데이터
   const currentInquiries = pagination.getCurrentPageData(inquiryList);
 
+  // 센터 목록 불러오기
+  const selectCenterList = async () => {
+    if(user?.usr_role !== 'admin') return;
+
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/center/list`,
+        {
+          params: user
+        }
+      );
+
+      setCenterList(response.data.result);
+    } catch (err) {
+      console.error("센터 목록 로딩 오류:", err);
+    } finally {
+    }
+  };
+
   // 문의 목록 불러오기
   const selectInquiryAppList = async (searchParams?: any) => {
     try {
+      const { center_id: searchCenterId, ...restSearchParams } = searchParams || {};
+      const payload: any = {
+        inquiry_type: 'FRANCHISE',
+        ...restSearchParams
+      };
+      if (user.usr_role !== 'admin') {
+        payload.center_id = user.center_id;
+      } else if (searchCenterId) {
+        payload.center_id = searchCenterId;
+      } else {
+        payload.center_id = user.center_id;
+      }
+
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/inquiryApp/selectInquiryAppList`,
-        {
-          center_id: user.center_id,
-          inquiry_type: 'FRANCHISE',
-          ...searchParams
-        }
+        payload
       );
       
       setInquiryList(response.data.result);
@@ -58,12 +93,14 @@ const CenterInquiryAppList: React.FC = () => {
     initialSearchData: {
       mem_name: "",
       status: "",
-      answer: ""
+      answer: "",
+      center_id: ""
     }
   });
 
   useEffect(() => {
     if (user && user.index) {
+      selectCenterList();
       selectInquiryAppList();
     }
   }, [user]);
@@ -142,7 +179,7 @@ const CenterInquiryAppList: React.FC = () => {
               </tr>
               <tr>
                 <td className="border border-gray-300 p-2 py-3 text-center bg-gray-200 font-medium w-1/6">답변여부</td>
-                <td className="border border-gray-300 p-2 w-2/6" colSpan={3}>
+                <td className="border border-gray-300 p-2 w-2/6">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input
@@ -179,6 +216,23 @@ const CenterInquiryAppList: React.FC = () => {
                     </label>
                   </div>
                 </td>
+              {user?.usr_role === 'admin' && (
+                <>
+                  <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">등록 센터(관리자만 노출)</td>
+                  <td className="border border-gray-300 p-2">
+                    <select
+                      value={searchData.center_id}
+                      onChange={(e) => setSearchData({ ...searchData, center_id: e.target.value })}
+                      className="px-2 py-1 border border-gray-300 rounded"
+                      >
+                      <option value="">전체</option>
+                      {centerList.map((center) => (
+                        <option key={center.center_id} value={center.center_id}>{center.center_name}</option>
+                      ))}
+                    </select>
+                  </td>
+                </>
+              )}
               </tr>
             </tbody>
           </table>
@@ -229,6 +283,7 @@ const CenterInquiryAppList: React.FC = () => {
                       답변 여부
                     </th>
                     <th className="text-center whitespace-nowrap">등록일</th>
+                    {user?.usr_role === 'admin' && <th className="text-center whitespace-nowrap">등록 센터<br />(관리자만 노출)</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -277,6 +332,11 @@ const CenterInquiryAppList: React.FC = () => {
                       <td className="text-center whitespace-nowrap">
                         {inquiry.reg_dt}
                       </td>
+                      {user?.usr_role === 'admin' && (
+                        <td className="text-center px-2 truncate">
+                          {inquiry.center_id ? centerList.find((c) => c.center_id === inquiry.center_id)?.center_name || '-' : '-'}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

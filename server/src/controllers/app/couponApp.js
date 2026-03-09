@@ -245,7 +245,6 @@ exports.insertCouponApp = (req, res) => {
     , null
   ], (err, result) => {
     if (err) {
-      console.log(err.sqlMessage);
       res.status(500).json(err);
     }
     res.status(200).json({ result: result });

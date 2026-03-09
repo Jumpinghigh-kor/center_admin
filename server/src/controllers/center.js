@@ -7,6 +7,7 @@ exports.getCenter = (req, res) => {
       SELECT
 	    c.center_id
       , c.center_name
+      , c.owner_center_name
       , c.target_amount_month
       , c.target_amount_year
       , c.target_members
@@ -88,7 +89,7 @@ exports.getCenterCount = (req, res) => {
 
 exports.getCenterList = (req, res) => {
   const { usr_role } = req.query;
-
+  
   if (usr_role !== "admin") {
     return res.status(400).json({ result: "fail" });
   }
@@ -97,8 +98,20 @@ exports.getCenterList = (req, res) => {
     SELECT
       c.center_id
       , c.center_name
-      , u.usr_name
-      , u.usr_id
+      , (
+          SELECT
+            su.usr_name
+          FROM	users su
+          WHERE	c.center_id = su.center_id
+          AND		su.del_yn = 'N'
+      ) AS usr_name
+      , (
+          SELECT
+            su.usr_id
+          FROM	users su
+          WHERE	c.center_id = su.center_id
+          AND		su.del_yn = 'N'
+      ) AS usr_id
       , COALESCE(
                   SUM(
                       CASE 
@@ -119,7 +132,6 @@ exports.getCenterList = (req, res) => {
                     ), 0) AS monthly_sales
     FROM      centers c
     LEFT JOIN member_orders o ON c.center_id = o.center_id
-    LEFT JOIN users u ON c.center_id = u.center_id
     WHERE     c.del_yn = 'N'
     GROUP BY  c.center_id, c.center_name
     ORDER BY  c.center_id DESC
@@ -132,13 +144,14 @@ exports.getCenterList = (req, res) => {
   });
 };
 
-//센터 주소 변경하기
-exports.updateCenterAddress = (req, res) => {
-  const { center_id, address, address_detail, zip_code, phone_number } =
+//센터 정보 변경하기
+exports.updateOwnerCenterInfo = (req, res) => {
+  const { center_id, owner_center_name, address, address_detail, zip_code, phone_number } =
     req.body;
   const query = `
     UPDATE centers SET
-      address = ?
+      owner_center_name = ?
+      , address = ?
       , address_detail = ?
       , zip_code = ?
       , phone_number = ?
@@ -146,12 +159,12 @@ exports.updateCenterAddress = (req, res) => {
 
   db.query(
     query,
-    [address, address_detail, zip_code, phone_number, center_id],
+    [owner_center_name, address, address_detail, zip_code, phone_number, center_id],
     (err, result) => {
       if (err) {
         return res.status(500).json(err);
       }
-      res.json({ message: "Updated the center address successfully", result: result });
+      res.json({ message: "Updated the center info successfully", result: result });
     }
   );
 };
@@ -193,7 +206,7 @@ exports.deleteCenter = (req, res) => {
   );
 };
 
-//센터 주소 변경하기
+//센터명 변경하기
 exports.updateCenterName = (req, res) => {
   const { center_id, center_name } =
     req.body;

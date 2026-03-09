@@ -9,27 +9,42 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 //포스터 기본 목록 조회
 exports.getPosterBaseList = (req, res) => {
-  const query =`
-    SELECT
-      pb.poster_id
-      , pb.title
-      , DATE_FORMAT(pb.start_dt, '%Y-%m-%d %H:%i') AS start_dt
-      , DATE_FORMAT(pb.end_dt, '%Y-%m-%d %H:%i') AS end_dt
-      , DATE_FORMAT(pb.reg_dt, '%Y-%m-%d %H:%i') AS reg_dt
-      , pb.reg_id
-      , (
-          SELECT
-            GROUP_CONCAT(spi.poster_image_type) AS poster_image_type
-          FROM  poster_image spi
-          WHERE spi.poster_id = pb.poster_id
-          AND   spi.use_yn = 'Y'
-        ) AS poster_image_type
-    FROM  poster_base pb
-    WHERE pb.del_yn = 'N'
-    AND   (pb.start_dt <= DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') AND DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= pb.end_dt)
-    ORDER BY  pb.poster_id DESC
-  `
-  db.query(query, (err, result) => {
+  const poster_image_type = req.body.poster_image_type;
+
+  let query = `
+    SELECT 
+      *
+    FROM (
+        SELECT
+          pb.poster_id
+          , pb.title
+          , DATE_FORMAT(pb.start_dt, '%Y-%m-%d %H:%i') AS start_dt
+          , DATE_FORMAT(pb.end_dt, '%Y-%m-%d %H:%i') AS end_dt
+          , DATE_FORMAT(pb.reg_dt, '%Y-%m-%d %H:%i') AS reg_dt
+          , pb.reg_id
+          , (
+              SELECT
+                GROUP_CONCAT(spi.poster_image_type) AS poster_image_type
+              FROM  poster_image spi
+              WHERE spi.poster_id = pb.poster_id
+              AND   spi.use_yn = 'Y'
+            ) AS poster_image_type
+        FROM  poster_base pb
+        WHERE pb.del_yn = 'N'
+        AND   (pb.start_dt <= DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') AND DATE_FORMAT(NOW(), '%Y%m%d%H%i%s') <= pb.end_dt)
+    ) AS A
+    WHERE	1 = 1
+  `;
+
+  const queryParams = [];
+  if (poster_image_type) {
+    query += `    AND A.poster_image_type = ?\n`;
+    queryParams.push(poster_image_type);
+  }
+
+  query += `    ORDER BY  A.poster_image_type, A.poster_id DESC\n  `;
+
+  db.query(query, queryParams, (err, result) => {
     if (err) {
       res.status(500).json(err);
     }
@@ -40,7 +55,7 @@ exports.getPosterBaseList = (req, res) => {
 //포스터 상세 조회
 exports.getPosterDetail = (req, res) => {
   const { poster_id } = req.query;
-  const query =`
+  const query = `
     SELECT
       pb.poster_id
       , pb.title
@@ -165,10 +180,10 @@ exports.createPosterImage = (req, res) => {
       null,
     ],
     (err, result) => {
-    if (err) {
-      console.log("err", err);
-    }
-    res.status(201).json({ result: result });
+      if (err) {
+        console.log("err", err);
+      }
+      res.status(201).json({ result: result });
     }
   );
 };
@@ -188,6 +203,7 @@ exports.createPosterText = (req, res) => {
     userId,
   } = req.body;
   const time = dayjs().format("YYYYMMDDHHmmss");
+  console.log('time')
   const query = `
     INSERT INTO poster_text (
       poster_image_id
@@ -240,10 +256,10 @@ exports.createPosterText = (req, res) => {
       null
     ],
     (err, result) => {
-    if (err) {
-      console.log("err", err);
-    }
-    res.status(201).json({ result: result });
+      if (err) {
+        console.log("err", err);
+      }
+      res.status(201).json({ result: result });
     }
   );
 };
@@ -251,8 +267,8 @@ exports.createPosterText = (req, res) => {
 //포스터 기본 수정
 exports.updatePosterBase = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_id, title, start_dt, end_dt, userId} = req.body;
-  
+  const { poster_id, title, start_dt, end_dt, userId } = req.body;
+
   const query = `
     UPDATE poster_base SET
       title = ?
@@ -273,10 +289,10 @@ exports.updatePosterBase = (req, res) => {
       poster_id,
     ],
     (err, result) => {
-    if (err) {
-      console.log("err", err);
-    }
-    res.status(201).json({ result: result });
+      if (err) {
+        console.log("err", err);
+      }
+      res.status(201).json({ result: result });
     }
   );
 };
@@ -284,7 +300,7 @@ exports.updatePosterBase = (req, res) => {
 //포스터 이미지 수정
 exports.updatePosterImage = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_image_id, poster_image_type, file_id, userId} = req.body;
+  const { poster_image_id, poster_image_type, file_id, userId } = req.body;
 
   const query = `
     UPDATE poster_image SET
@@ -304,10 +320,10 @@ exports.updatePosterImage = (req, res) => {
       poster_image_id,
     ],
     (err, result) => {
-    if (err) {
-      console.log("err", err);
-    }
-    res.status(201).json({ result: result });
+      if (err) {
+        console.log("err", err);
+      }
+      res.status(201).json({ result: result });
     }
   );
 };
@@ -315,7 +331,7 @@ exports.updatePosterImage = (req, res) => {
 //포스터 텍스트 수정
 exports.updatePosterText = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_text_id, poster_text_type, flyer_type, font_family, font_size, font_weight, color, x_px, y_px, userId} = req.body;
+  const { poster_text_id, poster_text_type, flyer_type, font_family, font_size, font_weight, color, x_px, y_px, userId } = req.body;
 
   const query = `
     UPDATE poster_text SET
@@ -347,10 +363,10 @@ exports.updatePosterText = (req, res) => {
       poster_text_id,
     ],
     (err, result) => {
-    if (err) {
-      console.log("err", err);
-    }
-    res.status(201).json({ result: result });
+      if (err) {
+        console.log("err", err);
+      }
+      res.status(201).json({ result: result });
     }
   );
 };
@@ -358,7 +374,7 @@ exports.updatePosterText = (req, res) => {
 //포스터 이미지 삭제
 exports.updatePosterImageUseYn = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_image_id, use_yn, userId} = req.body;
+  const { poster_image_id, use_yn, userId } = req.body;
   const query = `
     UPDATE poster_image SET
       use_yn = ?
@@ -371,7 +387,7 @@ exports.updatePosterImageUseYn = (req, res) => {
       console.log("err", err);
     }
     res.status(201).json({ result: result });
-    }
+  }
   );
 };
 
@@ -469,7 +485,7 @@ exports.uploadPosterImage = async (req, res) => {
 //포스터 기본 삭제
 exports.deletePosterBase = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_id, userId} = req.body;
+  const { poster_id, userId } = req.body;
   const query = `
     UPDATE poster_base SET
       del_yn = 'Y'
@@ -482,14 +498,17 @@ exports.deletePosterBase = (req, res) => {
       console.log("err", err);
     }
     res.status(201).json({ result: result });
-    }
+  }
   );
 };
 
 //포스터 텍스트 삭제
 exports.updatePosterTextUseYn = (req, res) => {
   const time = dayjs().format("YYYYMMDDHHmmss");
-  const { poster_text_id, use_yn, userId} = req.body;
+  const { poster_text_id, use_yn, userId } = req.body;
+  console.log("poster_text_id", poster_text_id);
+  console.log("use_yn", use_yn);
+  console.log("userId", userId);
   const query = `
     UPDATE poster_text SET
       use_yn = ?
@@ -502,6 +521,6 @@ exports.updatePosterTextUseYn = (req, res) => {
       console.log("err", err);
     }
     res.status(201).json({ result: result });
-    }
+  }
   );
 };

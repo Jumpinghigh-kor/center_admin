@@ -97,6 +97,9 @@ const ExerciseAppDetail: React.FC = () => {
   const totalOtherCalory = exerciseOtherData.reduce((sum, item) => {
     return sum + (item.other_exercise_calory ? item.other_exercise_calory : 0);
   }, 0);
+
+  // 총 소모 칼로리 계산
+  const totalCalory = totalJumpingCalory + totalOtherCalory;
   
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -137,6 +140,15 @@ const ExerciseAppDetail: React.FC = () => {
                 </td>
                 <td className="px-4 py-3">
                   {totalOtherCalory.toLocaleString()} kcal
+                </td>
+              </tr>
+
+              <tr className="border-b border-gray-200">
+                <td className="bg-gray-100 px-4 py-3 font-semibold w-1/6">
+                  총 소모 칼로리
+                </td>
+                <td className="px-4 py-3" colSpan={3}>
+                  {totalCalory.toLocaleString()} kcal
                 </td>
               </tr>
             </tbody>

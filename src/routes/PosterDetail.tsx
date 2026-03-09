@@ -22,7 +22,9 @@ type FontOption = {
 const FONT_OPTIONS: FontOption[] = (() => {
   try {
     const ctx = require.context("../fonts", false, /\.(woff2?|woff|ttf|otf)$/i);
-    return ctx.keys().map((key: string) => {
+    const keys = ctx.keys();
+
+    const options = keys.map((key: string) => {
       const fileName = key.replace("./", "");
       const base = fileName.replace(/\.(woff2?|woff|ttf|otf)$/i, "");
       const mod = ctx(key);
@@ -31,8 +33,9 @@ const FONT_OPTIONS: FontOption[] = (() => {
         "";
       return { label: base, family: base, url };
     });
+    return options;
   } catch (e) {
-    console.log(e);
+    console.error("Error loading fonts:", e);
     return [];
   }
 })();
@@ -374,7 +377,7 @@ const PosterDetail: React.FC = () => {
   const printEditable = isAdmin && !!(printTemplateFile || printPosterDisplayUrl);
   const bannerEditable = isAdmin && !!(bannerTemplateFile || bannerPosterDisplayUrl);
 
-  const centerTextValue = useMemo(() => ((user as any)?.center_name) || "", [user]);
+  const centerTextValue = useMemo(() => ((centerInfo as any)?.owner_center_name || (centerInfo as any)?.center_name) || "", [centerInfo]);
   const addressTextValue = useMemo(() => {
     const address = String(centerInfo?.address || "").trim();
     const addressDetail = String(centerInfo?.address_detail || "").trim();
@@ -383,10 +386,10 @@ const PosterDetail: React.FC = () => {
   const phoneTextValue = useMemo(() => {
     return String(
       centerInfo?.phone_number ||
-        centerInfo?.phone ||
-        centerInfo?.tel ||
-        centerInfo?.center_tel ||
-        ""
+      centerInfo?.phone ||
+      centerInfo?.tel ||
+      centerInfo?.center_tel ||
+      ""
     ).trim();
   }, [centerInfo]);
 
@@ -403,7 +406,7 @@ const PosterDetail: React.FC = () => {
     if (cached) {
       try {
         await cached;
-      } catch {}
+      } catch { }
       return;
     }
 
@@ -414,12 +417,12 @@ const PosterDetail: React.FC = () => {
       await face.load();
       try {
         document.fonts.add(face);
-      } catch {}
+      } catch { }
       // Force-load the specific family so canvas uses it reliably.
       try {
         await (document as any).fonts?.load?.(`12px "${family}"`);
         await (document as any).fonts?.ready;
-      } catch {}
+      } catch { }
     })();
 
     fontLoadCacheRef.current.set(family, p);
@@ -482,7 +485,7 @@ const PosterDetail: React.FC = () => {
         try {
           const img = new Image();
           img.src = objUrl;
-          
+
           // 타임아웃 추가 (10초)
           const timeoutPromise = new Promise<void>((_, reject) => {
             setTimeout(() => reject(new Error("이미지 로드 타임아웃")), 10000);
@@ -560,9 +563,8 @@ const PosterDetail: React.FC = () => {
             ctx.save();
             ctx.textBaseline = "top";
             ctx.fillStyle = opts.color || "#ffffff";
-            ctx.font = `${Number(opts.font_weight || 400)} ${fontSizePx}px "${
-              opts.font_family || ""
-            }"`;
+            ctx.font = `${Number(opts.font_weight || 400)} ${fontSizePx}px "${opts.font_family || ""
+              }"`;
             ctx.textAlign = opts.text_align || "left";
             ctx.fillText(t, Math.round(Number(opts.x || 0)), Math.round(Number(opts.y || 0)));
             ctx.restore();
@@ -681,7 +683,7 @@ const PosterDetail: React.FC = () => {
             console.warn("DPI 정보를 가져오는데 실패했습니다:", dpiErr);
             // DPI 정보가 없어도 계속 진행
           }
-          
+
           let outBlob: Blob;
           try {
             outBlob = await canvasToPngBlobWithSourceDpi(canvas, sourceDpi);
@@ -689,7 +691,7 @@ const PosterDetail: React.FC = () => {
             console.error("PNG Blob 생성 실패:", blobErr);
             throw new Error(`PNG 파일 생성 실패: ${blobErr instanceof Error ? blobErr.message : "알 수 없는 오류"}`);
           }
-          
+
           const outUrl = URL.createObjectURL(outBlob);
 
           const a = document.createElement("a");
@@ -832,18 +834,16 @@ const PosterDetail: React.FC = () => {
         imageType: "WEB" | "FLYER" | "BANNER",
         textType: "CENTER" | "ADDRESS" | "PHONE"
       ) => {
-        return (
-          rows.find(
-            (r) =>
-              r.poster_image_type === imageType &&
-              r.poster_text_type === textType &&
-              r.use_yn === "Y"
-          ) ||
-          rows.find(
-            (r) => r.poster_image_type === imageType && r.poster_text_type === textType
-          ) ||
-          null
+        const candidates = rows.filter(
+          (r) => r.poster_image_type === imageType && r.poster_text_type === textType
         );
+        // Priority: use_yn = 'Y', then ID desc
+        candidates.sort((a, b) => {
+          if (a.use_yn === "Y" && b.use_yn !== "Y") return -1;
+          if (a.use_yn !== "Y" && b.use_yn === "Y") return 1;
+          return (b.poster_text_id || 0) - (a.poster_text_id || 0);
+        });
+        return candidates[0] || null;
       };
 
       const webCenter = pickTextRow("WEB", "CENTER");
@@ -1493,6 +1493,27 @@ const PosterDetail: React.FC = () => {
     bannerTextIds.CENTER,
     bannerTextIds.ADDRESS,
     bannerTextIds.PHONE,
+    bannerTextUseYn.CENTER,
+    bannerTextUseYn.ADDRESS,
+    bannerTextUseYn.PHONE,
+    bannerFontFamily,
+    bannerFontSizePt,
+    bannerFontWeight,
+    bannerFontColor,
+    bannerTextPos.x,
+    bannerTextPos.y,
+    bannerAddressFontFamily,
+    bannerAddressFontSizePt,
+    bannerAddressFontWeight,
+    bannerAddressFontColor,
+    bannerAddressPos.x,
+    bannerAddressPos.y,
+    bannerPhoneFontFamily,
+    bannerPhoneFontSizePt,
+    bannerPhoneFontWeight,
+    bannerPhoneFontColor,
+    bannerPhonePos.x,
+    bannerPhonePos.y,
     templatePreviewUrl,
     printTemplatePreviewUrl,
     bannerTemplatePreviewUrl,
@@ -1529,7 +1550,7 @@ const PosterDetail: React.FC = () => {
     // keep manual values so we can restore when switching back
     // (무기한 값(2999)은 manual 값으로 저장하지 않음)
     if (!String(postEndAt || "").startsWith("2999")) {
-    manualPostRangeRef.current = { start: postStartAt, end: postEndAt };
+      manualPostRangeRef.current = { start: postStartAt, end: postEndAt };
     }
 
     const now = new Date();
@@ -1642,24 +1663,13 @@ const PosterDetail: React.FC = () => {
       return;
     }
 
-    const dpi = await getImageDpi(file);
-    if (dpi == null) {
-      alert("웹용 이미지는 DPI 정보를 확인할 수 있어야 업로드 가능합니다. (DPI 100 이하)");
-      e.target.value = "";
-      return;
-    }
-    if (dpi > 100) {
-      alert(`웹용 이미지는 DPI 100 이하만 업로드 가능합니다. (현재: ${dpi})`);
-      e.target.value = "";
-      return;
-    }
 
     // 이미지 해상도 체크: 가로/세로 중 하나라도 1000px 이상만 허용
     const tmpUrl = URL.createObjectURL(file);
     try {
       const img = new Image();
       img.src = tmpUrl;
-      
+
       // 타임아웃 추가 (10초)
       const timeoutPromise = new Promise<void>((_, reject) => {
         setTimeout(() => reject(new Error("이미지 로드 타임아웃")), 10000);
@@ -1761,7 +1771,7 @@ const PosterDetail: React.FC = () => {
     try {
       const img = new Image();
       img.src = tmpUrl;
-      
+
       // 타임아웃 추가 (10초)
       const timeoutPromise = new Promise<void>((_, reject) => {
         setTimeout(() => reject(new Error("이미지 로드 타임아웃")), 10000);
@@ -1890,10 +1900,10 @@ const PosterDetail: React.FC = () => {
 
       setImageBox((prev) =>
         prev &&
-        prev.left === left &&
-        prev.top === top &&
-        prev.width === w &&
-        prev.height === h
+          prev.left === left &&
+          prev.top === top &&
+          prev.width === w &&
+          prev.height === h
           ? prev
           : { left, top, width: w, height: h }
       );
@@ -1931,10 +1941,10 @@ const PosterDetail: React.FC = () => {
 
       setPrintImageBox((prev) =>
         prev &&
-        prev.left === left &&
-        prev.top === top &&
-        prev.width === w &&
-        prev.height === h
+          prev.left === left &&
+          prev.top === top &&
+          prev.width === w &&
+          prev.height === h
           ? prev
           : { left, top, width: w, height: h }
       );
@@ -1972,10 +1982,10 @@ const PosterDetail: React.FC = () => {
 
       setBannerImageBox((prev) =>
         prev &&
-        prev.left === left &&
-        prev.top === top &&
-        prev.width === w &&
-        prev.height === h
+          prev.left === left &&
+          prev.top === top &&
+          prev.width === w &&
+          prev.height === h
           ? prev
           : { left, top, width: w, height: h }
       );
@@ -2009,8 +2019,32 @@ const PosterDetail: React.FC = () => {
             ? phoneTextRef.current
             : centerTextRef.current;
       const textRect = textEl ? textEl.getBoundingClientRect() : null;
-      const textW = (textRect && textRect.width) || 0;
-      const textH = (textRect && textRect.height) || 0;
+
+      // Use measureTextBoxImg for phone and address to match canvas rendering
+      let textW = 0;
+      let textH = 0;
+      if (target === "phone") {
+        const measured = measureTextBoxImg({
+          text: phoneTextValue,
+          fontFamily: phoneFontFamily,
+          fontWeight: phoneFontWeight,
+          fontSizePt: phoneFontSizePt,
+        });
+        textW = measured?.w || 0;
+        textH = measured?.h || 0;
+      } else if (target === "address") {
+        const measured = measureTextBoxImg({
+          text: addressTextValue,
+          fontFamily: addressFontFamily,
+          fontWeight: addressFontWeight,
+          fontSizePt: addressFontSizePt,
+        });
+        textW = measured?.w || 0;
+        textH = measured?.h || 0;
+      } else {
+        textW = (textRect && textRect.width) || 0;
+        textH = (textRect && textRect.height) || 0;
+      }
 
       const natW = imageNaturalSize?.w || 0;
       const natH = imageNaturalSize?.h || 0;
@@ -2021,8 +2055,8 @@ const PosterDetail: React.FC = () => {
       const pointerXImg = (e.clientX - rect.left - imageBox.left) / scale;
       const pointerYImg = (e.clientY - rect.top - imageBox.top) / scale;
 
-      const textWImg = textW / scale;
-      const textHImg = textH / scale;
+      const textWImg = textW;
+      const textHImg = textH;
 
       const maxX = Math.max(0, natW - textWImg);
       const maxY = Math.max(0, natH - textHImg);
@@ -2072,7 +2106,7 @@ const PosterDetail: React.FC = () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [imageBox, imageNaturalSize?.w, imageNaturalSize?.h, webScale]);
+  }, [imageBox, imageNaturalSize?.w, imageNaturalSize?.h, webScale, measureTextBoxImg, phoneTextValue, phoneFontFamily, phoneFontWeight, phoneFontSizePt, addressTextValue, addressFontFamily, addressFontWeight, addressFontSizePt]);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -2090,8 +2124,32 @@ const PosterDetail: React.FC = () => {
             ? printPhoneTextRef.current
             : printCenterTextRef.current;
       const textRect = textEl ? textEl.getBoundingClientRect() : null;
-      const textW = (textRect && textRect.width) || 0;
-      const textH = (textRect && textRect.height) || 0;
+
+      // Use measureTextBoxImg for phone and address to match canvas rendering
+      let textW = 0;
+      let textH = 0;
+      if (target === "phone") {
+        const measured = measureTextBoxImg({
+          text: phoneTextValue,
+          fontFamily: printPhoneFontFamily,
+          fontWeight: printPhoneFontWeight,
+          fontSizePt: printPhoneFontSizePt,
+        });
+        textW = measured?.w || 0;
+        textH = measured?.h || 0;
+      } else if (target === "address") {
+        const measured = measureTextBoxImg({
+          text: addressTextValue,
+          fontFamily: printAddressFontFamily,
+          fontWeight: printAddressFontWeight,
+          fontSizePt: printAddressFontSizePt,
+        });
+        textW = measured?.w || 0;
+        textH = measured?.h || 0;
+      } else {
+        textW = (textRect && textRect.width) || 0;
+        textH = (textRect && textRect.height) || 0;
+      }
 
       const natW = printImageNaturalSize?.w || 0;
       const natH = printImageNaturalSize?.h || 0;
@@ -2101,8 +2159,8 @@ const PosterDetail: React.FC = () => {
       const pointerXImg = (e.clientX - rect.left - printImageBox.left) / scale;
       const pointerYImg = (e.clientY - rect.top - printImageBox.top) / scale;
 
-      const textWImg = textW / scale;
-      const textHImg = textH / scale;
+      const textWImg = textW;
+      const textHImg = textH;
 
       const maxX = Math.max(0, natW - textWImg);
       const maxY = Math.max(0, natH - textHImg);
@@ -2152,7 +2210,7 @@ const PosterDetail: React.FC = () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [printImageBox, printImageNaturalSize?.w, printImageNaturalSize?.h, printScale]);
+  }, [printImageBox, printImageNaturalSize?.w, printImageNaturalSize?.h, printScale, measureTextBoxImg, phoneTextValue, printPhoneFontFamily, printPhoneFontWeight, printPhoneFontSizePt, addressTextValue, printAddressFontFamily, printAddressFontWeight, printAddressFontSizePt]);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -2172,8 +2230,32 @@ const PosterDetail: React.FC = () => {
             : bannerCenterTextRef.current;
 
       const textRect = textEl ? textEl.getBoundingClientRect() : null;
-      const textW = (textRect && textRect.width) || 0;
-      const textH = (textRect && textRect.height) || 0;
+
+      // Use measureTextBoxImg for phone and address to match canvas rendering
+      let textW = 0;
+      let textH = 0;
+      if (target === "phone") {
+        const measured = measureTextBoxImg({
+          text: phoneTextValue,
+          fontFamily: bannerPhoneFontFamily,
+          fontWeight: bannerPhoneFontWeight,
+          fontSizePt: bannerPhoneFontSizePt,
+        });
+        textW = measured?.w || 0;
+        textH = measured?.h || 0;
+      } else if (target === "address") {
+        const measured = measureTextBoxImg({
+          text: addressTextValue,
+          fontFamily: bannerAddressFontFamily,
+          fontWeight: bannerAddressFontWeight,
+          fontSizePt: bannerAddressFontSizePt,
+        });
+        textW = measured?.w || 0;
+        textH = measured?.h || 0;
+      } else {
+        textW = (textRect && textRect.width) || 0;
+        textH = (textRect && textRect.height) || 0;
+      }
 
       const natW = bannerImageNaturalSize?.w || 0;
       const natH = bannerImageNaturalSize?.h || 0;
@@ -2184,8 +2266,8 @@ const PosterDetail: React.FC = () => {
       const pointerXImg = (e.clientX - rect.left - bannerImageBox.left) / scale;
       const pointerYImg = (e.clientY - rect.top - bannerImageBox.top) / scale;
 
-      const textWImg = textW / scale;
-      const textHImg = textH / scale;
+      const textWImg = textW;
+      const textHImg = textH;
 
       // BANNER: center text uses textAlign="center" (x is the anchor center),
       // others are left-aligned (x is the left).
@@ -2243,7 +2325,7 @@ const PosterDetail: React.FC = () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [bannerImageBox, bannerImageNaturalSize?.w, bannerImageNaturalSize?.h, bannerScale]);
+  }, [bannerImageBox, bannerImageNaturalSize?.w, bannerImageNaturalSize?.h, bannerScale, measureTextBoxImg, phoneTextValue, bannerPhoneFontFamily, bannerPhoneFontWeight, bannerPhoneFontSizePt, addressTextValue, bannerAddressFontFamily, bannerAddressFontWeight, bannerAddressFontSizePt]);
 
   // Render overlay via canvas so preview and download share the same renderer (pixel-identical).
   useEffect(() => {
@@ -2258,7 +2340,7 @@ const PosterDetail: React.FC = () => {
         if (showWebCenterLine && centerTextValue) await ensureFontLoaded(fontFamily || "");
         if (showWebAddressLine && addressTextValue) await ensureFontLoaded(addressFontFamily || "");
         if (showWebPhoneLine && phoneTextValue) await ensureFontLoaded(phoneFontFamily || "");
-      } catch {}
+      } catch { }
       // If a newer draw was scheduled, abort this stale draw (prevents random fallback overwrites).
       if (drawSeq !== webOverlayDrawSeqRef.current) return;
 
@@ -2370,7 +2452,7 @@ const PosterDetail: React.FC = () => {
         if (showPrintCenterLine && centerTextValue) await ensureFontLoaded(printFontFamily || "");
         if (showPrintAddressLine && addressTextValue) await ensureFontLoaded(printAddressFontFamily || "");
         if (showPrintPhoneLine && phoneTextValue) await ensureFontLoaded(printPhoneFontFamily || "");
-      } catch {}
+      } catch { }
       if (drawSeq !== printOverlayDrawSeqRef.current) return;
 
       const dpr = window.devicePixelRatio || 1;
@@ -2414,9 +2496,8 @@ const PosterDetail: React.FC = () => {
       if (showPrintAddressLine && addressTextValue) {
         const size = ((Number(printAddressFontSizePt || 230) * 4) / 3) * scale;
         ctx.fillStyle = printAddressFontColor || "#ffffff";
-        ctx.font = `${Number(printAddressFontWeight || 400)} ${size}px "${
-          printAddressFontFamily || ""
-        }"`;
+        ctx.font = `${Number(printAddressFontWeight || 400)} ${size}px "${printAddressFontFamily || ""
+          }"`;
         ctx.fillText(
           String(addressTextValue || ""),
           Math.round(Number(printAddressPos.x || 0) * scale),
@@ -2426,9 +2507,8 @@ const PosterDetail: React.FC = () => {
       if (showPrintPhoneLine && phoneTextValue) {
         const size = ((Number(printPhoneFontSizePt || 230) * 4) / 3) * scale;
         ctx.fillStyle = printPhoneFontColor || "#ffffff";
-        ctx.font = `${Number(printPhoneFontWeight || 400)} ${size}px "${
-          printPhoneFontFamily || ""
-        }"`;
+        ctx.font = `${Number(printPhoneFontWeight || 400)} ${size}px "${printPhoneFontFamily || ""
+          }"`;
         ctx.fillText(
           String(phoneTextValue || ""),
           Math.round(Number(printPhonePos.x || 0) * scale),
@@ -2484,7 +2564,7 @@ const PosterDetail: React.FC = () => {
         if (showBannerCenterLine && centerTextValue) await ensureFontLoaded(bannerFontFamily || "");
         if (showBannerAddressLine && addressTextValue) await ensureFontLoaded(bannerAddressFontFamily || "");
         if (showBannerPhoneLine && phoneTextValue) await ensureFontLoaded(bannerPhoneFontFamily || "");
-      } catch {}
+      } catch { }
       if (drawSeq !== bannerOverlayDrawSeqRef.current) return;
 
       const dpr = window.devicePixelRatio || 1;
@@ -2876,7 +2956,7 @@ const PosterDetail: React.FC = () => {
     bannerPhonePos,
     ensureFontLoaded,
   ]);
-  
+
   return (
     <div className="min-h-screen p-3 sm:p-10">
       <div className="flex justify-between">
@@ -2925,44 +3005,40 @@ const PosterDetail: React.FC = () => {
           <div className="inline-flex items-center rounded-2xl bg-white p-1 shadow-md ring-1 ring-black/5">
             <button
               type="button"
-                className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-                  posterView.web && posterView.print && posterView.banner
-                    ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
-                    : "text-gray-700 hover:bg-slate-50"
+              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${posterView.web && posterView.print && posterView.banner
+                ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
+                : "text-gray-700 hover:bg-slate-50"
                 }`}
-                onClick={() => setPosterView({ web: true, print: true, banner: true })}
-              >
-                전체
+              onClick={() => setPosterView({ web: true, print: true, banner: true })}
+            >
+              전체
             </button>
             <button
               type="button"
-              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-                posterView.web && !posterView.print && !posterView.banner
-                  ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-slate-50"
-              }`}
+              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${posterView.web && !posterView.print && !posterView.banner
+                ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
+                : "text-gray-700 hover:bg-slate-50"
+                }`}
               onClick={() => setPosterView({ web: true, print: false, banner: false })}
             >
               웹용
             </button>
             <button
               type="button"
-              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-                posterView.print && !posterView.web && !posterView.banner
-                  ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-slate-50"
-              }`}
+              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${posterView.print && !posterView.web && !posterView.banner
+                ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
+                : "text-gray-700 hover:bg-slate-50"
+                }`}
               onClick={() => setPosterView({ web: false, print: true, banner: false })}
             >
               전단지용
             </button>
             <button
               type="button"
-              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
-                posterView.banner && !posterView.web && !posterView.print
-                  ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-slate-50"
-              }`}
+              className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${posterView.banner && !posterView.web && !posterView.print
+                ? "bg-gradient-to-r from-blue-700 to-indigo-600 text-white shadow-sm"
+                : "text-gray-700 hover:bg-slate-50"
+                }`}
               onClick={() => setPosterView({ web: false, print: false, banner: true })}
             >
               배너용
@@ -2986,1486 +3062,1482 @@ const PosterDetail: React.FC = () => {
 
       {isAdmin ? (
         <div className="mt-4 bg-white shadow-md sm:rounded-lg p-4">
-            <div className="mt-4 font-bold text-base">포스터 제목</div>
-            <input
-              type="text"
-              className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-              value={posterTitle}
-              onChange={(e) => setPosterTitle(e.target.value)}
-              placeholder="포스터 제목 입력"
-            />
+          <div className="mt-4 font-bold text-base">포스터 제목</div>
+          <input
+            type="text"
+            className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+            value={posterTitle}
+            onChange={(e) => setPosterTitle(e.target.value)}
+            placeholder="포스터 제목 입력"
+          />
 
           <div className="mt-4 font-bold text-base">다운로드 가능 기간</div>
-            <div className="mt-2 flex items-center gap-6">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="postRangeMode"
-                  value="manual"
-                  checked={postRangeMode === "manual"}
-                  onChange={() => setPostRangeMode("manual")}
-                  className="form-radio h-4 w-4 text-blue-600"
-                />
-                <span className="ml-2 text-sm">직접입력</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="postRangeMode"
-                  value="forever"
-                  checked={postRangeMode === "forever"}
-                  onChange={() => setPostRangeMode("forever")}
-                  className="form-radio h-4 w-4 text-blue-600"
-                />
-                <span className="ml-2 text-sm">무기한</span>
-              </label>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-6">
+            <label className="inline-flex items-center">
               <input
-                type="datetime-local"
-                step="60"
-                className="w-full p-2 border border-gray-300 rounded bg-white text-sm cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                value={postStartAt}
-                onChange={(e) => setPostStartAt(e.target.value)}
-                onClick={(e) => openInputDatePicker(e.currentTarget)}
-                onFocus={(e) => openInputDatePicker(e.currentTarget)}
-              disabled={postRangeMode === "forever"}
+                type="radio"
+                name="postRangeMode"
+                value="manual"
+                checked={postRangeMode === "manual"}
+                onChange={() => setPostRangeMode("manual")}
+                className="form-radio h-4 w-4 text-blue-600"
               />
-              <span className="text-sm text-gray-600">~</span>
+              <span className="ml-2 text-sm">직접입력</span>
+            </label>
+            <label className="inline-flex items-center">
               <input
-                type="datetime-local"
-                step="60"
-                className="w-full p-2 border border-gray-300 rounded bg-white text-sm cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                value={postEndAt}
-                onChange={(e) => setPostEndAt(e.target.value)}
-                onClick={(e) => openInputDatePicker(e.currentTarget)}
-                onFocus={(e) => openInputDatePicker(e.currentTarget)}
-              disabled={postRangeMode === "forever"}
+                type="radio"
+                name="postRangeMode"
+                value="forever"
+                checked={postRangeMode === "forever"}
+                onChange={() => setPostRangeMode("forever")}
+                className="form-radio h-4 w-4 text-blue-600"
               />
-            </div>
+              <span className="ml-2 text-sm">무기한</span>
+            </label>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="datetime-local"
+              step="60"
+              className="w-full p-2 border border-gray-300 rounded bg-white text-sm cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+              value={postStartAt}
+              onChange={(e) => setPostStartAt(e.target.value)}
+              onClick={(e) => openInputDatePicker(e.currentTarget)}
+              onFocus={(e) => openInputDatePicker(e.currentTarget)}
+              disabled={postRangeMode === "forever"}
+            />
+            <span className="text-sm text-gray-600">~</span>
+            <input
+              type="datetime-local"
+              step="60"
+              className="w-full p-2 border border-gray-300 rounded bg-white text-sm cursor-pointer disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+              value={postEndAt}
+              onChange={(e) => setPostEndAt(e.target.value)}
+              onClick={(e) => openInputDatePicker(e.currentTarget)}
+              onFocus={(e) => openInputDatePicker(e.currentTarget)}
+              disabled={postRangeMode === "forever"}
+            />
+          </div>
         </div>
       ) : null}
 
       {/* 기본 템플릿 업로드 + 큰 화면 미리보기 */}
       <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
         {isAdmin ? (
-        <>
-        {posterView.web ? (
-        <div
-          className={`${
-            isBothView ? "lg:col-span-1 order-2" : "lg:col-span-1 order-1"
-          } bg-white shadow-md sm:rounded-lg p-4`}
-        >
-          <div className="text-2xl font-extrabold mb-2">웹용</div>
-          <div className="font-bold text-base mb-2">기본 템플릿</div>
-          <input
-            id="poster-template-image-input"
-            type="file"
-            accept=".png,.jpg,.jpeg"
-            onChange={handleTemplateImageChange}
-            className="hidden"
-          />
+          <>
+            {posterView.web ? (
+              <div
+                className={`${isBothView ? "lg:col-span-1 order-2" : "lg:col-span-1 order-1"
+                  } bg-white shadow-md sm:rounded-lg p-4`}
+              >
+                <div className="text-2xl font-extrabold mb-2">웹용</div>
+                <div className="font-bold text-base mb-2">기본 템플릿</div>
+                <input
+                  id="poster-template-image-input"
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={handleTemplateImageChange}
+                  className="hidden"
+                />
 
-          <button
-            type="button"
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-bold hover:bg-blue-700"
-            onClick={() => {
-              const input = document.getElementById(
-                "poster-template-image-input"
-              ) as HTMLInputElement | null;
-              input?.click();
-            }}
-          >
-            이미지 선택
-          </button>
+                <button
+                  type="button"
+                  className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-bold hover:bg-blue-700"
+                  onClick={() => {
+                    const input = document.getElementById(
+                      "poster-template-image-input"
+                    ) as HTMLInputElement | null;
+                    input?.click();
+                  }}
+                >
+                  이미지 선택
+                </button>
 
-          <div className="mt-2 text-xs text-gray-500">
-            PNG/JPG, 최대 100MB, DPI 100 이하
-          </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  PNG/JPG, 최대 50MB, DPI 100 이하
+                </div>
 
-          <div className="mt-3 text-sm text-gray-800">
-            <div className="font-semibold">파일명</div>
-              {templateFile ? (
-                <div className="break-all">{templateFile.name}</div>
-              ) : webPoster?.file_name ? (
-                <div className="break-all">{webPoster.file_name}</div>
-              ) : (
-                <div className="text-red-500">이미지를 업로드 해주세요.</div>
-              )}
+                <div className="mt-3 text-sm text-gray-800">
+                  <div className="font-semibold">파일명</div>
+                  {templateFile ? (
+                    <div className="break-all">{templateFile.name}</div>
+                  ) : webPoster?.file_name ? (
+                    <div className="break-all">{webPoster.file_name}</div>
+                  ) : (
+                    <div className="text-red-500">이미지를 업로드 해주세요.</div>
+                  )}
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {showWebCenterLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">지점명</div>
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {showWebCenterLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">지점명</div>
 
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={fontFamily}
-                    onChange={(e) => setFontFamily(e.target.value)}
-                    disabled={!webEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={`${f.family}__${f.url}`} value={f.family}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={fontFamily}
+                          onChange={(e) => setFontFamily(e.target.value)}
+                          disabled={!webEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option key={`${f.family}__${f.url}`} value={f.family}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
 
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={fontWeight}
-                    onChange={(e) => setFontWeight(Number(e.target.value))}
-                    disabled={!webEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={fontWeight}
+                          onChange={(e) => setFontWeight(Number(e.target.value))}
+                          disabled={!webEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
 
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={fontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!webEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={fontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!webEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={fontColor}
+                            onChange={(e) => setFontColor(e.target.value)}
+                            disabled={!webEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={fontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(fontColor)) {
+                                setFontColor("#ffffff");
+                              } else {
+                                setFontColor(fontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!webEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(textPos.x * (webScale || 1))}
+                              onChange={(e) =>
+                                setTextPos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (webScale || 1),
+                                }))
+                              }
+                              disabled={!webEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(textPos.y * (webScale || 1))}
+                              onChange={(e) =>
+                                setTextPos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (webScale || 1),
+                                }))
+                              }
+                              disabled={!webEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {showWebAddressLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">주소</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={addressFontFamily}
+                          onChange={(e) => setAddressFontFamily(e.target.value)}
+                          disabled={!webEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option key={`addr__${f.family}__${f.url}`} value={f.family}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={addressFontWeight}
+                          onChange={(e) => setAddressFontWeight(Number(e.target.value))}
+                          disabled={!webEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={addressFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setAddressFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!webEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={addressFontColor}
+                            onChange={(e) => setAddressFontColor(e.target.value)}
+                            disabled={!webEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={addressFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setAddressFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(addressFontColor)) {
+                                setAddressFontColor("#ffffff");
+                              } else {
+                                setAddressFontColor(addressFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!webEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(addressPos.x * (webScale || 1))}
+                              onChange={(e) =>
+                                setAddressPos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (webScale || 1),
+                                }))
+                              }
+                              disabled={!webEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(addressPos.y * (webScale || 1))}
+                              onChange={(e) =>
+                                setAddressPos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (webScale || 1),
+                                }))
+                              }
+                              disabled={!webEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {showWebPhoneLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">매장번호</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={phoneFontFamily}
+                          onChange={(e) => setPhoneFontFamily(e.target.value)}
+                          disabled={!webEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option key={`phone__${f.family}__${f.url}`} value={f.family}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={phoneFontWeight}
+                          onChange={(e) => setPhoneFontWeight(Number(e.target.value))}
+                          disabled={!webEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={phoneFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setPhoneFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!webEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={phoneFontColor}
+                            onChange={(e) => setPhoneFontColor(e.target.value)}
+                            disabled={!webEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={phoneFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setPhoneFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(phoneFontColor)) {
+                                setPhoneFontColor("#ffffff");
+                              } else {
+                                setPhoneFontColor(phoneFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!webEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(phonePos.x * (webScale || 1))}
+                              onChange={(e) =>
+                                setPhonePos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (webScale || 1),
+                                }))
+                              }
+                              disabled={!webEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(phonePos.y * (webScale || 1))}
+                              onChange={(e) =>
+                                setPhonePos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (webScale || 1),
+                                }))
+                              }
+                              disabled={!webEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={fontColor}
-                      onChange={(e) => setFontColor(e.target.value)}
-                      disabled={!webEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={fontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(fontColor)) {
-                          setFontColor("#ffffff");
-                        } else {
-                          setFontColor(fontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!webEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
+                  <div className="mt-4 font-bold text-base">표시 항목</div>
+                  <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                    <label className="flex items-start gap-2">
                       <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(textPos.x * (webScale || 1))}
-                        onChange={(e) =>
-                          setTextPos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (webScale || 1),
-                          }))
-                        }
-                        disabled={!webEditable}
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showWebCenterLine}
+                        onChange={(e) => setShowWebCenterLine(e.target.checked)}
                       />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
+                      <span className="whitespace-pre-wrap break-words">
+                        센터명 : {String(centerTextValue || "")}
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2">
                       <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(textPos.y * (webScale || 1))}
-                        onChange={(e) =>
-                          setTextPos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (webScale || 1),
-                          }))
-                        }
-                        disabled={!webEditable}
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showWebAddressLine}
+                        onChange={(e) => setShowWebAddressLine(e.target.checked)}
                       />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
+                      <span className="whitespace-pre-wrap break-words">
+                        주소 : {String(addressTextValue || "")}
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showWebPhoneLine}
+                        onChange={(e) => setShowWebPhoneLine(e.target.checked)}
+                      />
+                      <span className="whitespace-pre-wrap break-words">
+                        매장번호 : {String(phoneTextValue || "")}
+                      </span>
+                    </label>
                   </div>
                 </div>
-              ) : null}
+              </div>
+            ) : null}
 
-              {showWebAddressLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">주소</div>
+            {posterView.print ? (
+              <div
+                className={`${isBothView ? "lg:col-span-1 order-2" : "lg:col-span-1 order-1"
+                  } bg-white shadow-md sm:rounded-lg p-4`}
+              >
+                <div className="text-2xl font-extrabold mb-2">전단지용</div>
+                <div className="font-bold text-base mb-2">기본 템플릿</div>
+                <input
+                  id="poster-print-template-image-input"
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={handlePrintTemplateImageChange}
+                  className="hidden"
+                />
 
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={addressFontFamily}
-                    onChange={(e) => setAddressFontFamily(e.target.value)}
-                    disabled={!webEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={`addr__${f.family}__${f.url}`} value={f.family}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
+                <button
+                  type="button"
+                  className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-bold hover:bg-blue-700"
+                  onClick={() => {
+                    const input = document.getElementById(
+                      "poster-print-template-image-input"
+                    ) as HTMLInputElement | null;
+                    input?.click();
+                  }}
+                >
+                  이미지 선택
+                </button>
 
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={addressFontWeight}
-                    onChange={(e) => setAddressFontWeight(Number(e.target.value))}
-                    disabled={!webEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
+                <div className="mt-2 text-xs text-gray-500">
+                  PNG/JPG, 최대 50MB, DPI 200 이상
+                </div>
 
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={addressFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setAddressFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!webEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
+                <div className="mt-4 font-bold text-base">전단지 타입</div>
+                <select
+                  className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                  value={flyerType}
+                  onChange={(e) => setFlyerType(e.target.value as "A4" | "A5")}
+                  disabled={!printTemplateFile && !printPoster?.file_id}
+                >
+                  <option value="A4">A4</option>
+                  <option value="A5">A5</option>
+                </select>
+
+                <div className="mt-3 text-sm text-gray-800">
+                  <div className="font-semibold">파일명</div>
+                  {printTemplateFile ? (
+                    <div className="break-all">{printTemplateFile.name}</div>
+                  ) : printPoster?.file_name ? (
+                    <div className="break-all">{printPoster.file_name}</div>
+                  ) : (
+                    <div className="text-red-500">이미지를 업로드 해주세요.</div>
+                  )}
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {showPrintCenterLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">지점명</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={printFontFamily}
+                          onChange={(e) => setPrintFontFamily(e.target.value)}
+                          disabled={!printEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option key={`print__${f.family}__${f.url}`} value={f.family}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={printFontWeight}
+                          onChange={(e) => setPrintFontWeight(Number(e.target.value))}
+                          disabled={!printEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={printFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setPrintFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!printEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={printFontColor}
+                            onChange={(e) => setPrintFontColor(e.target.value)}
+                            disabled={!printEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={printFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setPrintFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(printFontColor)) {
+                                setPrintFontColor("#ffffff");
+                              } else {
+                                setPrintFontColor(printFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!printEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(printTextPos.x * (printScale || 1))}
+                              onChange={(e) =>
+                                setPrintTextPos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (printScale || 1),
+                                }))
+                              }
+                              disabled={!printEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(printTextPos.y * (printScale || 1))}
+                              onChange={(e) =>
+                                setPrintTextPos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (printScale || 1),
+                                }))
+                              }
+                              disabled={!printEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {showPrintAddressLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">주소</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={printAddressFontFamily}
+                          onChange={(e) => setPrintAddressFontFamily(e.target.value)}
+                          disabled={!printEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option key={`print_addr__${f.family}__${f.url}`} value={f.family}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={printAddressFontWeight}
+                          onChange={(e) => setPrintAddressFontWeight(Number(e.target.value))}
+                          disabled={!printEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={printAddressFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setPrintAddressFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!printEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={printAddressFontColor}
+                            onChange={(e) => setPrintAddressFontColor(e.target.value)}
+                            disabled={!printEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={printAddressFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setPrintAddressFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(printAddressFontColor)) {
+                                setPrintAddressFontColor("#ffffff");
+                              } else {
+                                setPrintAddressFontColor(printAddressFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!printEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(printAddressPos.x * (printScale || 1))}
+                              onChange={(e) =>
+                                setPrintAddressPos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (printScale || 1),
+                                }))
+                              }
+                              disabled={!printEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(printAddressPos.y * (printScale || 1))}
+                              onChange={(e) =>
+                                setPrintAddressPos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (printScale || 1),
+                                }))
+                              }
+                              disabled={!printEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {showPrintPhoneLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">매장번호</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={printPhoneFontFamily}
+                          onChange={(e) => setPrintPhoneFontFamily(e.target.value)}
+                          disabled={!printEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option key={`print_phone__${f.family}__${f.url}`} value={f.family}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={printPhoneFontWeight}
+                          onChange={(e) => setPrintPhoneFontWeight(Number(e.target.value))}
+                          disabled={!printEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={printPhoneFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setPrintPhoneFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!printEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={printPhoneFontColor}
+                            onChange={(e) => setPrintPhoneFontColor(e.target.value)}
+                            disabled={!printEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={printPhoneFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setPrintPhoneFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(printPhoneFontColor)) {
+                                setPrintPhoneFontColor("#ffffff");
+                              } else {
+                                setPrintPhoneFontColor(printPhoneFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!printEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(printPhonePos.x * (printScale || 1))}
+                              onChange={(e) =>
+                                setPrintPhonePos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (printScale || 1),
+                                }))
+                              }
+                              disabled={!printEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(printPhonePos.y * (printScale || 1))}
+                              onChange={(e) =>
+                                setPrintPhonePos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (printScale || 1),
+                                }))
+                              }
+                              disabled={!printEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={addressFontColor}
-                      onChange={(e) => setAddressFontColor(e.target.value)}
-                      disabled={!webEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={addressFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setAddressFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(addressFontColor)) {
-                          setAddressFontColor("#ffffff");
-                        } else {
-                          setAddressFontColor(addressFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!webEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
+                  <div className="mt-4 font-bold text-base">표시 항목</div>
+                  <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                    <label className="flex items-start gap-2">
                       <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(addressPos.x * (webScale || 1))}
-                        onChange={(e) =>
-                          setAddressPos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (webScale || 1),
-                          }))
-                        }
-                        disabled={!webEditable}
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showPrintCenterLine}
+                        onChange={(e) => setShowPrintCenterLine(e.target.checked)}
                       />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
+                      <span className="whitespace-pre-wrap break-words">
+                        센터명 : {String(centerTextValue || "")}
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2">
                       <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(addressPos.y * (webScale || 1))}
-                        onChange={(e) =>
-                          setAddressPos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (webScale || 1),
-                          }))
-                        }
-                        disabled={!webEditable}
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showPrintAddressLine}
+                        onChange={(e) => setShowPrintAddressLine(e.target.checked)}
                       />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
+                      <span className="whitespace-pre-wrap break-words">
+                        주소 : {String(addressTextValue || "")}
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showPrintPhoneLine}
+                        onChange={(e) => setShowPrintPhoneLine(e.target.checked)}
+                      />
+                      <span className="whitespace-pre-wrap break-words">
+                        매장번호 : {String(phoneTextValue || "")}
+                      </span>
+                    </label>
                   </div>
                 </div>
-              ) : null}
+              </div>
+            ) : null}
 
-              {showWebPhoneLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">매장번호</div>
+            {posterView.banner ? (
+              <div
+                className={`${isBothView ? "lg:col-span-1 order-3" : "lg:col-span-1 order-1"
+                  } bg-white shadow-md sm:rounded-lg p-4`}
+              >
+                <div className="text-2xl font-extrabold mb-2">배너용</div>
+                <div className="font-bold text-base mb-2">기본 템플릿</div>
+                <input
+                  id="poster-banner-template-image-input"
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={handleBannerTemplateImageChange}
+                  className="hidden"
+                />
 
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={phoneFontFamily}
-                    onChange={(e) => setPhoneFontFamily(e.target.value)}
-                    disabled={!webEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={`phone__${f.family}__${f.url}`} value={f.family}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
+                <button
+                  type="button"
+                  className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-bold hover:bg-blue-700"
+                  onClick={() => {
+                    const input = document.getElementById(
+                      "poster-banner-template-image-input"
+                    ) as HTMLInputElement | null;
+                    input?.click();
+                  }}
+                >
+                  이미지 선택
+                </button>
 
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={phoneFontWeight}
-                    onChange={(e) => setPhoneFontWeight(Number(e.target.value))}
-                    disabled={!webEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
+                <div className="mt-2 text-xs text-gray-500">
+                  PNG/JPG
+                </div>
 
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={phoneFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setPhoneFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!webEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
+                <div className="mt-3 text-sm text-gray-800">
+                  <div className="font-semibold">파일명</div>
+                  {bannerTemplateFile ? (
+                    <div className="break-all">{bannerTemplateFile.name}</div>
+                  ) : bannerPoster?.file_name ? (
+                    <div className="break-all">{bannerPoster.file_name}</div>
+                  ) : (
+                    <div className="text-red-500">이미지를 업로드 해주세요.</div>
+                  )}
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {showBannerCenterLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">지점명</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={bannerFontFamily}
+                          onChange={(e) => setBannerFontFamily(e.target.value)}
+                          disabled={!bannerEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option key={`banner__${f.family}__${f.url}`} value={f.family}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={bannerFontWeight}
+                          onChange={(e) => setBannerFontWeight(Number(e.target.value))}
+                          disabled={!bannerEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={bannerFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setBannerFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!bannerEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={bannerFontColor}
+                            onChange={(e) => setBannerFontColor(e.target.value)}
+                            disabled={!bannerEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={bannerFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setBannerFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(bannerFontColor)) {
+                                setBannerFontColor("#ffffff");
+                              } else {
+                                setBannerFontColor(bannerFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!bannerEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(bannerTextPos.x * (bannerScale || 1))}
+                              onChange={(e) =>
+                                setBannerTextPos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (bannerScale || 1),
+                                }))
+                              }
+                              disabled={!bannerEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(bannerTextPos.y * (bannerScale || 1))}
+                              onChange={(e) =>
+                                setBannerTextPos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (bannerScale || 1),
+                                }))
+                              }
+                              disabled={!bannerEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {showBannerAddressLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">주소</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={bannerAddressFontFamily}
+                          onChange={(e) => setBannerAddressFontFamily(e.target.value)}
+                          disabled={!bannerEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option
+                              key={`banner_addr__${f.family}__${f.url}`}
+                              value={f.family}
+                            >
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={bannerAddressFontWeight}
+                          onChange={(e) => setBannerAddressFontWeight(Number(e.target.value))}
+                          disabled={!bannerEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={bannerAddressFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setBannerAddressFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!bannerEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={bannerAddressFontColor}
+                            onChange={(e) => setBannerAddressFontColor(e.target.value)}
+                            disabled={!bannerEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={bannerAddressFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setBannerAddressFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(bannerAddressFontColor)) {
+                                setBannerAddressFontColor("#ffffff");
+                              } else {
+                                setBannerAddressFontColor(bannerAddressFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!bannerEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(bannerAddressPos.x * (bannerScale || 1))}
+                              onChange={(e) =>
+                                setBannerAddressPos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (bannerScale || 1),
+                                }))
+                              }
+                              disabled={!bannerEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(bannerAddressPos.y * (bannerScale || 1))}
+                              onChange={(e) =>
+                                setBannerAddressPos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (bannerScale || 1),
+                                }))
+                              }
+                              disabled={!bannerEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {showBannerPhoneLine ? (
+                      <div className="rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="font-bold text-base">매장번호</div>
+
+                        <div className="mt-3 font-bold text-base">폰트</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={bannerPhoneFontFamily}
+                          onChange={(e) => setBannerPhoneFontFamily(e.target.value)}
+                          disabled={!bannerEditable}
+                        >
+                          <option value="" disabled>
+                            선택
+                          </option>
+                          {FONT_OPTIONS.map((f) => (
+                            <option
+                              key={`banner_phone__${f.family}__${f.url}`}
+                              value={f.family}
+                            >
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 굵기</div>
+                        <select
+                          className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                          value={bannerPhoneFontWeight}
+                          onChange={(e) => setBannerPhoneFontWeight(Number(e.target.value))}
+                          disabled={!bannerEditable}
+                        >
+                          <option value={100}>100</option>
+                          <option value={200}>200</option>
+                          <option value={300}>300</option>
+                          <option value={400}>400 (일반)</option>
+                          <option value={500}>500</option>
+                          <option value={600}>600</option>
+                          <option value={700}>700 (굵게)</option>
+                          <option value={800}>800</option>
+                          <option value={900}>900</option>
+                        </select>
+
+                        <div className="mt-4 font-bold text-base">폰트 크기</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={300}
+                            step={1}
+                            className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                            value={bannerPhoneFontSizePt}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setBannerPhoneFontSizePt(v === "" ? 12 : Number(v));
+                            }}
+                            disabled={!bannerEditable}
+                          />
+                          <span className="text-sm text-gray-600">pt</span>
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">색상</div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <input
+                            type="color"
+                            className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
+                            value={bannerPhoneFontColor}
+                            onChange={(e) => setBannerPhoneFontColor(e.target.value)}
+                            disabled={!bannerEditable}
+                          />
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
+                            value={bannerPhoneFontColor}
+                            placeholder="#RRGGBB"
+                            onChange={(e) => {
+                              const raw = e.target.value.trim();
+                              const next =
+                                raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
+                              if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
+                                setBannerPhoneFontColor(next);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!/^#[0-9a-fA-F]{6}$/.test(bannerPhoneFontColor)) {
+                                setBannerPhoneFontColor("#ffffff");
+                              } else {
+                                setBannerPhoneFontColor(bannerPhoneFontColor.toLowerCase());
+                              }
+                            }}
+                            disabled={!bannerEditable}
+                          />
+                        </div>
+
+                        <div className="mt-4 font-bold text-base">위치</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(bannerPhonePos.x * (bannerScale || 1))}
+                              onChange={(e) =>
+                                setBannerPhonePos((prev) => ({
+                                  ...prev,
+                                  x: Number(e.target.value || 0) / (bannerScale || 1),
+                                }))
+                              }
+                              disabled={!bannerEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
+                              value={Math.round(bannerPhonePos.y * (bannerScale || 1))}
+                              onChange={(e) =>
+                                setBannerPhonePos((prev) => ({
+                                  ...prev,
+                                  y: Number(e.target.value || 0) / (bannerScale || 1),
+                                }))
+                              }
+                              disabled={!bannerEditable}
+                            />
+                            <span className="shrink-0 text-sm text-gray-600">px</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={phoneFontColor}
-                      onChange={(e) => setPhoneFontColor(e.target.value)}
-                      disabled={!webEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={phoneFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setPhoneFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(phoneFontColor)) {
-                          setPhoneFontColor("#ffffff");
-                        } else {
-                          setPhoneFontColor(phoneFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!webEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
+                  <div className="mt-4 font-bold text-base">표시 항목</div>
+                  <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                    <label className="flex items-start gap-2">
                       <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(phonePos.x * (webScale || 1))}
-                        onChange={(e) =>
-                          setPhonePos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (webScale || 1),
-                          }))
-                        }
-                        disabled={!webEditable}
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showBannerCenterLine}
+                        onChange={(e) => setShowBannerCenterLine(e.target.checked)}
                       />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
+                      <span className="whitespace-pre-wrap break-words">
+                        센터명 : {String(centerTextValue || "")}
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2">
                       <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(phonePos.y * (webScale || 1))}
-                        onChange={(e) =>
-                          setPhonePos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (webScale || 1),
-                          }))
-                        }
-                        disabled={!webEditable}
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showBannerAddressLine}
+                        onChange={(e) => setShowBannerAddressLine(e.target.checked)}
                       />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
+                      <span className="whitespace-pre-wrap break-words">
+                        주소 : {String(addressTextValue || "")}
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={showBannerPhoneLine}
+                        onChange={(e) => setShowBannerPhoneLine(e.target.checked)}
+                      />
+                      <span className="whitespace-pre-wrap break-words">
+                        매장번호 : {String(phoneTextValue || "")}
+                      </span>
+                    </label>
                   </div>
                 </div>
-              ) : null}
-            </div>
-
-            <div className="mt-4 font-bold text-base">표시 항목</div>
-            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showWebCenterLine}
-                  onChange={(e) => setShowWebCenterLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  센터명 : {String(centerTextValue || "")}
-                </span>
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showWebAddressLine}
-                  onChange={(e) => setShowWebAddressLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  주소 : {String(addressTextValue || "")}
-                </span>
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showWebPhoneLine}
-                  onChange={(e) => setShowWebPhoneLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  매장번호 : {String(phoneTextValue || "")}
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
-        ) : null}
-
-        {posterView.print ? (
-        <div
-          className={`${
-            isBothView ? "lg:col-span-1 order-2" : "lg:col-span-1 order-1"
-          } bg-white shadow-md sm:rounded-lg p-4`}
-        >
-          <div className="text-2xl font-extrabold mb-2">전단지용</div>
-          <div className="font-bold text-base mb-2">기본 템플릿</div>
-          <input
-            id="poster-print-template-image-input"
-            type="file"
-            accept=".png,.jpg,.jpeg"
-            onChange={handlePrintTemplateImageChange}
-            className="hidden"
-          />
-
-          <button
-            type="button"
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-bold hover:bg-blue-700"
-            onClick={() => {
-              const input = document.getElementById(
-                "poster-print-template-image-input"
-              ) as HTMLInputElement | null;
-              input?.click();
-            }}
-          >
-            이미지 선택
-          </button>
-
-          <div className="mt-2 text-xs text-gray-500">
-            PNG/JPG, 최대 100MB, DPI 200 이상
-          </div>
-
-          <div className="mt-4 font-bold text-base">전단지 타입</div>
-          <select
-            className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-            value={flyerType}
-            onChange={(e) => setFlyerType(e.target.value as "A4" | "A5")}
-            disabled={!printTemplateFile && !printPoster?.file_id}
-          >
-            <option value="A4">A4</option>
-            <option value="A5">A5</option>
-          </select>
-
-          <div className="mt-3 text-sm text-gray-800">
-            <div className="font-semibold">파일명</div>
-              {printTemplateFile ? (
-                <div className="break-all">{printTemplateFile.name}</div>
-              ) : printPoster?.file_name ? (
-                <div className="break-all">{printPoster.file_name}</div>
-              ) : (
-                <div className="text-red-500">이미지를 업로드 해주세요.</div>
-              )}
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {showPrintCenterLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">지점명</div>
-
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={printFontFamily}
-                    onChange={(e) => setPrintFontFamily(e.target.value)}
-                    disabled={!printEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={`print__${f.family}__${f.url}`} value={f.family}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={printFontWeight}
-                    onChange={(e) => setPrintFontWeight(Number(e.target.value))}
-                    disabled={!printEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={printFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setPrintFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!printEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={printFontColor}
-                      onChange={(e) => setPrintFontColor(e.target.value)}
-                      disabled={!printEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={printFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setPrintFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(printFontColor)) {
-                          setPrintFontColor("#ffffff");
-                        } else {
-                          setPrintFontColor(printFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!printEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(printTextPos.x * (printScale || 1))}
-                        onChange={(e) =>
-                          setPrintTextPos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (printScale || 1),
-                          }))
-                        }
-                        disabled={!printEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(printTextPos.y * (printScale || 1))}
-                        onChange={(e) =>
-                          setPrintTextPos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (printScale || 1),
-                          }))
-                        }
-                        disabled={!printEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {showPrintAddressLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">주소</div>
-
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={printAddressFontFamily}
-                    onChange={(e) => setPrintAddressFontFamily(e.target.value)}
-                    disabled={!printEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={`print_addr__${f.family}__${f.url}`} value={f.family}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={printAddressFontWeight}
-                    onChange={(e) => setPrintAddressFontWeight(Number(e.target.value))}
-                    disabled={!printEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={printAddressFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setPrintAddressFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!printEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={printAddressFontColor}
-                      onChange={(e) => setPrintAddressFontColor(e.target.value)}
-                      disabled={!printEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={printAddressFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setPrintAddressFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(printAddressFontColor)) {
-                          setPrintAddressFontColor("#ffffff");
-                        } else {
-                          setPrintAddressFontColor(printAddressFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!printEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(printAddressPos.x * (printScale || 1))}
-                        onChange={(e) =>
-                          setPrintAddressPos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (printScale || 1),
-                          }))
-                        }
-                        disabled={!printEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(printAddressPos.y * (printScale || 1))}
-                        onChange={(e) =>
-                          setPrintAddressPos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (printScale || 1),
-                          }))
-                        }
-                        disabled={!printEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {showPrintPhoneLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">매장번호</div>
-
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={printPhoneFontFamily}
-                    onChange={(e) => setPrintPhoneFontFamily(e.target.value)}
-                    disabled={!printEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={`print_phone__${f.family}__${f.url}`} value={f.family}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={printPhoneFontWeight}
-                    onChange={(e) => setPrintPhoneFontWeight(Number(e.target.value))}
-                    disabled={!printEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={printPhoneFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setPrintPhoneFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!printEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={printPhoneFontColor}
-                      onChange={(e) => setPrintPhoneFontColor(e.target.value)}
-                      disabled={!printEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={printPhoneFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setPrintPhoneFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(printPhoneFontColor)) {
-                          setPrintPhoneFontColor("#ffffff");
-                        } else {
-                          setPrintPhoneFontColor(printPhoneFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!printEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(printPhonePos.x * (printScale || 1))}
-                        onChange={(e) =>
-                          setPrintPhonePos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (printScale || 1),
-                          }))
-                        }
-                        disabled={!printEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(printPhonePos.y * (printScale || 1))}
-                        onChange={(e) =>
-                          setPrintPhonePos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (printScale || 1),
-                          }))
-                        }
-                        disabled={!printEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-4 font-bold text-base">표시 항목</div>
-            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showPrintCenterLine}
-                  onChange={(e) => setShowPrintCenterLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  센터명 : {String(centerTextValue || "")}
-                </span>
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showPrintAddressLine}
-                  onChange={(e) => setShowPrintAddressLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  주소 : {String(addressTextValue || "")}
-                </span>
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showPrintPhoneLine}
-                  onChange={(e) => setShowPrintPhoneLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  매장번호 : {String(phoneTextValue || "")}
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
-        ) : null}
-
-        {posterView.banner ? (
-        <div
-          className={`${
-            isBothView ? "lg:col-span-1 order-3" : "lg:col-span-1 order-1"
-          } bg-white shadow-md sm:rounded-lg p-4`}
-        >
-          <div className="text-2xl font-extrabold mb-2">배너용</div>
-          <div className="font-bold text-base mb-2">기본 템플릿</div>
-          <input
-            id="poster-banner-template-image-input"
-            type="file"
-            accept=".png,.jpg,.jpeg"
-            onChange={handleBannerTemplateImageChange}
-            className="hidden"
-          />
-
-          <button
-            type="button"
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm text-white font-bold hover:bg-blue-700"
-            onClick={() => {
-              const input = document.getElementById(
-                "poster-banner-template-image-input"
-              ) as HTMLInputElement | null;
-              input?.click();
-            }}
-          >
-            이미지 선택
-          </button>
-
-          <div className="mt-2 text-xs text-gray-500">
-            PNG/JPG
-          </div>
-
-          <div className="mt-3 text-sm text-gray-800">
-            <div className="font-semibold">파일명</div>
-            {bannerTemplateFile ? (
-              <div className="break-all">{bannerTemplateFile.name}</div>
-            ) : bannerPoster?.file_name ? (
-              <div className="break-all">{bannerPoster.file_name}</div>
-            ) : (
-              <div className="text-red-500">이미지를 업로드 해주세요.</div>
-            )}
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {showBannerCenterLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">지점명</div>
-
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={bannerFontFamily}
-                    onChange={(e) => setBannerFontFamily(e.target.value)}
-                    disabled={!bannerEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={`banner__${f.family}__${f.url}`} value={f.family}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={bannerFontWeight}
-                    onChange={(e) => setBannerFontWeight(Number(e.target.value))}
-                    disabled={!bannerEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={bannerFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setBannerFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!bannerEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={bannerFontColor}
-                      onChange={(e) => setBannerFontColor(e.target.value)}
-                      disabled={!bannerEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={bannerFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setBannerFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(bannerFontColor)) {
-                          setBannerFontColor("#ffffff");
-                        } else {
-                          setBannerFontColor(bannerFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!bannerEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(bannerTextPos.x * (bannerScale || 1))}
-                        onChange={(e) =>
-                          setBannerTextPos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (bannerScale || 1),
-                          }))
-                        }
-                        disabled={!bannerEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(bannerTextPos.y * (bannerScale || 1))}
-                        onChange={(e) =>
-                          setBannerTextPos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (bannerScale || 1),
-                          }))
-                        }
-                        disabled={!bannerEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {showBannerAddressLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">주소</div>
-
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={bannerAddressFontFamily}
-                    onChange={(e) => setBannerAddressFontFamily(e.target.value)}
-                    disabled={!bannerEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option
-                        key={`banner_addr__${f.family}__${f.url}`}
-                        value={f.family}
-                      >
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={bannerAddressFontWeight}
-                    onChange={(e) => setBannerAddressFontWeight(Number(e.target.value))}
-                    disabled={!bannerEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={bannerAddressFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setBannerAddressFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!bannerEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={bannerAddressFontColor}
-                      onChange={(e) => setBannerAddressFontColor(e.target.value)}
-                      disabled={!bannerEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={bannerAddressFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setBannerAddressFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(bannerAddressFontColor)) {
-                          setBannerAddressFontColor("#ffffff");
-                        } else {
-                          setBannerAddressFontColor(bannerAddressFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!bannerEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(bannerAddressPos.x * (bannerScale || 1))}
-                        onChange={(e) =>
-                          setBannerAddressPos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (bannerScale || 1),
-                          }))
-                        }
-                        disabled={!bannerEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(bannerAddressPos.y * (bannerScale || 1))}
-                        onChange={(e) =>
-                          setBannerAddressPos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (bannerScale || 1),
-                          }))
-                        }
-                        disabled={!bannerEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {showBannerPhoneLine ? (
-                <div className="rounded-lg border border-gray-200 bg-white p-3">
-                  <div className="font-bold text-base">매장번호</div>
-
-                  <div className="mt-3 font-bold text-base">폰트</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={bannerPhoneFontFamily}
-                    onChange={(e) => setBannerPhoneFontFamily(e.target.value)}
-                    disabled={!bannerEditable}
-                  >
-                    <option value="" disabled>
-                      선택
-                    </option>
-                    {FONT_OPTIONS.map((f) => (
-                      <option
-                        key={`banner_phone__${f.family}__${f.url}`}
-                        value={f.family}
-                      >
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 굵기</div>
-                  <select
-                    className="mt-2 w-full p-2 border border-gray-300 rounded bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                    value={bannerPhoneFontWeight}
-                    onChange={(e) => setBannerPhoneFontWeight(Number(e.target.value))}
-                    disabled={!bannerEditable}
-                  >
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                    <option value={300}>300</option>
-                    <option value={400}>400 (일반)</option>
-                    <option value={500}>500</option>
-                    <option value={600}>600</option>
-                    <option value={700}>700 (굵게)</option>
-                    <option value={800}>800</option>
-                    <option value={900}>900</option>
-                  </select>
-
-                  <div className="mt-4 font-bold text-base">폰트 크기</div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={300}
-                      step={1}
-                      className="w-20 p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                      value={bannerPhoneFontSizePt}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setBannerPhoneFontSizePt(v === "" ? 12 : Number(v));
-                      }}
-                      disabled={!bannerEditable}
-                    />
-                    <span className="text-sm text-gray-600">pt</span>
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">색상</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <input
-                      type="color"
-                      className="h-10 w-14 p-0 border border-gray-300 rounded bg-white disabled:bg-gray-100 disabled:opacity-60"
-                      value={bannerPhoneFontColor}
-                      onChange={(e) => setBannerPhoneFontColor(e.target.value)}
-                      disabled={!bannerEditable}
-                    />
-                    <input
-                      type="text"
-                      className="w-full p-2 border border-gray-300 rounded bg-white text-sm font-mono disabled:bg-gray-100 disabled:text-gray-400"
-                      value={bannerPhoneFontColor}
-                      placeholder="#RRGGBB"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next =
-                          raw.startsWith("#") || raw === "" ? raw : `#${raw}`;
-                        if (next === "" || /^#[0-9a-fA-F]{0,6}$/.test(next)) {
-                          setBannerPhoneFontColor(next);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!/^#[0-9a-fA-F]{6}$/.test(bannerPhoneFontColor)) {
-                          setBannerPhoneFontColor("#ffffff");
-                        } else {
-                          setBannerPhoneFontColor(bannerPhoneFontColor.toLowerCase());
-                        }
-                      }}
-                      disabled={!bannerEditable}
-                    />
-                  </div>
-
-                  <div className="mt-4 font-bold text-base">위치</div>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(bannerPhonePos.x * (bannerScale || 1))}
-                        onChange={(e) =>
-                          setBannerPhonePos((prev) => ({
-                            ...prev,
-                            x: Number(e.target.value || 0) / (bannerScale || 1),
-                          }))
-                        }
-                        disabled={!bannerEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="w-full p-2 border border-gray-300 rounded bg-white text-sm text-right disabled:bg-gray-100 disabled:text-gray-400"
-                        value={Math.round(bannerPhonePos.y * (bannerScale || 1))}
-                        onChange={(e) =>
-                          setBannerPhonePos((prev) => ({
-                            ...prev,
-                            y: Number(e.target.value || 0) / (bannerScale || 1),
-                          }))
-                        }
-                        disabled={!bannerEditable}
-                      />
-                      <span className="shrink-0 text-sm text-gray-600">px</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-4 font-bold text-base">표시 항목</div>
-            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showBannerCenterLine}
-                  onChange={(e) => setShowBannerCenterLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  센터명 : {String(centerTextValue || "")}
-                </span>
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showBannerAddressLine}
-                  onChange={(e) => setShowBannerAddressLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  주소 : {String(addressTextValue || "")}
-                </span>
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4"
-                  checked={showBannerPhoneLine}
-                  onChange={(e) => setShowBannerPhoneLine(e.target.checked)}
-                />
-                <span className="whitespace-pre-wrap break-words">
-                  매장번호 : {String(phoneTextValue || "")}
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
-        ) : null}
-        </>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         <div
-          className={`${
-            isAdmin
-              ? isBothView
-                ? "order-1 lg:col-span-2 space-y-4"
-                : "order-2 lg:col-span-1 space-y-4"
-              : "order-1 lg:col-span-2 space-y-4"
-          }`}
+          className={`${isAdmin
+            ? isBothView
+              ? "order-1 lg:col-span-2 space-y-4"
+              : "order-2 lg:col-span-1 space-y-4"
+            : "order-1 lg:col-span-2 space-y-4"
+            }`}
         >
           {isAllView ? (
             <div className="bg-white shadow-md sm:rounded-lg p-4 flex flex-col h-[calc(88vh-240px)]">
@@ -4571,9 +4643,8 @@ const PosterDetail: React.FC = () => {
                           {isAdmin && showWebCenterLine && centerTextValue ? (
                             <div
                               ref={centerTextRef}
-                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                                webEditable ? "cursor-move" : "cursor-not-allowed"
-                              }`}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${webEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
                               style={{
                                 left: imageBox.left + textPos.x * webScale,
                                 top: imageBox.top + textPos.y * webScale,
@@ -4593,7 +4664,7 @@ const PosterDetail: React.FC = () => {
                                 e.preventDefault();
                                 try {
                                   await ensureFontLoaded(fontFamily || "");
-                                } catch {}
+                                } catch { }
 
                                 draggingRef.current = true;
                                 dragTargetRef.current = "center";
@@ -4616,9 +4687,8 @@ const PosterDetail: React.FC = () => {
                           {isAdmin && showWebAddressLine && addressTextValue ? (
                             <div
                               ref={addressTextRef}
-                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                                webEditable ? "cursor-move" : "cursor-not-allowed"
-                              }`}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${webEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
                               style={{
                                 left: imageBox.left + addressPos.x * webScale,
                                 top: imageBox.top + addressPos.y * webScale,
@@ -4638,7 +4708,7 @@ const PosterDetail: React.FC = () => {
                                 e.preventDefault();
                                 try {
                                   await ensureFontLoaded(addressFontFamily || "");
-                                } catch {}
+                                } catch { }
 
                                 draggingRef.current = true;
                                 dragTargetRef.current = "address";
@@ -4661,9 +4731,8 @@ const PosterDetail: React.FC = () => {
                           {isAdmin && showWebPhoneLine && phoneTextValue ? (
                             <div
                               ref={phoneTextRef}
-                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                                webEditable ? "cursor-move" : "cursor-not-allowed"
-                              }`}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${webEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
                               style={{
                                 left: imageBox.left + phonePos.x * webScale,
                                 top: imageBox.top + phonePos.y * webScale,
@@ -4683,7 +4752,7 @@ const PosterDetail: React.FC = () => {
                                 e.preventDefault();
                                 try {
                                   await ensureFontLoaded(phoneFontFamily || "");
-                                } catch {}
+                                } catch { }
 
                                 draggingRef.current = true;
                                 dragTargetRef.current = "phone";
@@ -4781,159 +4850,156 @@ const PosterDetail: React.FC = () => {
                         }}
                       />
 
-                    {printImageBox ? (
-                      <>
-                        <canvas
-                          ref={printOverlayCanvasRef}
-                          className="absolute pointer-events-none"
-                          style={{
-                            left: printImageBox.left,
-                            top: printImageBox.top,
-                          }}
-                        />
-                        {isAdmin && showPrintCenterLine && centerTextValue ? (
-                          <div
-                            ref={printCenterTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              printEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
+                      {printImageBox ? (
+                        <>
+                          <canvas
+                            ref={printOverlayCanvasRef}
+                            className="absolute pointer-events-none"
                             style={{
-                              left: printImageBox.left + printTextPos.x * printScale,
-                              top: printImageBox.top + printTextPos.y * printScale,
-                              color: printFontColor,
-                              fontSize: `${printFontSizePx * printScale}px`,
-                              fontFamily: printFontFamily
-                                ? `"${printFontFamily}"`
-                                : undefined,
-                              fontWeight: printFontWeight,
-                              padding: 0,
-                              lineHeight: 1,
-                              whiteSpace: "pre",
+                              left: printImageBox.left,
+                              top: printImageBox.top,
                             }}
-                            onMouseDown={async (e) => {
-                              if (!printEditable) return;
-                              if (!printImageBox) return;
-                              const container = printPreviewBoxRef.current;
-                              if (!container) return;
-                              e.preventDefault();
-                              try {
-                                await ensureFontLoaded(printFontFamily || "");
-                              } catch {}
+                          />
+                          {isAdmin && showPrintCenterLine && centerTextValue ? (
+                            <div
+                              ref={printCenterTextRef}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${printEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
+                              style={{
+                                left: printImageBox.left + printTextPos.x * printScale,
+                                top: printImageBox.top + printTextPos.y * printScale,
+                                color: printFontColor,
+                                fontSize: `${printFontSizePx * printScale}px`,
+                                fontFamily: printFontFamily
+                                  ? `"${printFontFamily}"`
+                                  : undefined,
+                                fontWeight: printFontWeight,
+                                padding: 0,
+                                lineHeight: 1,
+                                whiteSpace: "pre",
+                              }}
+                              onMouseDown={async (e) => {
+                                if (!printEditable) return;
+                                if (!printImageBox) return;
+                                const container = printPreviewBoxRef.current;
+                                if (!container) return;
+                                e.preventDefault();
+                                try {
+                                  await ensureFontLoaded(printFontFamily || "");
+                                } catch { }
 
-                              printDraggingRef.current = true;
-                              printDragTargetRef.current = "center";
-                              setPrintShowGuides({ v: false, h: false });
-                              const rect = container.getBoundingClientRect();
-                              const scale = printScale || 1;
-                              const pointerXImg =
-                                (e.clientX - rect.left - printImageBox.left) / scale;
-                              const pointerYImg =
-                                (e.clientY - rect.top - printImageBox.top) / scale;
-                              printDragOffsetRef.current = {
-                                x: pointerXImg - (printTextPos.x || 0),
-                                y: pointerYImg - (printTextPos.y || 0),
-                              };
-                            }}
-                          >
-                            {String(centerTextValue || "")}
-                          </div>
-                        ) : null}
-                        {isAdmin && showPrintAddressLine && addressTextValue ? (
-                          <div
-                            ref={printAddressTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              printEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
-                            style={{
-                              left: printImageBox.left + printAddressPos.x * printScale,
-                              top: printImageBox.top + printAddressPos.y * printScale,
-                              color: printAddressFontColor,
-                              fontSize: `${((printAddressFontSizePt * 4) / 3) * printScale}px`,
-                              fontFamily: printAddressFontFamily
-                                ? `"${printAddressFontFamily}"`
-                                : undefined,
-                              fontWeight: printAddressFontWeight,
-                              padding: 0,
-                              lineHeight: 1,
-                              whiteSpace: "pre",
-                            }}
-                            onMouseDown={async (e) => {
-                              if (!printEditable) return;
-                              if (!printImageBox) return;
-                              const container = printPreviewBoxRef.current;
-                              if (!container) return;
-                              e.preventDefault();
-                              try {
-                                await ensureFontLoaded(printAddressFontFamily || "");
-                              } catch {}
+                                printDraggingRef.current = true;
+                                printDragTargetRef.current = "center";
+                                setPrintShowGuides({ v: false, h: false });
+                                const rect = container.getBoundingClientRect();
+                                const scale = printScale || 1;
+                                const pointerXImg =
+                                  (e.clientX - rect.left - printImageBox.left) / scale;
+                                const pointerYImg =
+                                  (e.clientY - rect.top - printImageBox.top) / scale;
+                                printDragOffsetRef.current = {
+                                  x: pointerXImg - (printTextPos.x || 0),
+                                  y: pointerYImg - (printTextPos.y || 0),
+                                };
+                              }}
+                            >
+                              {String(centerTextValue || "")}
+                            </div>
+                          ) : null}
+                          {isAdmin && showPrintAddressLine && addressTextValue ? (
+                            <div
+                              ref={printAddressTextRef}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${printEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
+                              style={{
+                                left: printImageBox.left + printAddressPos.x * printScale,
+                                top: printImageBox.top + printAddressPos.y * printScale,
+                                color: printAddressFontColor,
+                                fontSize: `${((printAddressFontSizePt * 4) / 3) * printScale}px`,
+                                fontFamily: printAddressFontFamily
+                                  ? `"${printAddressFontFamily}"`
+                                  : undefined,
+                                fontWeight: printAddressFontWeight,
+                                padding: 0,
+                                lineHeight: 1,
+                                whiteSpace: "pre",
+                              }}
+                              onMouseDown={async (e) => {
+                                if (!printEditable) return;
+                                if (!printImageBox) return;
+                                const container = printPreviewBoxRef.current;
+                                if (!container) return;
+                                e.preventDefault();
+                                try {
+                                  await ensureFontLoaded(printAddressFontFamily || "");
+                                } catch { }
 
-                              printDraggingRef.current = true;
-                              printDragTargetRef.current = "address";
-                              setPrintShowGuides({ v: false, h: false });
-                              const rect = container.getBoundingClientRect();
-                              const scale = printScale || 1;
-                              const pointerXImg =
-                                (e.clientX - rect.left - printImageBox.left) / scale;
-                              const pointerYImg =
-                                (e.clientY - rect.top - printImageBox.top) / scale;
-                              printDragOffsetRef.current = {
-                                x: pointerXImg - (printAddressPos.x || 0),
-                                y: pointerYImg - (printAddressPos.y || 0),
-                              };
-                            }}
-                          >
-                            {String(addressTextValue || "")}
-                          </div>
-                        ) : null}
-                        {isAdmin && showPrintPhoneLine && phoneTextValue ? (
-                          <div
-                            ref={printPhoneTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              printEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
-                            style={{
-                              left: printImageBox.left + printPhonePos.x * printScale,
-                              top: printImageBox.top + printPhonePos.y * printScale,
-                              color: printPhoneFontColor,
-                              fontSize: `${((printPhoneFontSizePt * 4) / 3) * printScale}px`,
-                              fontFamily: printPhoneFontFamily
-                                ? `"${printPhoneFontFamily}"`
-                                : undefined,
-                              fontWeight: printPhoneFontWeight,
-                              padding: 0,
-                              lineHeight: 1,
-                              whiteSpace: "pre",
-                            }}
-                            onMouseDown={async (e) => {
-                              if (!printEditable) return;
-                              if (!printImageBox) return;
-                              const container = printPreviewBoxRef.current;
-                              if (!container) return;
-                              e.preventDefault();
-                              try {
-                                await ensureFontLoaded(printPhoneFontFamily || "");
-                              } catch {}
+                                printDraggingRef.current = true;
+                                printDragTargetRef.current = "address";
+                                setPrintShowGuides({ v: false, h: false });
+                                const rect = container.getBoundingClientRect();
+                                const scale = printScale || 1;
+                                const pointerXImg =
+                                  (e.clientX - rect.left - printImageBox.left) / scale;
+                                const pointerYImg =
+                                  (e.clientY - rect.top - printImageBox.top) / scale;
+                                printDragOffsetRef.current = {
+                                  x: pointerXImg - (printAddressPos.x || 0),
+                                  y: pointerYImg - (printAddressPos.y || 0),
+                                };
+                              }}
+                            >
+                              {String(addressTextValue || "")}
+                            </div>
+                          ) : null}
+                          {isAdmin && showPrintPhoneLine && phoneTextValue ? (
+                            <div
+                              ref={printPhoneTextRef}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${printEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
+                              style={{
+                                left: printImageBox.left + printPhonePos.x * printScale,
+                                top: printImageBox.top + printPhonePos.y * printScale,
+                                color: printPhoneFontColor,
+                                fontSize: `${((printPhoneFontSizePt * 4) / 3) * printScale}px`,
+                                fontFamily: printPhoneFontFamily
+                                  ? `"${printPhoneFontFamily}"`
+                                  : undefined,
+                                fontWeight: printPhoneFontWeight,
+                                padding: 0,
+                                lineHeight: 1,
+                                whiteSpace: "pre",
+                              }}
+                              onMouseDown={async (e) => {
+                                if (!printEditable) return;
+                                if (!printImageBox) return;
+                                const container = printPreviewBoxRef.current;
+                                if (!container) return;
+                                e.preventDefault();
+                                try {
+                                  await ensureFontLoaded(printPhoneFontFamily || "");
+                                } catch { }
 
-                              printDraggingRef.current = true;
-                              printDragTargetRef.current = "phone";
-                              setPrintShowGuides({ v: false, h: false });
-                              const rect = container.getBoundingClientRect();
-                              const scale = printScale || 1;
-                              const pointerXImg =
-                                (e.clientX - rect.left - printImageBox.left) / scale;
-                              const pointerYImg =
-                                (e.clientY - rect.top - printImageBox.top) / scale;
-                              printDragOffsetRef.current = {
-                                x: pointerXImg - (printPhonePos.x || 0),
-                                y: pointerYImg - (printPhonePos.y || 0),
-                              };
-                            }}
-                          >
-                            {String(phoneTextValue || "")}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
+                                printDraggingRef.current = true;
+                                printDragTargetRef.current = "phone";
+                                setPrintShowGuides({ v: false, h: false });
+                                const rect = container.getBoundingClientRect();
+                                const scale = printScale || 1;
+                                const pointerXImg =
+                                  (e.clientX - rect.left - printImageBox.left) / scale;
+                                const pointerYImg =
+                                  (e.clientY - rect.top - printImageBox.top) / scale;
+                                printDragOffsetRef.current = {
+                                  x: pointerXImg - (printPhonePos.x || 0),
+                                  y: pointerYImg - (printPhonePos.y || 0),
+                                };
+                              }}
+                            >
+                              {String(phoneTextValue || "")}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : null}
                       {isAdmin && printImageBox && (printShowGuides.v || printShowGuides.h) ? (
                         <>
                           {printShowGuides.v ? (
@@ -5022,9 +5088,8 @@ const PosterDetail: React.FC = () => {
                           {isAdmin && showBannerCenterLine && centerTextValue ? (
                             <div
                               ref={bannerCenterTextRef}
-                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                                bannerEditable ? "cursor-move" : "cursor-not-allowed"
-                              }`}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${bannerEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
                               style={{
                                 left: bannerImageBox.left + bannerTextPos.x * bannerScale,
                                 top: bannerImageBox.top + bannerTextPos.y * bannerScale,
@@ -5045,7 +5110,7 @@ const PosterDetail: React.FC = () => {
                                 e.preventDefault();
                                 try {
                                   await ensureFontLoaded(bannerFontFamily || "");
-                                } catch {}
+                                } catch { }
 
                                 bannerDraggingRef.current = true;
                                 bannerDragTargetRef.current = "center";
@@ -5068,9 +5133,8 @@ const PosterDetail: React.FC = () => {
                           {isAdmin && showBannerAddressLine && addressTextValue ? (
                             <div
                               ref={bannerAddressTextRef}
-                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                                bannerEditable ? "cursor-move" : "cursor-not-allowed"
-                              }`}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${bannerEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
                               style={{
                                 left: bannerImageBox.left + bannerAddressPos.x * bannerScale,
                                 top: bannerImageBox.top + bannerAddressPos.y * bannerScale,
@@ -5090,7 +5154,7 @@ const PosterDetail: React.FC = () => {
                                 e.preventDefault();
                                 try {
                                   await ensureFontLoaded(bannerAddressFontFamily || "");
-                                } catch {}
+                                } catch { }
 
                                 bannerDraggingRef.current = true;
                                 bannerDragTargetRef.current = "address";
@@ -5113,9 +5177,8 @@ const PosterDetail: React.FC = () => {
                           {isAdmin && showBannerPhoneLine && phoneTextValue ? (
                             <div
                               ref={bannerPhoneTextRef}
-                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                                bannerEditable ? "cursor-move" : "cursor-not-allowed"
-                              }`}
+                              className={`absolute flex items-center justify-center text-center select-none opacity-0 ${bannerEditable ? "cursor-move" : "cursor-not-allowed"
+                                }`}
                               style={{
                                 left: bannerImageBox.left + bannerPhonePos.x * bannerScale,
                                 top: bannerImageBox.top + bannerPhonePos.y * bannerScale,
@@ -5135,7 +5198,7 @@ const PosterDetail: React.FC = () => {
                                 e.preventDefault();
                                 try {
                                   await ensureFontLoaded(bannerPhoneFontFamily || "");
-                                } catch {}
+                                } catch { }
 
                                 bannerDraggingRef.current = true;
                                 bannerDragTargetRef.current = "phone";
@@ -5201,7 +5264,7 @@ const PosterDetail: React.FC = () => {
 
           {!isAllView && !isBothView && effectivePosterView.web ? (
             <div className={`bg-white shadow-md sm:rounded-lg p-4 flex flex-col ${isBothView ? "h-[calc(88vh-240px)]" : "h-[calc(100vh-180px)]"}`}>
-          <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="font-bold text-base">{isAdmin ? "웹용 미리보기" : "웹용"}</div>
                   {!isAdmin && (
@@ -5219,47 +5282,47 @@ const PosterDetail: React.FC = () => {
                 </div>
                 {isAdmin && webPoster?.file_name ? (
                   <div className="text-xs text-gray-500">파일: {webPoster.file_name}</div>
-            ) : null}
-          </div>
+                ) : null}
+              </div>
 
-          <div className="w-full border rounded-lg bg-gray-50 overflow-hidden flex-1 min-h-0">
-            {mainPreviewUrl ? (
-              <div
-                ref={previewBoxRef}
+              <div className="w-full border rounded-lg bg-gray-50 overflow-hidden flex-1 min-h-0">
+                {mainPreviewUrl ? (
+                  <div
+                    ref={previewBoxRef}
                     className={`relative w-full h-full ${isAdmin ? "bg-black" : "bg-transparent"} overflow-hidden`}
-              >
-                <img
-                  ref={previewImgRef}
-                  src={mainPreviewUrl}
-                  alt="포스터 미리보기"
-                  className="w-full h-full object-contain cursor-pointer"
-                  onClick={() => setEnlargedImage({ url: mainPreviewUrl, type: "WEB" })}
-                  onLoad={() => {
-                    const el = previewBoxRef.current;
-                    const img = previewImgRef.current;
-                    if (!el || !img) return;
-                    const cw = el.clientWidth;
-                    const ch = el.clientHeight;
-                    if (!cw || !ch) return;
-                    if (!img.naturalWidth || !img.naturalHeight) return;
+                  >
+                    <img
+                      ref={previewImgRef}
+                      src={mainPreviewUrl}
+                      alt="포스터 미리보기"
+                      className="w-full h-full object-contain cursor-pointer"
+                      onClick={() => setEnlargedImage({ url: mainPreviewUrl, type: "WEB" })}
+                      onLoad={() => {
+                        const el = previewBoxRef.current;
+                        const img = previewImgRef.current;
+                        if (!el || !img) return;
+                        const cw = el.clientWidth;
+                        const ch = el.clientHeight;
+                        if (!cw || !ch) return;
+                        if (!img.naturalWidth || !img.naturalHeight) return;
 
-                    const scale = Math.min(
-                      cw / img.naturalWidth,
-                      ch / img.naturalHeight
-                    );
-                    const w = img.naturalWidth * scale;
-                    const h = img.naturalHeight * scale;
-                    const left = (cw - w) / 2;
-                    const top = (ch - h) / 2;
-                    setImageBox({ left, top, width: w, height: h });
+                        const scale = Math.min(
+                          cw / img.naturalWidth,
+                          ch / img.naturalHeight
+                        );
+                        const w = img.naturalWidth * scale;
+                        const h = img.naturalHeight * scale;
+                        const left = (cw - w) / 2;
+                        const top = (ch - h) / 2;
+                        setImageBox({ left, top, width: w, height: h });
                         setImageNaturalSize({
                           w: img.naturalWidth,
                           h: img.naturalHeight,
                         });
-                  }}
-                />
+                      }}
+                    />
 
-                {/* 지점명 텍스트 (드래그로 위치 조정 / 폰트·크기·색상 적용) */}
+                    {/* 지점명 텍스트 (드래그로 위치 조정 / 폰트·크기·색상 적용) */}
                     {imageBox ? (
                       <>
                         <canvas
@@ -5271,56 +5334,54 @@ const PosterDetail: React.FC = () => {
                           }}
                         />
                         {isAdmin && showWebCenterLine && centerTextValue ? (
-                  <div
-                    ref={centerTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              webEditable ? "cursor-move" : "cursor-not-allowed"
-                    }`}
-                    style={{
+                          <div
+                            ref={centerTextRef}
+                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${webEditable ? "cursor-move" : "cursor-not-allowed"
+                              }`}
+                            style={{
                               left: imageBox.left + textPos.x * webScale,
                               top: imageBox.top + textPos.y * webScale,
-                      color: fontColor,
+                              color: fontColor,
                               fontSize: `${fontSizePx * webScale}px`,
-                      fontFamily: fontFamily ? `"${fontFamily}"` : undefined,
-                      fontWeight: fontWeight,
+                              fontFamily: fontFamily ? `"${fontFamily}"` : undefined,
+                              fontWeight: fontWeight,
                               padding: 0,
                               lineHeight: 1,
-                      whiteSpace: "pre",
-                    }}
-                    onMouseDown={async (e) => {
+                              whiteSpace: "pre",
+                            }}
+                            onMouseDown={async (e) => {
                               if (!webEditable) return;
-                      if (!imageBox) return;
+                              if (!imageBox) return;
                               const container = previewBoxRef.current;
                               if (!container) return;
-                      e.preventDefault();
-                      try {
-                        await ensureFontLoaded(fontFamily || "");
-                      } catch {}
+                              e.preventDefault();
+                              try {
+                                await ensureFontLoaded(fontFamily || "");
+                              } catch { }
 
-                      draggingRef.current = true;
-                      dragTargetRef.current = "center";
-                      setShowGuides({ v: false, h: false });
+                              draggingRef.current = true;
+                              dragTargetRef.current = "center";
+                              setShowGuides({ v: false, h: false });
                               const rect = container.getBoundingClientRect();
                               const scale = webScale || 1;
                               const pointerXImg =
                                 (e.clientX - rect.left - imageBox.left) / scale;
                               const pointerYImg =
                                 (e.clientY - rect.top - imageBox.top) / scale;
-                      dragOffsetRef.current = {
+                              dragOffsetRef.current = {
                                 x: pointerXImg - (textPos.x || 0),
                                 y: pointerYImg - (textPos.y || 0),
-                      };
-                    }}
-                  >
-                    {String(centerTextValue || "")}
-                  </div>
+                              };
+                            }}
+                          >
+                            {String(centerTextValue || "")}
+                          </div>
                         ) : null}
                         {isAdmin && showWebAddressLine && addressTextValue ? (
                           <div
                             ref={addressTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              webEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
+                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${webEditable ? "cursor-move" : "cursor-not-allowed"
+                              }`}
                             style={{
                               left: imageBox.left + addressPos.x * webScale,
                               top: imageBox.top + addressPos.y * webScale,
@@ -5340,7 +5401,7 @@ const PosterDetail: React.FC = () => {
                               e.preventDefault();
                               try {
                                 await ensureFontLoaded(addressFontFamily || "");
-                              } catch {}
+                              } catch { }
 
                               draggingRef.current = true;
                               dragTargetRef.current = "address";
@@ -5363,9 +5424,8 @@ const PosterDetail: React.FC = () => {
                         {isAdmin && showWebPhoneLine && phoneTextValue ? (
                           <div
                             ref={phoneTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              webEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
+                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${webEditable ? "cursor-move" : "cursor-not-allowed"
+                              }`}
                             style={{
                               left: imageBox.left + phonePos.x * webScale,
                               top: imageBox.top + phonePos.y * webScale,
@@ -5385,7 +5445,7 @@ const PosterDetail: React.FC = () => {
                               e.preventDefault();
                               try {
                                 await ensureFontLoaded(phoneFontFamily || "");
-                              } catch {}
+                              } catch { }
 
                               draggingRef.current = true;
                               dragTargetRef.current = "phone";
@@ -5406,47 +5466,47 @@ const PosterDetail: React.FC = () => {
                           </div>
                         ) : null}
                       </>
-                ) : null}
+                    ) : null}
 
-                {/* 중앙 정렬 가이드라인 */}
-                {isAdmin && imageBox && (showGuides.v || showGuides.h) ? (
-                  <>
-                    {showGuides.v ? (
-                      <div
-                        className="absolute pointer-events-none"
-                        style={{
-                          left: imageBox.left + imageBox.width / 2,
-                          top: imageBox.top,
-                          height: imageBox.height,
-                          width: 1,
-                          background: "rgba(0, 255, 255, 0.9)",
-                        }}
-                      />
+                    {/* 중앙 정렬 가이드라인 */}
+                    {isAdmin && imageBox && (showGuides.v || showGuides.h) ? (
+                      <>
+                        {showGuides.v ? (
+                          <div
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: imageBox.left + imageBox.width / 2,
+                              top: imageBox.top,
+                              height: imageBox.height,
+                              width: 1,
+                              background: "rgba(0, 255, 255, 0.9)",
+                            }}
+                          />
+                        ) : null}
+                        {showGuides.h ? (
+                          <div
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: imageBox.left,
+                              top: imageBox.top + imageBox.height / 2,
+                              width: imageBox.width,
+                              height: 1,
+                              background: "rgba(0, 255, 255, 0.9)",
+                            }}
+                          />
+                        ) : null}
+                      </>
                     ) : null}
-                    {showGuides.h ? (
-                      <div
-                        className="absolute pointer-events-none"
-                        style={{
-                          left: imageBox.left,
-                          top: imageBox.top + imageBox.height / 2,
-                          width: imageBox.width,
-                          height: 1,
-                          background: "rgba(0, 255, 255, 0.9)",
-                        }}
-                      />
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            ) : (
-              <div className="p-10 text-center text-gray-500">
+                  </div>
+                ) : (
+                  <div className="p-10 text-center text-gray-500">
                     {isAdmin
                       ? "왼쪽에서 이미지를 업로드하거나, 아래 목록에서 포스터를 더블 클릭하세요."
                       : "등록된 웹용 이미지가 없습니다."}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
           ) : null}
 
           {!isAllView && !isBothView && effectivePosterView.print ? (
@@ -5525,9 +5585,8 @@ const PosterDetail: React.FC = () => {
                     {isAdmin && printImageBox && showPrintCenterLine && centerTextValue ? (
                       <div
                         ref={printCenterTextRef}
-                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                          printEditable ? "cursor-move" : "cursor-not-allowed"
-                        }`}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${printEditable ? "cursor-move" : "cursor-not-allowed"
+                          }`}
                         style={{
                           left: printImageBox.left + printTextPos.x * printScale,
                           top: printImageBox.top + printTextPos.y * printScale,
@@ -5547,7 +5606,7 @@ const PosterDetail: React.FC = () => {
                           e.preventDefault();
                           try {
                             await ensureFontLoaded(printFontFamily || "");
-                          } catch {}
+                          } catch { }
 
                           printDraggingRef.current = true;
                           printDragTargetRef.current = "center";
@@ -5571,9 +5630,8 @@ const PosterDetail: React.FC = () => {
                     {isAdmin && printImageBox && showPrintAddressLine && addressTextValue ? (
                       <div
                         ref={printAddressTextRef}
-                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                          printEditable ? "cursor-move" : "cursor-not-allowed"
-                        }`}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${printEditable ? "cursor-move" : "cursor-not-allowed"
+                          }`}
                         style={{
                           left: printImageBox.left + printAddressPos.x * printScale,
                           top: printImageBox.top + printAddressPos.y * printScale,
@@ -5593,7 +5651,7 @@ const PosterDetail: React.FC = () => {
                           e.preventDefault();
                           try {
                             await ensureFontLoaded(printAddressFontFamily || "");
-                          } catch {}
+                          } catch { }
 
                           printDraggingRef.current = true;
                           printDragTargetRef.current = "address";
@@ -5617,9 +5675,8 @@ const PosterDetail: React.FC = () => {
                     {isAdmin && printImageBox && showPrintPhoneLine && phoneTextValue ? (
                       <div
                         ref={printPhoneTextRef}
-                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                          printEditable ? "cursor-move" : "cursor-not-allowed"
-                        }`}
+                        className={`absolute flex items-center justify-center text-center select-none opacity-0 ${printEditable ? "cursor-move" : "cursor-not-allowed"
+                          }`}
                         style={{
                           left: printImageBox.left + printPhonePos.x * printScale,
                           top: printImageBox.top + printPhonePos.y * printScale,
@@ -5639,7 +5696,7 @@ const PosterDetail: React.FC = () => {
                           e.preventDefault();
                           try {
                             await ensureFontLoaded(printPhoneFontFamily || "");
-                          } catch {}
+                          } catch { }
 
                           printDraggingRef.current = true;
                           printDragTargetRef.current = "phone";
@@ -5761,9 +5818,8 @@ const PosterDetail: React.FC = () => {
                         {isAdmin && showBannerCenterLine && centerTextValue ? (
                           <div
                             ref={bannerCenterTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              bannerEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
+                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${bannerEditable ? "cursor-move" : "cursor-not-allowed"
+                              }`}
                             style={{
                               left: bannerImageBox.left + bannerTextPos.x * bannerScale,
                               top: bannerImageBox.top + bannerTextPos.y * bannerScale,
@@ -5784,7 +5840,7 @@ const PosterDetail: React.FC = () => {
                               e.preventDefault();
                               try {
                                 await ensureFontLoaded(bannerFontFamily || "");
-                              } catch {}
+                              } catch { }
 
                               bannerDraggingRef.current = true;
                               bannerDragTargetRef.current = "center";
@@ -5807,9 +5863,8 @@ const PosterDetail: React.FC = () => {
                         {isAdmin && showBannerAddressLine && addressTextValue ? (
                           <div
                             ref={bannerAddressTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              bannerEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
+                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${bannerEditable ? "cursor-move" : "cursor-not-allowed"
+                              }`}
                             style={{
                               left: bannerImageBox.left + bannerAddressPos.x * bannerScale,
                               top: bannerImageBox.top + bannerAddressPos.y * bannerScale,
@@ -5829,7 +5884,7 @@ const PosterDetail: React.FC = () => {
                               e.preventDefault();
                               try {
                                 await ensureFontLoaded(bannerAddressFontFamily || "");
-                              } catch {}
+                              } catch { }
 
                               bannerDraggingRef.current = true;
                               bannerDragTargetRef.current = "address";
@@ -5852,9 +5907,8 @@ const PosterDetail: React.FC = () => {
                         {isAdmin && showBannerPhoneLine && phoneTextValue ? (
                           <div
                             ref={bannerPhoneTextRef}
-                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${
-                              bannerEditable ? "cursor-move" : "cursor-not-allowed"
-                            }`}
+                            className={`absolute flex items-center justify-center text-center select-none opacity-0 ${bannerEditable ? "cursor-move" : "cursor-not-allowed"
+                              }`}
                             style={{
                               left: bannerImageBox.left + bannerPhonePos.x * bannerScale,
                               top: bannerImageBox.top + bannerPhonePos.y * bannerScale,
@@ -5874,7 +5928,7 @@ const PosterDetail: React.FC = () => {
                               e.preventDefault();
                               try {
                                 await ensureFontLoaded(bannerPhoneFontFamily || "");
-                              } catch {}
+                              } catch { }
 
                               bannerDraggingRef.current = true;
                               bannerDragTargetRef.current = "phone";

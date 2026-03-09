@@ -20,6 +20,7 @@ interface ExerciseApp {
   account_app_id: string;
   total_jumping_calory: number;
   total_other_calory: number;
+  center_id?: number;
 }
 
 interface CommonCode {
@@ -27,9 +28,15 @@ interface CommonCode {
   common_code_name: string;
 }
 
+interface CenterItem {
+  center_id: number;
+  center_name: string;
+}
+
 const ExerciseAppList: React.FC = () => {
   const [exerciseAppList, setExerciseAppList] = useState<ExerciseApp[]>([]);
   const [commonCodeList, setCommonCodeList] = useState<CommonCode[]>([]);
+  const [centerList, setCenterList] = useState<CenterItem[]>([]);
   const user = useUserStore((state) => state.user);
   const navigate = useNavigate();
   
@@ -59,15 +66,43 @@ const ExerciseAppList: React.FC = () => {
     }
   };
 
+  // 센터 목록 불러오기
+  const selectCenterList = async () => {
+    if(user?.usr_role !== 'admin') return;
+
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/center/list`,
+        {
+          params: user
+        }
+      );
+
+      setCenterList(response.data.result);
+    } catch (err) {
+      console.error("센터 목록 로딩 오류:", err);
+    } finally {
+    }
+  };
+
   // 운동 목록 불러오기
   const selectExerciseAppList = async (searchParams?: any) => {
     try {
+      const { center_id: searchCenterId, ...restSearchParams } = searchParams || {};
+      const payload: any = {
+        ...restSearchParams
+      };
+      if (user.usr_role !== 'admin') {
+        payload.center_id = user.center_id;
+      } else if (searchCenterId) {
+        payload.center_id = searchCenterId;
+      } else {
+        payload.center_id = user.center_id;
+      }
+
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/exerciseApp/selectExerciseAppList`,
-        {
-          center_id: user.center_id,
-          ...searchParams
-        }
+        payload
       );
       
       setExerciseAppList(response.data.result);
@@ -104,12 +139,14 @@ const ExerciseAppList: React.FC = () => {
       total_jumping_calory_max: '',
       total_other_calory_min: '',
       total_other_calory_max: '',
+      center_id: ''
     }
   });
 
   useEffect(() => {
     if (user && user.index) {
       selectCommonCodeList();
+      selectCenterList();
       selectExerciseAppList();
     }
   }, [user]);
@@ -287,6 +324,23 @@ const ExerciseAppList: React.FC = () => {
                   </div>
                 </td>
               </tr>
+              {user?.usr_role === 'admin' && (
+                <tr>
+                  <td className="border border-gray-300 p-2 text-center bg-gray-200 font-medium w-1/6">등록 센터(관리자만 노출)</td>
+                  <td className="border border-gray-300 p-2" colSpan={3}>
+                    <select
+                      value={searchData.center_id}
+                      onChange={(e) => setSearchData({ ...searchData, center_id: e.target.value })}
+                      className="w-1/4 px-2 py-1 border border-gray-300 rounded"
+                    >
+                      <option value="">전체</option>
+                      {centerList.map((center) => (
+                        <option key={center.center_id} value={center.center_id}>{center.center_name}</option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
           
@@ -328,6 +382,7 @@ const ExerciseAppList: React.FC = () => {
                     <th className="text-center whitespace-nowrap">운동 회원 유형</th>
                     <th className="text-center whitespace-nowrap">점핑 전체<br />소모 칼로리</th>
                     <th className="text-center whitespace-nowrap">기타 운동 전체<br />소모 칼로리</th>
+                    {user?.usr_role === 'admin' && <th className="text-center whitespace-nowrap">등록 센터<br />(관리자만 노출)</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -360,6 +415,11 @@ const ExerciseAppList: React.FC = () => {
                       <td className="text-center whitespace-nowrap">
                         {exercise.total_other_calory ? exercise.total_other_calory : 0} kcal
                       </td>
+                      {user?.usr_role === 'admin' && (
+                        <td className="text-center px-2 truncate">
+                          {exercise.center_id ? centerList.find((c) => c.center_id === exercise.center_id)?.center_name || '-' : '-'}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

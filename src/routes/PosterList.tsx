@@ -25,12 +25,14 @@ const PosterList: React.FC = () => {
   const [centerInfo, setCenterInfo] = useState<any>(null);
   const [isCenterPopupOpen, setIsCenterPopupOpen] = useState(false);
   const [pendingPosterId, setPendingPosterId] = useState<number | null>(null);
+  const [popupCenterName, setPopupCenterName] = useState<string>("");
   const [popupAddress, setPopupAddress] = useState<string>("");
   const [popupZipcode, setPopupZipcode] = useState<string>("");
   const [popupAddressDetail, setPopupAddressDetail] = useState<string>("");
   const [popupPhone, setPopupPhone] = useState<string>("");
   const allPosterIds = posterList.map((p) => p.poster_id);
   const [itemsPerPage] = useState(10);
+  const [searchType, setSearchType] = useState<string>("");
   const daumPostcodeLoadPromiseRef = useRef<Promise<void> | null>(null);
 
   // 공통 페이지네이션 훅 사용
@@ -51,13 +53,15 @@ const PosterList: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/poster`);
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/poster`, {
+        poster_image_type: searchType,
+      });
 
       setPosterList(res.data.result);
     } catch (e) {
       console.log(e);
     }
-  }, [user]);
+  }, [user, searchType]);
 
   const getCenterInfo = useCallback(async () => {
     const centerId = user?.center_id;
@@ -152,7 +156,7 @@ const PosterList: React.FC = () => {
     loadData();
   }, [fetchData]);
 
-  useEffect(() => {    
+  useEffect(() => {
     if (user?.center_id) {
       getCenterInfo();
     }
@@ -180,37 +184,25 @@ const PosterList: React.FC = () => {
 
             <div className="mt-4 space-y-3">
               <div>
+                <div className="text-sm font-semibold text-gray-800">센터명</div>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded border border-gray-300 bg-white p-2 text-sm"
+                  value={popupCenterName}
+                  onChange={(e) => setPopupCenterName(e.target.value)}
+                  placeholder="센터명 입력"
+                />
+              </div>
+
+              <div>
                 <div className="text-sm font-semibold text-gray-800">주소</div>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="text"
-                    className="w-full rounded border border-gray-300 bg-gray-100 p-2 text-sm text-gray-700"
-                    value={popupAddress}
-                    disabled
-                    readOnly
-                  />
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700"
-                    onClick={async () => {
-                      try {
-                        const { address, zonecode } = await openDaumPostcode();
-                        if (!address || !address.trim()) return;
-                        setPopupAddress(address.trim());
-                        setPopupZipcode(String(zonecode || "").trim());
-                        setCenterInfo((prev: any) => ({
-                          ...(prev || {}),
-                          address: address.trim(),
-                          zipcode: String(zonecode || "").trim(),
-                        }));
-                      } catch (e) {
-                        console.log(e);
-                      }
-                    }}
-                  >
-                    입력
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded border border-gray-300 bg-white p-2 text-sm"
+                  value={popupAddress}
+                  onChange={(e) => setPopupAddress(e.target.value)}
+                  placeholder="주소 입력"
+                />
               </div>
 
               <div>
@@ -235,16 +227,6 @@ const PosterList: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <div className="text-sm font-semibold text-gray-800">우편번호</div>
-                <input
-                  type="text"
-                  className="mt-1 w-full rounded border border-gray-300 bg-gray-100 p-2 text-sm text-gray-700"
-                  value={popupZipcode}
-                  disabled
-                  readOnly
-                />
-              </div>
             </div>
 
             <div className="mt-5 flex justify-end gap-2">
@@ -259,6 +241,10 @@ const PosterList: React.FC = () => {
                 type="button"
                 className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold text-white hover:bg-slate-900"
                 onClick={async () => {
+                  if (!popupCenterName || !popupCenterName.trim()) {
+                    alert("센터명을 입력해주세요.");
+                    return;
+                  }
                   if (!popupAddress || !popupAddress.trim()) {
                     alert("주소를 입력해주세요.");
                     return;
@@ -267,13 +253,18 @@ const PosterList: React.FC = () => {
                     alert("상세주소를 입력해주세요.");
                     return;
                   }
-                  if (popupPhone && popupPhone.trim() && !popupPhone.includes("-")) {
+                  if (!popupPhone || !popupPhone.trim()) {
+                    alert("매장 전화번호를 입력해주세요.");
+                    return;
+                  }
+                  if (!popupPhone.includes("-")) {
                     alert("매장 전화번호에 하이픈(-)을 포함해주세요.");
                     return;
                   }
                   try {
-                    await axios.patch(`${process.env.REACT_APP_API_URL}/center/address`, {
+                    await axios.patch(`${process.env.REACT_APP_API_URL}/center/info`, {
                       center_id: user?.center_id,
+                      owner_center_name: popupCenterName.trim(),
                       address: popupAddress.trim(),
                       address_detail: popupAddressDetail.trim(),
                       zip_code: String(popupZipcode || "").trim(),
@@ -281,6 +272,7 @@ const PosterList: React.FC = () => {
                     });
                     setCenterInfo((prev: any) => ({
                       ...(prev || {}),
+                      owner_center_name: popupCenterName.trim(),
                       address: popupAddress.trim(),
                       address_detail: popupAddressDetail.trim(),
                       zip_code: String(popupZipcode || "").trim(),
@@ -317,6 +309,7 @@ const PosterList: React.FC = () => {
                 return;
               }
               setPendingPosterId(null);
+              setPopupCenterName(String(centerInfo?.owner_center_name || centerInfo?.center_name || ""));
               setPopupAddress(String(centerInfo?.address || ""));
               setPopupZipcode(String(centerInfo?.zipcode || centerInfo?.zip_code || ""));
               setPopupAddressDetail(
@@ -325,23 +318,23 @@ const PosterList: React.FC = () => {
               setPopupPhone(
                 String(
                   centerInfo?.phone_number ||
-                    centerInfo?.phone ||
-                    centerInfo?.tel ||
-                    centerInfo?.center_tel ||
-                    ""
+                  centerInfo?.phone ||
+                  centerInfo?.tel ||
+                  centerInfo?.center_tel ||
+                  ""
                 )
               );
               setIsCenterPopupOpen(true);
             }}
           >
             {!String(centerInfo?.address || "").trim() &&
-            !String(
-              centerInfo?.phone_number ||
+              !String(
+                centerInfo?.phone_number ||
                 centerInfo?.phone ||
                 centerInfo?.tel ||
                 centerInfo?.center_tel ||
                 ""
-            ).trim()
+              ).trim()
               ? "센터 정보 등록"
               : "센터 정보 변경"}
           </button>
@@ -368,6 +361,31 @@ const PosterList: React.FC = () => {
           ) : null}
         </div>
       </div>
+
+      <div className="mt-4 bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+        <table className="w-full text-sm text-left">
+          <tbody>
+            <tr>
+              <th className="bg-gray-100 px-4 py-3 font-bold w-32 border-r border-gray-200 text-center align-middle">
+                유형
+              </th>
+              <td className="px-4 py-3 align-middle flex items-center gap-2">
+                <select
+                  className="border border-gray-300 rounded p-2 text-sm w-48 bg-white"
+                  value={searchType}
+                  onChange={(e) => setSearchType(e.target.value)}
+                >
+                  <option value="">전체</option>
+                  <option value="WEB">웹용</option>
+                  <option value="FLYER">전단지용</option>
+                  <option value="BANNER">배너용</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div className="text-sm mt-4 mb-2 flex flex-col gap-2">
         <p className="font-bold text-base mb-2">설명</p>
         <div className="border border-black rounded-lg p-4">
@@ -447,26 +465,27 @@ const PosterList: React.FC = () => {
                       const hasAddress = !!String(centerInfo?.address || "").trim();
                       const hasPhone = !!String(
                         centerInfo?.phone_number ||
-                          centerInfo?.phone ||
-                          centerInfo?.tel ||
-                          centerInfo?.center_tel ||
-                          ""
+                        centerInfo?.phone ||
+                        centerInfo?.tel ||
+                        centerInfo?.center_tel ||
+                        ""
                       ).trim();
                       if (hasAddress && hasPhone) {
                         navigate(`/poster/detail/${ele.poster_id}`);
                         return;
                       }
                       setPendingPosterId(ele.poster_id);
+                      setPopupCenterName(String(centerInfo?.owner_center_name || centerInfo?.center_name || ""));
                       setPopupAddress(String(centerInfo?.address || ""));
                       setPopupZipcode(String(centerInfo?.zipcode || centerInfo?.zip_code || ""));
                       setPopupAddressDetail(String(centerInfo?.address_detail || centerInfo?.addressDetail || ""));
                       setPopupPhone(
                         String(
                           centerInfo?.phone_number ||
-                            centerInfo?.phone ||
-                            centerInfo?.tel ||
-                            centerInfo?.center_tel ||
-                            ""
+                          centerInfo?.phone ||
+                          centerInfo?.tel ||
+                          centerInfo?.center_tel ||
+                          ""
                         )
                       );
                       setIsCenterPopupOpen(true);

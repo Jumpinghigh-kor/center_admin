@@ -5,16 +5,16 @@ const {
   updateCenter,
   getCenterCount,
   getCenterList,
-  updateCenterAddress,
   deleteCenter,
   updateCenterName,
+  updateOwnerCenterInfo,
 } = require("../controllers/center");
 
 router.get("/", getCenter);
 router.patch("/", updateCenter);
 router.get("/members", getCenterCount);
 router.get("/list", getCenterList);
-router.patch("/address", updateCenterAddress);
+router.patch("/info", updateOwnerCenterInfo);
 router.delete("/", deleteCenter);
 router.patch("/name", updateCenterName);
 

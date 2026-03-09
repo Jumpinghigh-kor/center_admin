@@ -118,7 +118,7 @@ const Dashboard: React.FC = () => {
 
       setCenterList(response.data.result);
     } catch (err) {
-      console.error("센터 목록 로딩 오류:", err);
+      console.error("센터 목록 로딩 오류:", (err as Error).message);
     } finally {
     }
   };
@@ -313,6 +313,7 @@ const Dashboard: React.FC = () => {
   const selectMemberCount = async (centerIdOverride?: string | number | null) => {
     try {
       const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
+
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectMemberCount`,
         {
@@ -339,13 +340,15 @@ const Dashboard: React.FC = () => {
 
   // 월별 가입 된 회원수 조회
   const selectMonthlyMemberList = async (centerIdOverride?: string | number | null) => {
-
     try {
       const centerId = user?.usr_role !== 'admin' ? user?.center_id : getEffectiveCenterId(centerIdOverride);
+      // center_id를 숫자로 변환 (null이 아닐 경우)
+      const centerIdNum = centerId ? (typeof centerId === 'string' ? parseInt(centerId, 10) : centerId) : null;
+      
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL}/app/dashboard/selectMonthlyMemberList`,
         {
-          center_id: centerId,
+          center_id: centerIdNum,
         }
       );
       

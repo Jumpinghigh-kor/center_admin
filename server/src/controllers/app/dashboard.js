@@ -7,7 +7,7 @@ exports.selectMemberCount = (req, res) => {
   let addConditions = '';
   let params = [];
 
-  if(center_id) {
+  if (center_id) {
     addConditions = `WHERE m.center_id = ?`;
     params.push(center_id);
   }
@@ -52,22 +52,22 @@ exports.selectMemberList = (req, res) => {
   const { center_id, status_app_type, recent_yn, month_reg_yn } = req.body;
 
   let addConditions = '';
-  
-  if(status_app_type === "ACTIVE") {
+
+  if (status_app_type === "ACTIVE") {
     addConditions = 'AND maa.status = "ACTIVE"';
-  } else if(status_app_type === "PROCEED") {
+  } else if (status_app_type === "PROCEED") {
     addConditions = 'AND maa.status = "PROCEED"';
-  } else if(status_app_type === "EXIT") {
+  } else if (status_app_type === "EXIT") {
     addConditions = 'AND maa.status = "EXIT"';
   } else {
     addConditions = 'AND maa.status IS NOT NULL';
   }
 
-  if(recent_yn === "Y") {
+  if (recent_yn === "Y") {
     addConditions = 'AND DATE_FORMAT(maa.recent_dt, "%Y%m%d") = DATE_FORMAT(NOW(), "%Y%m%d")';
   }
 
-  if(month_reg_yn === "Y") {
+  if (month_reg_yn === "Y") {
     addConditions = 'AND DATE_FORMAT(maa.reg_dt, "%Y%m") = DATE_FORMAT(NOW(), "%Y%m")';
   }
 
@@ -77,7 +77,6 @@ exports.selectMemberList = (req, res) => {
       , m.mem_name
       , m.mem_gender
       , m.mem_birth
-      , m.mem_role
       , CONCAT(SUBSTRING(m.mem_phone, 1, 3), '-', SUBSTRING(m.mem_phone, 4, 4), '-', SUBSTRING(m.mem_phone, 8, 4)) AS mem_phone
       , maa.account_app_id
       , maa.nickname
@@ -109,7 +108,7 @@ exports.selectMonthlyMemberList = (req, res) => {
   let addConditions = '';
   let params = [];
 
-  if(center_id) {
+  if (center_id) {
     addConditions = `AND m.center_id = ?`;
     params.push(center_id);
   }
@@ -134,7 +133,7 @@ exports.selectMonthlyMemberList = (req, res) => {
     LEFT JOIN 	members m               ON m.mem_id = maa.mem_id
     AND 		    m.mem_status = 1
     AND 		    maa.status IS NOT NULL
-    
+    WHERE 1=1
     ${addConditions}
     GROUP BY 	  month_num
     ORDER BY 	  month_num
@@ -154,11 +153,11 @@ exports.selectSalesList = (req, res) => {
   let query = '';
 
   let addConditions = '';
-  if(center_id) {
+  if (center_id) {
     addConditions = `AND m.center_id = ?`;
   }
 
-  if(period === "day") {
+  if (period === "day") {
     query = `
       SELECT
         cal.calendar_date AS day,
@@ -203,7 +202,7 @@ exports.selectSalesList = (req, res) => {
       GROUP BY cal.calendar_date
       ORDER BY cal.calendar_date;
     `;
-  } else if(period === "week"){
+  } else if (period === "week") {
     query = `
       SELECT
         CONCAT('W', weekinfo.week_of_month) AS week_label,
@@ -254,7 +253,7 @@ exports.selectSalesList = (req, res) => {
       GROUP BY weekinfo.week_of_month
       ORDER BY weekinfo.week_of_month;
     `
-  } else if(period === "month"){
+  } else if (period === "month") {
     query = `
       SELECT
         DATE_FORMAT(mon.month_start, '%Y-%m') AS month_label,
@@ -342,12 +341,12 @@ exports.selectSalesList = (req, res) => {
   }
 
   let params = [];
-  
-  if(period === "day") {
+
+  if (period === "day") {
     params = [year, month, year, month, year, month, center_id];
-  } else if(period === "week"){
+  } else if (period === "week") {
     params = [year, month, year, month, year, month, year, month, year, month, center_id];
-  } else if(period === "month"){
+  } else if (period === "month") {
     params = [year, year, center_id];
   } else {
     params = [center_id];
@@ -370,12 +369,12 @@ exports.selectPaymentAnalysisList = (req, res) => {
   let addSubConditions = '';
   let addSubParams = [];
 
-  if(center_id) {
-    addSubConditions = `AND sm.center_id = ?`;
+  if (center_id) {
+    addSubConditions = `AND smm.center_id = ?`;
     addSubParams.push(center_id);
   }
 
-  if(center_id) {
+  if (center_id) {
     addConditions = `AND m.center_id = ?`;
   }
 
@@ -445,7 +444,8 @@ exports.selectPaymentAnalysisList = (req, res) => {
     ${addConditions};
   `;
 
-  db.query(query, [addSubParams, addSubParams, addSubParams, addSubParams, addConditions], (err, result) => {
+  const params = center_id ? [center_id, center_id, center_id, center_id] : [];
+  db.query(query, params, (err, result) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json(err);
@@ -457,9 +457,9 @@ exports.selectPaymentAnalysisList = (req, res) => {
 // 결제 수단 조회
 exports.selectPaymentMethodList = (req, res) => {
   const { center_id } = req.body;
-  
+
   let addConditions = '';
-  if(center_id) {
+  if (center_id) {
     addConditions = `AND m.center_id = ?`;
   }
 
@@ -495,7 +495,7 @@ exports.selectCategorySalesList = (req, res) => {
   const { center_id } = req.body;
 
   let addConditions = '';
-  if(center_id) {
+  if (center_id) {
     addConditions = `AND m.center_id = ?`;
   }
 
@@ -543,7 +543,7 @@ exports.selectHourlySalesList = (req, res) => {
   const { center_id } = req.body;
 
   let addConditions = '';
-  if(center_id) {
+  if (center_id) {
     addConditions = `AND m.center_id = ?`;
   }
 

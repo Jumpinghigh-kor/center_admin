@@ -4,9 +4,14 @@ const dayjs = require("dayjs");
 // 운동 목록 조회
 exports.selectExerciseAppList = (req, res) => {
   const { center_id, mem_name, mem_gender, exercise_start_dt, exercise_end_dt, member_type, total_jumping_calory_min, total_jumping_calory_max, total_other_calory_min, total_other_calory_max } = req.body;
-
+  
   let addCondition = '';
-  let params = [center_id];
+  let params = [];
+
+  if(center_id) {
+    addCondition += ` AND A.center_id = ?`;
+    params.push(center_id);
+  }
 
   if(mem_name) {
     addCondition += ` AND A.mem_name LIKE CONCAT('%', ?, '%')`;
@@ -69,6 +74,7 @@ exports.selectExerciseAppList = (req, res) => {
         , mea.member_type
         , CONCAT(DATE_FORMAT(mea.exercise_dt, '%Y'), '년 ', DATE_FORMAT(mea.exercise_dt, '%m'), '월 ', DATE_FORMAT(mea.exercise_dt, '%d'), '일') AS exercise_dt
         , mea.reg_id
+        , m.center_id
         , (
             SELECT
               SUM(jumping_calory)
@@ -84,8 +90,7 @@ exports.selectExerciseAppList = (req, res) => {
       FROM		    members m
       INNER JOIN	member_account_app maa	ON m.mem_id = maa.mem_id
       INNER JOIN	member_exercise_app mea	ON maa.account_app_id = mea.account_app_id
-      WHERE       m.center_id = ?
-      AND         mea.del_yn = 'N'
+      WHERE       mea.del_yn = 'N'
       AND         maa.del_yn = 'N'
     ) A
     WHERE 1 = 1
